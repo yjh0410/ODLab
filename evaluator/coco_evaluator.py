@@ -46,6 +46,7 @@ class COCOAPIEvaluator():
             ids.append(id_)
             
             # inference
+            image = image.to(self.device)
             outputs = model(image)
             bboxes, scores, cls_inds = outputs
 
