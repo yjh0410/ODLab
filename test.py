@@ -17,7 +17,7 @@ from models import build_model
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Detection-Lab')
+    parser = argparse.ArgumentParser(description='Object Detection Lab')
     # Basic
     parser.add_argument('--cuda', action='store_true', default=False, 
                         help='use cuda.')
@@ -136,7 +136,7 @@ if __name__ == '__main__':
     transform = build_transform(cfg, is_train=False)
 
     # Dataset
-    dataset, dataset_info = build_dataset(args, cfg, is_train=False)
+    dataset, dataset_info = build_dataset(args, is_train=False)
 
     np.random.seed(0)
     class_colors = [(np.random.randint(255),

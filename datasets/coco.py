@@ -128,8 +128,8 @@ if __name__ == "__main__":
     }
 
     # build dataset
-    transform = build_transform(cfg, is_train=True)
-    dataset = build_coco(args, transform, is_train=True)
+    transform = build_transform(cfg, is_train=args.is_train)
+    dataset = build_coco(args, transform, is_train=args.is_train)
 
     for index, (image, target) in enumerate(dataset):
         print("{} / {}".format(index, len(dataset)))
@@ -143,13 +143,8 @@ if __name__ == "__main__":
         tgt_bboxes = target["boxes"]
         tgt_labels = target["labels"]
         for box, label in zip(tgt_bboxes, tgt_labels):
-            # denormalize bbox
-            box[0::2] *= orig_w
-            box[1::2] *= orig_h
-            cx, cy, bw, bh = box.long()
-            # xywh -> xyxy
-            x1, y1 = cx - 0.5 * bw, cy - 0.5 * bh
-            x2, y2 = cx + 0.5 * bw, cy + 0.5 * bh
+            # get box target
+            x1, y1, x2, y2 = box.long()
             # get class label
             cls_name = dataset.coco_labels[label.item()]
             color = class_colors[label.item()]

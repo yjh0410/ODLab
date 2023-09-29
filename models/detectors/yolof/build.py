@@ -6,7 +6,7 @@ from .yolof import YOLOF
 
 
 # build YOLOF
-def build_yolof(cfg, device, num_classes=80, trainable=False):
+def build_yolof(cfg, device, num_classes=90, trainable=False):
     # -------------- Build YOLOF --------------
     model = YOLOF(cfg         = cfg,
                   device      = device,

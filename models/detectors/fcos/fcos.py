@@ -4,9 +4,9 @@ import torch
 import torch.nn as nn
 
 # --------------- Model components ---------------
-from ...backbone import build_backbone
-from ...neck import build_neck
-from ...head import build_head
+from ...modules.backbone import build_backbone
+from ...modules.neck import build_neck
+from ...modules.head import build_head
 
 # --------------- External components ---------------
 from utils.misc import multiclass_nms
@@ -17,11 +17,11 @@ class FCOS(nn.Module):
     def __init__(self, 
                  device, 
                  cfg,
-                 num_classes = 20, 
-                 conf_thresh = 0.05,
-                 nms_thresh = 0.6,
-                 topk = 1000,
-                 trainable = False):
+                 num_classes :int   = 20, 
+                 conf_thresh :float = 0.05,
+                 nms_thresh  :float = 0.6,
+                 topk        :int   = 1000,
+                 trainable   :bool  = False):
         super(FCOS, self).__init__()
         # ---------------------- Basic Parameters ----------------------
         self.cfg = cfg

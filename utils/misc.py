@@ -6,7 +6,7 @@ from collections import defaultdict, deque
 import datetime
 from typing import List
 import numpy as np
-import profile
+from thop import profile
 
 import torch
 import torch.nn as nn
@@ -179,8 +179,8 @@ def _max_by_axis(the_list):
 
 def collate_fn(batch):
     batch = list(zip(*batch))
-    batch[0] = batch_tensor_from_tensor_list(batch[0])
-    return tuple(batch)
+    tensor, mask = batch_tensor_from_tensor_list(batch[0])
+    return tensor, mask, batch[1]
 
 def batch_tensor_from_tensor_list(tensor_list: List[Tensor]):
     # TODO make this more general

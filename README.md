@@ -1,4 +1,5 @@
 # General Object Detection Laboratory
+The codebase of my research of General Object Detection
 ## Requirements
 - We recommend you to use Anaconda to create a conda environment:
 ```Shell

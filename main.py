@@ -42,7 +42,7 @@ def parse_args():
     parser.add_argument('-r', '--resume', default=None, type=str,
                         help='keep training')
     # Dataset
-    parser.add_argument('--root', default='/Users/liuhaoran/Desktop/python_work/object-detection/dataset/',
+    parser.add_argument('--root', default='/Users/liuhaoran/Desktop/python_work/object-detection/dataset/COCO/',
                         help='data root')
     parser.add_argument('-d', '--dataset', default='coco',
                         help='coco, voc, widerface, crowdhuman')
@@ -66,7 +66,7 @@ def parse_args():
     parser.add_argument('--sybn', action='store_true', default=False, 
                         help='use sybn.')
 
-    return parser
+    return parser.parse_args()
 
 
 def fix_random_seed(args):
@@ -104,11 +104,16 @@ def main():
     fix_random_seed(args)
 
     # ---------------------------- Build config ----------------------------
+    ## Model config
     cfg = build_config(args)
+    ## Modify scheduler
+    scheduler = int(cfg['scheduler'][:-1])
+    cfg['max_epoch'] = 12 * scheduler
+    cfg['lr_epoch'] = [ep * scheduler for ep in [8, 11]]
 
     # ---------------------------- Build Dataset ----------------------------
     transforms = build_transform(cfg, is_train=True)
-    dataset, dataset_info = build_dataset(args, cfg, transforms, is_train=True)
+    dataset, dataset_info = build_dataset(args, transforms, is_train=True)
 
     # ---------------------------- Build Dataloader ----------------------------
     train_loader = build_dataloader(args, dataset, collate_fn, is_train=True)
@@ -153,16 +158,16 @@ def main():
     # ----------------------- Training -----------------------
     print("Start training")
     best_map = -1.
-    for epoch in range(start_epoch, args.epochs):
+    for epoch in range(start_epoch, cfg['max_epoch']):
         if args.distributed:
             train_loader.batch_sampler.sampler.set_epoch(epoch)
 
         # Train one epoch
-        train_one_epoch(cfg, model, criterion, train_loader, optimizer, device, epoch, wp_lr_scheduler, cfg['clip_max_norm'])
+        train_one_epoch(cfg, model, criterion, train_loader, optimizer, device, epoch, cfg['max_epoch'], cfg['clip_max_norm'], wp_lr_scheduler)
         lr_scheduler.step()
 
         # Evaluate
-        if (epoch % args.eval_epoch) == 0 or (epoch == args.max_epoch - 1):
+        if (epoch % args.eval_epoch) == 0 or (epoch == cfg['max_epoch'] - 1):
             if evaluator is None:
                 cur_map = 0.
             else:

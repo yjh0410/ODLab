@@ -89,7 +89,7 @@ class Criterion(nn.Module):
         pred_box = outputs['pred_box']
         pred_cls = outputs['pred_cls'].reshape(-1, self.num_classes)
         anchor_boxes = outputs['anchors']
-        masks = outputs['mask']
+        masks = ~outputs['mask']
         B = len(targets)
 
         # -------------------- Label assignment --------------------
@@ -127,16 +127,12 @@ class Criterion(nn.Module):
             [src + idx * anchor_boxes[0].shape[0] for idx, (src, _) in
              enumerate(indices)])
         # [BM,]
-        gt_cls = torch.full(pred_cls.shape[:1],
-                                self.num_classes,
-                                dtype=torch.int64,
-                                device=self.device)
+        gt_cls = torch.full(pred_cls.shape[:1],self.num_classes, dtype=torch.int64, device=self.device)
         gt_cls[ignore_idx] = -1
         tgt_cls_o = torch.cat([t['labels'][J] for t, (_, J) in zip(targets, indices)])
         tgt_cls_o[pos_ignore_idx] = -1
-
         gt_cls[src_idx] = tgt_cls_o.to(self.device)
-
+        
         foreground_idxs = (gt_cls >= 0) & (gt_cls != self.num_classes)
         num_fgs = foreground_idxs.sum()
 
@@ -163,14 +159,14 @@ class Criterion(nn.Module):
 
         loss_dict = dict(
             loss_cls=loss_cls,
-            loss_reg=loss_box,
+            loss_box=loss_box,
             losses=losses
         )
 
         return loss_dict
 
 
-def build_criterion(cfg, device, num_classes=80):
+def build_criterion(cfg, device, num_classes=90):
     criterion = Criterion(cfg=cfg, device=device, num_classes=num_classes)
     return criterion
 

@@ -28,8 +28,6 @@ class Scale(nn.Module):
 class FCOSHead(nn.Module):
     def __init__(self, cfg, in_dim, out_dim, num_classes, num_cls_head=1, num_reg_head=1, act_type='relu', norm_type='BN'):
         super().__init__()
-        print('==============================')
-        print('Head: FCOS-Head')
         self.fmp_size = None
         # ------------------ Basic parameters -------------------
         self.cfg = cfg

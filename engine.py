@@ -3,12 +3,11 @@
 Train and eval functions used in main.py
 """
 import math
-import os
+import time
 import sys
 from typing import Iterable
 
 import torch
-import utils.misc as utils
 from utils import distributed_utils
 
 
@@ -19,35 +18,33 @@ def train_one_epoch(cfg,
                     optimizer   : torch.optim.Optimizer,
                     device      : torch.device,
                     epoch       : int,
+                    max_epoch   : int,
+                    max_norm    : float,
                     warmup_lr_scheduler,
-                    max_norm    : float = 0,
                     ):
     model.train()
     criterion.train()
-    metric_logger = utils.MetricLogger(delimiter="  ")
-    metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
-    metric_logger.add_meter('class_error', utils.SmoothedValue(window_size=1, fmt='{value:.2f}'))
-    header = 'Epoch: [{}]'.format(epoch)
-    print_freq = 10
     lr_warmup_stage = True
     epoch_size = len(data_loader)
 
-    for iter_i, (samples, targets) in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
+    t0 = time.time()
+    for iter_i, (images, masks, targets) in enumerate(data_loader):
         ni = iter_i + epoch * epoch_size
         # WarmUp
-        if ni < cfg['warmup_iter'] and lr_warmup_stage:
+        if ni < cfg['warmup_iters'] and lr_warmup_stage:
             warmup_lr_scheduler(ni, optimizer)
-        elif ni == cfg['warmup_iter'] and lr_warmup_stage:
+        elif ni == cfg['warmup_iters'] and lr_warmup_stage:
             print('Warmup stage is over.')
             lr_warmup_stage = False
             warmup_lr_scheduler.set_lr(optimizer, cfg['base_lr'], cfg['base_lr'])
 
         # To device
-        samples = samples.to(device)
+        images = images.to(device)
+        masks  = masks.to(device)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
         # Inference
-        outputs = model(samples)
+        outputs = model(images, masks)
 
         # Compute loss
         loss_dict = criterion(outputs, targets)
@@ -67,11 +64,24 @@ def train_one_epoch(cfg,
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
         optimizer.step()
 
-        metric_logger.update(loss=losses.item(), **loss_dict_reduced)
-        metric_logger.update(lr=optimizer.param_groups[0]["lr"])
+        # Logs
+        if distributed_utils.is_main_process() and iter_i % 10 == 0:
+            t1 = time.time()
+            cur_lr = [param_group['lr']  for param_group in optimizer.param_groups]
+            cur_lr_dict = {'lr': cur_lr[0], 'lr_bk': cur_lr[1]}
+            # basic infor
+            log =  '[Epoch: {}/{}]'.format(epoch+1, max_epoch)
+            log += '[Iter: {}/{}]'.format(iter_i, epoch_size)
+            log += '[lr: {:.6f}][lr_bk: {:.6f}]'.format(cur_lr_dict['lr'], cur_lr_dict['lr_bk'])
+            # loss infor
+            for k in loss_dict_reduced.keys():
+                log += '[{}: {:.2f}]'.format(k, loss_dict_reduced[k])
+            # other infor
+            log += '[time: {:.2f}]'.format(t1 - t0)
 
-    # gather the stats from all processes
-    metric_logger.synchronize_between_processes()
-    print("Averaged stats:", metric_logger)
+            # print log infor
+            print(log, flush=True)
+            
+            t0 = time.time()
 
-    return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
+    return

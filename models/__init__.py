@@ -5,7 +5,7 @@ from .detectors.yolof.build import build_yolof
 
 
 # build object detector
-def build_model(args, cfg, device, num_classes=80, trainable=False):
+def build_model(args, cfg, device, num_classes=90, trainable=False):
     # YOLOF    
     if 'yolof' in args.model:
         model, criterion = build_yolof(cfg, device, num_classes, trainable)

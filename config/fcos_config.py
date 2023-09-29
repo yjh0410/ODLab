@@ -18,6 +18,7 @@ fcos_cfg = {
         'fpn_p6_from_c5': False,
         ## Head
         'head': 'fcos_head',
+        'head_dim': 256,
         'num_cls_head': 4,
         'num_reg_head': 4,
         'head_act': 'relu',

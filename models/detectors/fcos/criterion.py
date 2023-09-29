@@ -43,7 +43,7 @@ class Criterion(object):
         self.loss_cls_weight = cfg['loss_cls_weight']
         self.loss_reg_weight = cfg['loss_reg_weight']
         self.loss_ctn_weight = cfg['loss_ctn_weight']
-        self.matcher_cfg = cfg['matcher']
+        self.matcher_cfg = cfg['matcher_hpy']
         self.matcher = FcosMatcher(num_classes,
                                    self.matcher_cfg['center_sampling_radius'],
                                    self.matcher_cfg['object_sizes_of_interest'],
@@ -59,7 +59,6 @@ class Criterion(object):
         loss_cls = sigmoid_focal_loss(pred_cls, tgt_cls, self.alpha, self.gamma, reduction='none')
 
         return loss_cls.sum() / num_boxes
-
 
     def loss_bboxes(self, pred_delta, tgt_delta, bbox_quality=None, num_boxes=1.0):
         """
@@ -99,8 +98,6 @@ class Criterion(object):
 
         return loss_box.sum() / num_boxes
 
-
-    # The origin loss of FCOS
     def __call__(self, outputs, targets):
         """
             outputs['pred_cls']: (Tensor) [B, M, C]

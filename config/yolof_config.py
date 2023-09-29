@@ -19,6 +19,7 @@ yolof_cfg = {
         'encoder_act': 'relu',
         'encoder_norm': 'BN',
         ## Decoder
+        'decoder': 'yolof_head',
         'num_cls_head': 2,
         'num_reg_head': 4,
         'decoder_act': 'relu',
@@ -31,12 +32,13 @@ yolof_cfg = {
         'test_topk': 100,
         'test_conf_thresh': 0.1,
         'test_nms_thresh': 0.45,
+        'center_clamp': 32,
         # ----------------- Label Assignment -----------------
         'matcher': 'uniform_matcher',
         'matcher_hpy':{'topk_candidates': 4,
                        'iou_threshold': 0.15,
-                       'ignore_threshold': 0.7,
-                       'center_clamp': 32},
+                       'ignore_threshold': 0.7
+                       },
         # ----------------- Loss weight -----------------
         ## Loss hyper-parameters
         'focal_loss_alpha': 0.25,
@@ -54,6 +56,8 @@ yolof_cfg = {
         'weight_decay': 1e-4,
         'clip_max_norm': 4.0,
         ## LR Scheduler
+        'lr_scheduler': 'step',
+        'warmup': 'linear',
         'warmup_iters': 500,
         'warmup_factor': 0.00066667,
         # ----------------- Input -----------------
