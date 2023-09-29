@@ -33,49 +33,45 @@ class FCOSHead(nn.Module):
         self.cfg = cfg
         self.in_dim = in_dim
         self.num_classes = num_classes
-        self.num_cls_head=num_cls_head
-        self.num_reg_head=num_reg_head
-        self.act_type=act_type
-        self.norm_type=norm_type
+        self.num_cls_head = num_cls_head
+        self.num_reg_head = num_reg_head
+        self.act_type = act_type
+        self.norm_type = norm_type
         self.stride = cfg['out_stride']
 
         # ------------------ Network parameters -------------------
         ## cls head
         cls_heads = []
         self.cls_head_dim = out_dim
-        for i in range(cfg['num_cls_heads']):
+        for i in range(self.num_cls_head):
             if i == 0:
                 cls_heads.append(
                     Conv(in_dim, self.cls_head_dim, k=3, p=1, s=1, 
                         act_type=self.act_type,
-                        norm_type=self.norm_type,
-                        depthwise=cfg['head_depthwise'])
+                        norm_type=self.norm_type)
                         )
             else:
                 cls_heads.append(
                     Conv(self.cls_head_dim, self.cls_head_dim, k=3, p=1, s=1, 
                         act_type=self.act_type,
-                        norm_type=self.norm_type,
-                        depthwise=cfg['head_depthwise'])
+                        norm_type=self.norm_type)
                         )
         
         ## reg head
         reg_heads = []
         self.reg_head_dim = out_dim
-        for i in range(cfg['num_reg_heads']):
+        for i in range(self.num_reg_head):
             if i == 0:
                 reg_heads.append(
                     Conv(in_dim, self.reg_head_dim, k=3, p=1, s=1, 
                         act_type=self.act_type,
-                        norm_type=self.norm_type,
-                        depthwise=cfg['head_depthwise'])
+                        norm_type=self.norm_type)
                         )
             else:
                 reg_heads.append(
                     Conv(self.reg_head_dim, self.reg_head_dim, k=3, p=1, s=1, 
                         act_type=self.act_type,
-                        norm_type=self.norm_type,
-                        depthwise=cfg['head_depthwise'])
+                        norm_type=self.norm_type)
                         )
         self.cls_heads = nn.Sequential(*cls_heads)
         self.reg_heads = nn.Sequential(*reg_heads)
@@ -102,6 +98,9 @@ class FCOSHead(nn.Module):
         # init reg pred
         nn.init.normal_(self.reg_pred.weight, mean=0, std=0.01)
         nn.init.constant_(self.reg_pred.bias, 0.0)
+        # init ctn pred
+        nn.init.normal_(self.ctn_pred.weight, mean=0, std=0.01)
+        nn.init.constant_(self.ctn_pred.bias, 0.0)
         
     def generate_anchors(self, level, fmp_size):
         """

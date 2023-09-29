@@ -4,39 +4,12 @@
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from utils.box_ops import *
+
+from utils.box_ops import box_cxcywh_to_xyxy, box_iou, generalized_box_iou
+from utils.misc import sigmoid_focal_loss
 from utils.distributed_utils import get_world_size, is_dist_avail_and_initialized
 
 from .matcher import UniformMatcher
-
-
-def sigmoid_focal_loss(inputs, targets, alpha: float = 0.25, gamma: float = 2):
-    """
-    Loss used in RetinaNet for dense detection: https://arxiv.org/abs/1708.02002.
-    Args:
-        inputs: A float tensor of arbitrary shape.
-                The predictions for each example.
-        targets: A float tensor with the same shape as inputs. Stores the binary
-                 classification label for each element in inputs
-                (0 for the negative class and 1 for the positive class).
-        alpha: (optional) Weighting factor in range (0,1) to balance
-                positive vs negative examples. Default = -1 (no weighting).
-        gamma: Exponent of the modulating factor (1 - p_t) to
-               balance easy vs hard examples.
-    Returns:
-        Loss tensor
-    """
-    prob = inputs.sigmoid()
-    ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none")
-    p_t = prob * targets + (1 - prob) * (1 - targets)
-    loss = ce_loss * ((1 - p_t) ** gamma)
-
-    if alpha >= 0:
-        alpha_t = alpha * targets + (1 - alpha) * (1 - targets)
-        loss = alpha_t * loss
-
-    return loss
 
 
 class Criterion(nn.Module):
@@ -45,17 +18,21 @@ class Criterion(nn.Module):
     """
     def __init__(self, cfg, device, num_classes=80):
         super().__init__()
+        # ------------- Basic parameters -------------
         self.cfg = cfg
         self.device = device
+        self.num_classes = num_classes
+        # ------------- Focal loss -------------
         self.alpha = cfg['focal_loss_alpha']
         self.gamma = cfg['focal_loss_gamma']
-        self.matcher_cfg = cfg['matcher_hpy']
-        self.matcher = UniformMatcher(self.matcher_cfg['topk_candidates'])
-        self.num_classes = num_classes
+        # ------------- Loss weight -------------
         self.loss_cls_weight = cfg['loss_cls_weight']
         self.loss_reg_weight = cfg['loss_reg_weight']
+        # ------------- Matcher -------------
+        self.matcher_cfg = cfg['matcher_hpy']
+        self.matcher = UniformMatcher(self.matcher_cfg['topk_candidates'])
 
-    def loss_labels(self, pred_cls, tgt_cls):
+    def loss_labels(self, pred_cls, tgt_cls, num_boxes):
         """
             pred_cls: (Tensor) [N, C]
             tgt_cls:  (Tensor) [N, C]
@@ -63,9 +40,9 @@ class Criterion(nn.Module):
         # cls loss: [V, C]
         loss_cls = sigmoid_focal_loss(pred_cls, tgt_cls, self.alpha, self.gamma)
 
-        return loss_cls
+        return loss_cls.sum() / num_boxes
 
-    def loss_bboxes(self, pred_box, tgt_box):
+    def loss_bboxes(self, pred_box, tgt_box, num_boxes):
         """
             pred_box: (Tensor) [N, 4]
             tgt_box:  (Tensor) [N, 4]
@@ -75,7 +52,7 @@ class Criterion(nn.Module):
         # giou loss
         loss_reg = 1. - torch.diag(pred_giou)
 
-        return loss_reg
+        return loss_reg.sum() / num_boxes
 
     def forward(self, outputs, targets):
         """
@@ -144,15 +121,13 @@ class Criterion(nn.Module):
         gt_cls_target = torch.zeros_like(pred_cls)
         gt_cls_target[foreground_idxs, gt_cls[foreground_idxs]] = 1
         valid_idxs = (gt_cls >= 0) & masks
-        loss_cls = self.loss_labels(pred_cls[valid_idxs], gt_cls_target[valid_idxs])
-        loss_cls = loss_cls.sum() / num_fgs
+        loss_cls = self.loss_labels(pred_cls[valid_idxs], gt_cls_target[valid_idxs], num_fgs)
 
         # -------------------- Regression loss --------------------
         tgt_boxes = torch.cat([t['boxes'][i] for t, (_, i) in zip(targets, indices)], dim=0).to(self.device)
         tgt_boxes = tgt_boxes[~pos_ignore_idx]
         matched_pred_box = pred_box.reshape(-1, 4)[src_idx[~pos_ignore_idx.cpu()]]
-        loss_box = self.loss_bboxes(matched_pred_box, tgt_boxes)
-        loss_box = loss_box.sum() / num_fgs
+        loss_box = self.loss_bboxes(matched_pred_box, tgt_boxes, num_fgs)
 
         # total loss
         losses = self.loss_cls_weight * loss_cls + self.loss_reg_weight * loss_box

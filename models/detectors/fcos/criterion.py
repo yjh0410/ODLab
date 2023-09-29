@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from .matcher import FcosMatcher
 from utils.box_ops import *
@@ -33,16 +34,21 @@ def sigmoid_focal_loss(inputs, targets, alpha: float = 0.25, gamma: float = 2):
     return loss
 
 
-class Criterion(object):
+class Criterion(nn.Module):
     def __init__(self, cfg, device, num_classes=80):
+        super().__init__()
+        # ------------- Basic parameters -------------
         self.cfg = cfg
         self.device = device
         self.num_classes = num_classes
-        self.alpha = cfg['alpha']
-        self.gamma = cfg['gamma']
+        # ------------- Focal loss -------------
+        self.alpha = cfg['focal_loss_alpha']
+        self.gamma = cfg['focal_loss_gamma']
+        # ------------- Loss weight -------------
         self.loss_cls_weight = cfg['loss_cls_weight']
         self.loss_reg_weight = cfg['loss_reg_weight']
         self.loss_ctn_weight = cfg['loss_ctn_weight']
+        # ------------- Matcher -------------
         self.matcher_cfg = cfg['matcher_hpy']
         self.matcher = FcosMatcher(num_classes,
                                    self.matcher_cfg['center_sampling_radius'],
@@ -98,7 +104,7 @@ class Criterion(object):
 
         return loss_box.sum() / num_boxes
 
-    def __call__(self, outputs, targets):
+    def forward(self, outputs, targets):
         """
             outputs['pred_cls']: (Tensor) [B, M, C]
             outputs['pred_reg']: (Tensor) [B, M, 4]
@@ -115,7 +121,7 @@ class Criterion(object):
         pred_cls = torch.cat(outputs['pred_cls'], dim=1).view(-1, self.num_classes)
         pred_delta = torch.cat(outputs['pred_reg'], dim=1).view(-1, 4)
         pred_ctn = torch.cat(outputs['pred_ctn'], dim=1).view(-1, 1)
-        masks = torch.cat(outputs['mask'], dim=1).view(-1)
+        masks = ~torch.cat(outputs['mask'], dim=1).view(-1)
 
         # -------------------- Label Assignment --------------------
         gt_classes, gt_deltas, gt_centerness = self.matcher(fpn_strides, anchors, targets)
