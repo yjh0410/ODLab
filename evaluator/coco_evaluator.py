@@ -41,7 +41,7 @@ class COCOAPIEvaluator():
             if index % 500 == 0:
                 print('[Eval: %d / %d]'%(index, len(self.dataset)))
 
-            id_ = int(id_)
+            id_ = int(target['image_id'])
             ids.append(id_)
             
             # inference

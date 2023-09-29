@@ -1,37 +1,11 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .matcher import FcosMatcher
-from utils.box_ops import *
+
+from utils.misc import sigmoid_focal_loss
 from utils.distributed_utils import get_world_size, is_dist_avail_and_initialized
 
-
-def sigmoid_focal_loss(inputs, targets, alpha: float = 0.25, gamma: float = 2):
-    """
-    Loss used in RetinaNet for dense detection: https://arxiv.org/abs/1708.02002.
-    Args:
-        inputs: A float tensor of arbitrary shape.
-                The predictions for each example.
-        targets: A float tensor with the same shape as inputs. Stores the binary
-                 classification label for each element in inputs
-                (0 for the negative class and 1 for the positive class).
-        alpha: (optional) Weighting factor in range (0,1) to balance
-                positive vs negative examples. Default = -1 (no weighting).
-        gamma: Exponent of the modulating factor (1 - p_t) to
-               balance easy vs hard examples.
-    Returns:
-        Loss tensor
-    """
-    prob = inputs.sigmoid()
-    ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none")
-    p_t = prob * targets + (1 - prob) * (1 - targets)
-    loss = ce_loss * ((1 - p_t) ** gamma)
-
-    if alpha >= 0:
-        alpha_t = alpha * targets + (1 - alpha) * (1 - targets)
-        loss = alpha_t * loss
-
-    return loss
+from .matcher import FcosMatcher
 
 
 class Criterion(nn.Module):
@@ -62,7 +36,7 @@ class Criterion(nn.Module):
             tgt_cls:  (Tensor) [N, C]
         """
         # cls loss: [V, C]
-        loss_cls = sigmoid_focal_loss(pred_cls, tgt_cls, self.alpha, self.gamma, reduction='none')
+        loss_cls = sigmoid_focal_loss(pred_cls, tgt_cls, self.alpha, self.gamma)
 
         return loss_cls.sum() / num_boxes
 
