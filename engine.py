@@ -9,6 +9,7 @@ from typing import Iterable
 
 import torch
 from utils import distributed_utils
+from utils.vis_tools import vis_data
 
 
 def train_one_epoch(cfg,
@@ -20,6 +21,7 @@ def train_one_epoch(cfg,
                     epoch       : int,
                     max_epoch   : int,
                     max_norm    : float,
+                    vis_target  : bool,
                     warmup_lr_scheduler,
                     ):
     model.train()
@@ -42,6 +44,10 @@ def train_one_epoch(cfg,
         images = images.to(device)
         masks  = masks.to(device)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+
+        # Visualize train targets
+        if vis_target:
+            vis_data(images, targets)
 
         # Inference
         outputs = model(images, masks)

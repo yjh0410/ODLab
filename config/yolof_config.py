@@ -58,7 +58,7 @@ yolof_cfg = {
         ## LR Scheduler
         'lr_scheduler': 'step',
         'warmup': 'linear',
-        'warmup_iters': 500,
+        'warmup_iters': 1500,
         'warmup_factor': 0.00066667,
         # ----------------- Input -----------------
         ## Image size

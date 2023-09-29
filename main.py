@@ -46,6 +46,8 @@ def parse_args():
                         help='data root')
     parser.add_argument('-d', '--dataset', default='coco',
                         help='coco, voc, widerface, crowdhuman')
+    parser.add_argument('--vis_tgt', action="store_true", default=False,
+                        help="visualize input data.")
     # Dataloader
     parser.add_argument('--num_workers', default=4, type=int, 
                         help='Number of workers used in dataloading')
@@ -163,7 +165,7 @@ def main():
             train_loader.batch_sampler.sampler.set_epoch(epoch)
 
         # Train one epoch
-        train_one_epoch(cfg, model, criterion, train_loader, optimizer, device, epoch, cfg['max_epoch'], cfg['clip_max_norm'], wp_lr_scheduler)
+        train_one_epoch(cfg, model, criterion, train_loader, optimizer, device, epoch, cfg['max_epoch'], cfg['clip_max_norm'], args.vis_tgt, wp_lr_scheduler)
         lr_scheduler.step()
 
         # Evaluate
