@@ -1,7 +1,7 @@
 import math
 import torch
 import torch.nn as nn
-from ..conv_modules import Conv
+from ..basic.conv import Conv
 
 
 class Scale(nn.Module):

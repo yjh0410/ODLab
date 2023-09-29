@@ -35,12 +35,13 @@ class COCOAPIEvaluator():
         ids = []
         data_dict = []
         model.eval()
+        model.trainable = False
 
         # start testing
         for index, (image, target) in enumerate(self.dataset):
             if index % 500 == 0:
                 print('[Eval: %d / %d]'%(index, len(self.dataset)))
-
+            # image id
             id_ = int(target['image_id'])
             ids.append(id_)
             
@@ -53,6 +54,7 @@ class COCOAPIEvaluator():
             bboxes[..., 0::2] *= orig_w
             bboxes[..., 1::2] *= orig_h
             
+            # reformat results
             for i, box in enumerate(bboxes):
                 x1 = float(box[0])
                 y1 = float(box[1])
@@ -60,13 +62,17 @@ class COCOAPIEvaluator():
                 y2 = float(box[3])
                 label = int(cls_inds[i])
                 
+                # COCO json format
                 bbox = [x1, y1, x2 - x1, y2 - y1]
-                score = float(scores[i]) # object score * class score
-                A = {"image_id": id_, "category_id": label, "bbox": bbox,
-                     "score": score} # COCO json format
+                score = float(scores[i])
+                A = {"image_id": id_,
+                     "category_id": label,
+                     "bbox": bbox,
+                     "score": score}
                 data_dict.append(A)
 
         model.train()
+        model.trainable = True
         annType = ['segm', 'bbox', 'keypoints']
         # Evaluate the Dt (detection) json comparing with the ground truth
         if len(data_dict) > 0:

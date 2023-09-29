@@ -1,7 +1,7 @@
 import torch.nn as nn
 from utils import weight_init
 
-from ..conv_modules import Conv
+from ..basic.conv import Conv
 
 
 # BottleNeck

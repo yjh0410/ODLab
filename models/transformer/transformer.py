@@ -12,7 +12,7 @@ import torch.nn as nn
 
 from .transformer_encoder import TransformerEncoderLayer, TransformerEncoder
 from .transformer_decoder import TransformerDecoderLayer, TransformerDecoder
-from ..mlp_modules import MLP
+from ..basic.mlp import MLP
 
 
 class Transformer(nn.Module):

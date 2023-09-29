@@ -4,9 +4,9 @@ import torch
 import torch.nn as nn
 
 # --------------- Model components ---------------
-from ...modules.backbone import build_backbone
-from ...modules.neck import build_neck
-from ...modules.head import build_head
+from ...backbone import build_backbone
+from ...neck import build_neck
+from ...head import build_head
 
 # --------------- External components ---------------
 from utils.misc import multiclass_nms

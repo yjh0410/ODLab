@@ -3,8 +3,8 @@
 import torch
 import torch.nn as nn
 
-from ...modules.backbone import build_backbone
-from ...modules.transformer import build_transformer
+from ...backbone import build_backbone
+from ...transformer import build_transformer
 
 
 class PlainDETR(nn.Module):

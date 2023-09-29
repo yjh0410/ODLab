@@ -1,17 +1,13 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 import torch
 
-from .detectors.yolof.build import build_yolof
 from .detectors.fcos.build import build_fcos
 
 
 # build object detector
 def build_model(args, cfg, device, num_classes=90, trainable=False):
-    # YOLOF    
-    if 'yolof' in args.model:
-        model, criterion = build_yolof(cfg, device, num_classes, trainable)
     # FCOS    
-    elif 'fcos' in args.model:
+    if 'fcos' in args.model:
         model, criterion = build_fcos(cfg, device, num_classes, trainable)
         
     if trainable:

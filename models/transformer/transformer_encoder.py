@@ -16,7 +16,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn, Tensor
 
-from ..mlp_modules import FFN
+from ..basic.mlp import FFN
 
 
 # ---------------------------- Basic functions ----------------------------
