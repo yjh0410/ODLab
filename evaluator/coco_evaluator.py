@@ -1,7 +1,7 @@
 import json
 import tempfile
 import torch
-from datasets import build_dataset
+from datasets import build_dataset, build_transform
 
 try:
     from pycocotools.cocoeval import COCOeval
@@ -26,7 +26,8 @@ class COCOAPIEvaluator():
         self.ap50_95 = 0.
         self.ap50 = 0.
         # ----------------- Dataset -----------------
-        self.dataset = build_dataset(args, is_train=False)
+        self.transform = build_transform(is_train=False)
+        self.dataset = build_dataset(args, self.transform, is_train=False)
 
 
     @torch.no_grad()

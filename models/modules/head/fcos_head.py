@@ -162,7 +162,7 @@ class FCOSHead(nn.Module):
             ## Adjust mask
             if mask is not None:
                 # [B, H, W]
-                mask_i = torch.nn.functional.interpolate(mask[None], size=[H, W]).bool()[0]
+                mask_i = torch.nn.functional.interpolate(mask[None].float(), size=[H, W]).bool()[0]
                 # [B, H, W] -> [B, M]
                 mask_i = mask_i.flatten(1)     
                 all_masks.append(mask_i)

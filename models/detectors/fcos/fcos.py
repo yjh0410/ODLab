@@ -100,7 +100,6 @@ class FCOS(nn.Module):
 
         return bboxes, scores, labels
 
-
     @torch.no_grad()
     def inference_single_image(self, x):
         # ---------------- Backbone ----------------
@@ -123,7 +122,6 @@ class FCOS(nn.Module):
         bboxes = bboxes.clip(0., 1.)
 
         return bboxes, scores, labels
-
 
     def forward(self, x, mask=None):
         if not self.trainable:
