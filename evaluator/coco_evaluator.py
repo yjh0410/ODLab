@@ -15,7 +15,7 @@ class COCOAPIEvaluator():
     All the data in the val2017 dataset are processed \
     and evaluated by COCO API.
     """
-    def __init__(self, args, device, testset=False):
+    def __init__(self, args, cfg, device, testset=False):
         # ----------------- Basic parameters -----------------
         self.ddp_mode = True if args.distributed else False
         self.image_set = 'test2017' if testset else 'val2017'
@@ -26,22 +26,20 @@ class COCOAPIEvaluator():
         self.ap50_95 = 0.
         self.ap50 = 0.
         # ----------------- Dataset -----------------
-        self.transform = build_transform(is_train=False)
-        self.dataset = build_dataset(args, self.transform, is_train=False)
+        self.transform = build_transform(cfg, is_train=False)
+        self.dataset, self.dataset_info = build_dataset(args, self.transform, is_train=False)
 
 
     @torch.no_grad()
     def evaluate(self, model):
         ids = []
         data_dict = []
-        num_images = len(self.dataset)
         model.eval()
-        print('total number of images: %d' % (num_images))
 
         # start testing
         for index, (image, target) in enumerate(self.dataset):
             if index % 500 == 0:
-                print('[Eval: %d / %d]'%(index, num_images))
+                print('[Eval: %d / %d]'%(index, len(self.dataset)))
 
             id_ = int(id_)
             ids.append(id_)
@@ -60,7 +58,7 @@ class COCOAPIEvaluator():
                 y1 = float(box[1])
                 x2 = float(box[2])
                 y2 = float(box[3])
-                label = self.dataset.class_ids[int(cls_inds[i])]
+                label = int(cls_inds[i])
                 
                 bbox = [x1, y1, x2 - x1, y2 - y1]
                 score = float(scores[i]) # object score * class score

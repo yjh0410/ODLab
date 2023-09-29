@@ -149,7 +149,7 @@ def main():
     lr_scheduler = build_lr_scheduler(cfg, optimizer, args.resume)
 
     # ---------------------------- Build Evaluator ----------------------------
-    evaluator = build_evluator(args, device)
+    evaluator = build_evluator(args, cfg, device)
 
     # ----------------------- Eval before training -----------------------
     if args.eval_first:
