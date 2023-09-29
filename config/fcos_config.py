@@ -53,6 +53,8 @@ fcos_cfg = {
         'weight_decay': 1e-4,
         'clip_max_norm': -1.0,
         ## LR Scheduler
+        'lr_scheduler': 'step',
+        'warmup': 'linear',
         'warmup_iters': 500,
         'warmup_factor': 0.00066667,
         # ----------------- Input -----------------

@@ -1,11 +1,10 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 import os
-import time
 import random
 import argparse
+import numpy as np
 from copy import deepcopy
 
-import numpy as np
 import torch
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -25,7 +24,7 @@ from engine import train_one_epoch
 
 
 def parse_args():
-    parser = argparse.ArgumentParser('Set transformer detector', add_help=False)
+    parser = argparse.ArgumentParser('General 2D Object Detection', add_help=False)
     # Random seed
     parser.add_argument('--seed', default=42, type=int)
     # GPU
@@ -165,7 +164,10 @@ def main():
             train_loader.batch_sampler.sampler.set_epoch(epoch)
 
         # Train one epoch
-        train_one_epoch(cfg, model, criterion, train_loader, optimizer, device, epoch, cfg['max_epoch'], cfg['clip_max_norm'], args.vis_tgt, wp_lr_scheduler)
+        train_one_epoch(cfg, model, criterion, train_loader, optimizer, device, epoch,
+                        cfg['max_epoch'], cfg['clip_max_norm'], args.vis_tgt, wp_lr_scheduler)
+        
+        # LR Scheduler
         lr_scheduler.step()
 
         # Evaluate
@@ -175,7 +177,7 @@ def main():
             else:
                 evaluator.evaluate(model_without_ddp)
                 cur_map = evaluator.map
-            # save model
+            # Save model
             if cur_map > best_map:
                 # update best-map
                 best_map = cur_map
