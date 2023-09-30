@@ -88,6 +88,7 @@ def main():
     # ---------------------------- Build DDP ----------------------------
     world_size = distributed_utils.get_world_size()
     print('World size: {}'.format(world_size))
+    per_gpu_batch = args.batch_size // world_size
     if args.distributed:
         distributed_utils.init_distributed_mode(args)
         print("git:\n  {}\n".format(distributed_utils.get_sha()))
@@ -116,7 +117,7 @@ def main():
     dataset, dataset_info = build_dataset(args, transforms, is_train=True)
 
     # ---------------------------- Build Dataloader ----------------------------
-    train_loader = build_dataloader(args, dataset, collate_fn, is_train=True)
+    train_loader = build_dataloader(args, dataset, per_gpu_batch, collate_fn, is_train=True)
 
     # ---------------------------- Build model ----------------------------
     ## Build model

@@ -17,16 +17,16 @@ def build_dataset(args, transform=None, is_train=False):
 
     return dataset, dataset_info
 
-def build_dataloader(args, dataset, collate_fn, is_train=False):
+def build_dataloader(args, dataset, batch_size, collate_fn, is_train=False):
     if args.distributed:
         sampler = DistributedSampler(dataset) if is_train else DistributedSampler(dataset, shuffle=False)
     else:
         sampler = torch.utils.data.RandomSampler(dataset) if is_train else torch.utils.data.SequentialSampler(dataset)
 
     if is_train:
-        batch_sampler = torch.utils.data.BatchSampler(sampler, args.batch_size, drop_last=True)
+        batch_sampler = torch.utils.data.BatchSampler(sampler, batch_size, drop_last=True)
         dataloader = DataLoader(dataset, batch_sampler=batch_sampler, collate_fn=collate_fn, num_workers=args.num_workers)
     else:
-        dataloader = DataLoader(dataset, args.batch_size, sampler=sampler, drop_last=False, collate_fn=collate_fn, num_workers=args.num_workers)
+        dataloader = DataLoader(dataset, batch_size, sampler=sampler, drop_last=False, collate_fn=collate_fn, num_workers=args.num_workers)
     
     return dataloader
