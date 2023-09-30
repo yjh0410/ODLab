@@ -41,7 +41,7 @@ def parse_args():
     parser.add_argument('--fuse_conv_bn', action='store_true', default=False,
                         help='fuse Conv & BN')
     # Dataset
-    parser.add_argument('--root', default='/Users/liuhaoran/Desktop/python_work/object-detection/dataset/',
+    parser.add_argument('--root', default='/Users/liuhaoran/Desktop/python_work/object-detection/dataset/COCO/',
                         help='data root')
     parser.add_argument('-d', '--dataset', default='coco',
                         help='coco, voc.')
@@ -89,7 +89,7 @@ def run(args, model, device, dataset, transform, class_colors, class_names):
 
     for index, (image, _) in enumerate(dataset):
         print('Testing image {:d}/{:d}....'.format(index+1, num_images))
-        orig_h, orig_w, _ = image.shape
+        orig_h, orig_w = image.height, image.width
 
         # PreProcess
         x, _ = transform(image)
@@ -105,6 +105,8 @@ def run(args, model, device, dataset, transform, class_colors, class_names):
         bboxes[..., 1::2] *= orig_h
 
         # vis detection
+        image = np.array(image).astype(np.uint8)
+        image = image[..., (2, 1, 0)].copy()
         img_processed = visualize(
             image, bboxes, scores, labels, args.visual_threshold, class_colors, class_names)
         if args.show:

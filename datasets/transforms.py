@@ -156,7 +156,7 @@ class RandomCrop(object):
     def __init__(self, size):
         self.size = size
 
-    def __call__(self, img, target):
+    def __call__(self, img, target=None):
         region = T.RandomCrop.get_params(img, self.size)
         return crop(img, target, region)
 
@@ -165,7 +165,7 @@ class RandomSizeCrop(object):
         self.min_size = min_size
         self.max_size = max_size
 
-    def __call__(self, img: PIL.Image.Image, target: dict):
+    def __call__(self, img: PIL.Image.Image, target: dict = None):
         w = random.randint(self.min_size, min(img.width, self.max_size))
         h = random.randint(self.min_size, min(img.height, self.max_size))
         region = T.RandomCrop.get_params(img, [h, w])
@@ -175,7 +175,7 @@ class CenterCrop(object):
     def __init__(self, size):
         self.size = size
 
-    def __call__(self, img, target):
+    def __call__(self, img, target=None):
         image_width, image_height = img.size
         crop_height, crop_width = self.size
         crop_top = int(round((image_height - crop_height) / 2.))
@@ -186,7 +186,7 @@ class RandomHorizontalFlip(object):
     def __init__(self, p=0.5):
         self.p = p
 
-    def __call__(self, img, target):
+    def __call__(self, img, target=None):
         if random.random() < self.p:
             return hflip(img, target)
         return img, target
@@ -211,13 +211,13 @@ class RandomSelect(object):
         self.transforms2 = transforms2
         self.p = p
 
-    def __call__(self, img, target):
+    def __call__(self, img, target=None):
         if random.random() < self.p:
             return self.transforms1(img, target)
         return self.transforms2(img, target)
 
 class ToTensor(object):
-    def __call__(self, img, target):
+    def __call__(self, img, target=None):
         return F.to_tensor(img), target
 
 class Normalize(object):
@@ -242,7 +242,7 @@ class Compose(object):
     def __init__(self, transforms):
         self.transforms = transforms
 
-    def __call__(self, image, target):
+    def __call__(self, image, target=None):
         for t in self.transforms:
             image, target = t(image, target)
         return image, target
