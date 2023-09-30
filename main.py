@@ -86,12 +86,12 @@ def main():
     os.makedirs(path_to_save, exist_ok=True)
 
     # ---------------------------- Build DDP ----------------------------
-    world_size = distributed_utils.get_world_size()
-    print('World size: {}'.format(world_size))
-    per_gpu_batch = args.batch_size // world_size
     if args.distributed:
         distributed_utils.init_distributed_mode(args)
         print("git:\n  {}\n".format(distributed_utils.get_sha()))
+    world_size = distributed_utils.get_world_size()
+    print('World size: {}'.format(world_size))
+    per_gpu_batch = args.batch_size // world_size
 
     # ---------------------------- Build CUDA ----------------------------
     if args.cuda:
