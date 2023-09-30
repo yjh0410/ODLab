@@ -1,5 +1,5 @@
 from .dilated_encoder import DilatedEncoder
-from .fpn import BasicFPN
+from .fpn import BasicFPN, PaFPN
 
 
 # build neck
@@ -27,5 +27,11 @@ def build_neck(cfg, in_dim, out_dim):
                          p7_feat = cfg['fpn_p7_feat'],
                          from_c5 = cfg['fpn_p6_from_c5'], 
                          )
+    elif cfg[model_type] == 'pafpn':
+        model = PaFPN(in_dims = in_dim,
+                      out_dim = out_dim,
+                      p6_feat = cfg['fpn_p6_feat'],
+                      p7_feat = cfg['fpn_p7_feat'],
+                      )
         
     return model
