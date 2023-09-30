@@ -69,18 +69,22 @@ class RetinaNetHead(nn.Module):
         self.reg_pred = nn.Conv2d(self.reg_head_dim, 4 * self.num_anchors, kernel_size=3, padding=1)
 
         # init bias
-        self._init_pred_layers()
+        self._init_layers()
 
-    def _init_pred_layers(self):  
-        # init cls pred
-        nn.init.normal_(self.cls_pred.weight, mean=0, std=0.01)
+    def _init_layers(self):
+        for module in [self.cls_heads, self.reg_heads, self.cls_pred, self.reg_pred]:
+            for layer in module.modules():
+                if isinstance(layer, nn.Conv2d):
+                    torch.nn.init.normal_(layer.weight, mean=0, std=0.01)
+                    torch.nn.init.constant_(layer.bias, 0)
+                if isinstance(layer, nn.GroupNorm):
+                    torch.nn.init.constant_(layer.weight, 1)
+                    torch.nn.init.constant_(layer.bias, 0)
+        # init the bias of cls pred
         init_prob = 0.01
         bias_value = -torch.log(torch.tensor((1. - init_prob) / init_prob))
-        nn.init.constant_(self.cls_pred.bias, bias_value)
-        # init reg pred
-        nn.init.normal_(self.reg_pred.weight, mean=0, std=0.01)
-        nn.init.constant_(self.reg_pred.bias, 0.0)
-
+        torch.nn.init.constant_(self.cls_pred.bias, bias_value)
+        
     def generate_anchor_sizes(self, cfg):
         basic_anchor_size =   cfg['anchor_config']['basic_size']
         anchor_aspect_ratio = cfg['anchor_config']['aspect_ratio']

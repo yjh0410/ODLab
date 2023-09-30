@@ -87,9 +87,9 @@ class FCOSHead(nn.Module):
         )
         
         # init bias
-        self._init_pred_layers()
+        self._init_layers()
 
-    def _init_pred_layers(self):
+    def _init_layers(self):
         for module in [self.cls_heads, self.reg_heads, self.cls_pred, self.reg_pred, self.ctn_pred]:
             for layer in module.modules():
                 if isinstance(layer, nn.Conv2d):
