@@ -26,7 +26,7 @@ fcos_cfg = {
         ## Post-process
         'train_topk': 1000,
         'train_conf_thresh': 0.05,
-        'train_nms_thresh': 0.65,
+        'train_nms_thresh': 0.6,
         'test_topk': 100,
         'test_conf_thresh': 0.1,
         'test_nms_thresh': 0.45,
