@@ -2,7 +2,7 @@ from .transformer import Transformer
 
 
 def build_transformer(cfg, num_classes, return_intermediate=False):
-    if cfg['transformer'] == "standard_transformer":
+    if cfg['transformer'] == "vanilla_transformer":
         return Transformer(d_model             = cfg['d_model'],
                         num_encoder         = cfg['num_encoder'],
                         encoder_num_head    = cfg['encoder_num_head'],

@@ -18,16 +18,19 @@ from ..basic.mlp import MLP
 class Transformer(nn.Module):
     def __init__(self,
                  d_model             :int   = 512,
+                 # Encoder
                  num_encoder         :int   = 6,
                  encoder_num_head    :int   = 8,
                  encoder_mlp_ratio   :float = 4.0,
                  encoder_dropout     :float = 0.1,
                  encoder_act_type    :str   = "relu",
+                 # Decoder
                  num_decoder         :int   = 6,
                  decoder_num_head    :int   = 8,
                  decoder_mlp_ratio   :float = 4.0,
                  decoder_dropout     :float = 0.1,
                  decoder_act_type    :str   = "relu",
+                 # Other
                  num_classes         :int   = 90,
                  num_queries         :int   = 100,
                  norm_before         :bool  = False,

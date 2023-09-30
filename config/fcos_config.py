@@ -57,6 +57,9 @@ fcos_cfg = {
         'warmup': 'linear',
         'warmup_iters': 500,
         'warmup_factor': 0.00066667,
+        ## Epoch
+        'max_epoch': 12,      # 1x
+        'lr_epoch': [8, 11],  # 1x
         # ----------------- Input -----------------
         ## Image size
         'train_min_size': 800,
