@@ -14,7 +14,8 @@ def build_fcos(cfg, device, num_classes=90, trainable=False):
                  conf_thresh = cfg['train_conf_thresh'] if trainable else cfg['test_conf_thresh'],
                  nms_thresh  = cfg['train_nms_thresh']  if trainable else cfg['test_nms_thresh'],
                  topk        = cfg['train_topk']        if trainable else cfg['test_topk'],
-                 trainable   = trainable)
+                 trainable   = trainable,
+                 ca_nms      = False if trainable else cfg['nms_class_agnostic'])
             
     # -------------- Build Criterion --------------
     criterion = None

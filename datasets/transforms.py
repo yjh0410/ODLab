@@ -2,10 +2,9 @@
 """
 Transforms and data augmentation for both image + bbox.
 """
-import random
-from packaging import version
-
 import PIL
+import random
+
 import torch
 import torchvision
 import torchvision.transforms as T

@@ -148,8 +148,8 @@ class FCOSHead(nn.Module):
 
             # ------------------- Predict -------------------
             cls_pred = self.cls_pred(cls_feat)
-            ctn_pred = self.ctn_pred(reg_feat)
             reg_pred = self.reg_pred(reg_feat)
+            ctn_pred = self.ctn_pred(reg_feat)
 
             # ------------------- Process preds -------------------
             ## [B, C, H, W] -> [B, H, W, C] -> [B, M, C]

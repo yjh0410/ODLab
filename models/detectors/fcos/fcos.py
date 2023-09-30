@@ -21,7 +21,8 @@ class FCOS(nn.Module):
                  conf_thresh :float = 0.05,
                  nms_thresh  :float = 0.6,
                  topk        :int   = 1000,
-                 trainable   :bool  = False):
+                 trainable   :bool  = False,
+                 ca_nms      :bool  = False):
         super(FCOS, self).__init__()
         # ---------------------- Basic Parameters ----------------------
         self.cfg = cfg
@@ -31,6 +32,7 @@ class FCOS(nn.Module):
         self.num_classes = num_classes
         self.conf_thresh = conf_thresh
         self.nms_thresh = nms_thresh
+        self.ca_nms = ca_nms
 
         # ---------------------- Network Parameters ----------------------
         ## Backbone
@@ -96,7 +98,7 @@ class FCOS(nn.Module):
 
         # nms
         scores, labels, bboxes = multiclass_nms(
-            scores, labels, bboxes, self.nms_thresh, self.num_classes, False)
+            scores, labels, bboxes, self.nms_thresh, self.num_classes, self.ca_nms)
 
         return bboxes, scores, labels
 
