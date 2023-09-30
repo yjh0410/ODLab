@@ -127,7 +127,7 @@ def main():
         model = DDP(model, device_ids=[args.gpu])
         model_without_ddp = model.module
     ## Calcute Params & GFLOPs
-    if distributed_utils.is_main_process:
+    if distributed_utils.is_main_process():
         model_copy = deepcopy(model_without_ddp)
         model_copy.trainable = False
         model_copy.eval()
@@ -151,7 +151,7 @@ def main():
     evaluator = build_evluator(args, cfg, device)
 
     # ----------------------- Eval before training -----------------------
-    if args.eval_first:
+    if args.eval_first and distributed_utils.is_main_process():
         evaluator.evaluate(model_without_ddp)
         return
 
@@ -170,25 +170,28 @@ def main():
         lr_scheduler.step()
 
         # Evaluate
-        if (epoch % args.eval_epoch) == 0 or (epoch == cfg['max_epoch'] - 1):
-            if evaluator is None:
-                cur_map = 0.
-            else:
-                evaluator.evaluate(model_without_ddp)
-                cur_map = evaluator.map
-            # Save model
-            if cur_map > best_map:
-                # update best-map
-                best_map = cur_map
-                # save model
-                print('Saving state, epoch:', epoch + 1)
-                torch.save({'model':        model_without_ddp.state_dict(),
-                            'mAP':          round(cur_map*100, 1),
-                            'optimizer':    optimizer.state_dict(),
-                            'lr_scheduler': lr_scheduler.state_dict(),
-                            'epoch':        epoch,
-                            'args':         args}, 
-                            os.path.join(path_to_save, '{}_best.pth'.format(args.model)))                      
+        if distributed_utils.is_main_process():
+            if (epoch % args.eval_epoch) == 0 or (epoch == cfg['max_epoch'] - 1):
+                if evaluator is None:
+                    cur_map = 0.
+                else:
+                    evaluator.evaluate(model_without_ddp)
+                    cur_map = evaluator.map
+                # Save model
+                if cur_map > best_map:
+                    # update best-map
+                    best_map = cur_map
+                    # save model
+                    print('Saving state, epoch:', epoch + 1)
+                    torch.save({'model':        model_without_ddp.state_dict(),
+                                'mAP':          round(cur_map*100, 1),
+                                'optimizer':    optimizer.state_dict(),
+                                'lr_scheduler': lr_scheduler.state_dict(),
+                                'epoch':        epoch,
+                                'args':         args}, 
+                                os.path.join(path_to_save, '{}_best.pth'.format(args.model)))
+        if args.distributed:
+            dist.barrier()
 
 
 if __name__ == '__main__':
