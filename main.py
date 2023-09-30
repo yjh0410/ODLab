@@ -9,8 +9,8 @@ import torch
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-from utils.misc import compute_flops, collate_fn
 from utils import distributed_utils
+from utils.misc import compute_flops, collate_fn
 from utils.optimizer import build_optimizer
 from utils.lr_scheduler import build_wp_lr_scheduler, build_lr_scheduler
 
@@ -20,7 +20,6 @@ from datasets import build_dataset, build_dataloader, build_transform
 
 from models import build_model
 from engine import train_one_epoch
-
 
 
 def parse_args():
@@ -146,7 +145,7 @@ def main():
 
     # ---------------------------- Build LR Scheduler ----------------------------
     wp_lr_scheduler = build_wp_lr_scheduler(cfg, cfg['base_lr'])
-    lr_scheduler = build_lr_scheduler(cfg, optimizer, args.resume)
+    lr_scheduler    = build_lr_scheduler(cfg, optimizer, args.resume)
 
     # ---------------------------- Build Evaluator ----------------------------
     evaluator = build_evluator(args, cfg, device)
