@@ -87,7 +87,6 @@ def train_one_epoch(cfg,
         iteration += 1
 
         metric_logger.update(loss=loss_value, **loss_dict_reduced_scaled)
-        print(optimizer.param_groups[0]["lr"])
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
     
     # gather the stats from all processes
