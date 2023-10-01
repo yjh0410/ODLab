@@ -41,8 +41,9 @@ class COCOAPIEvaluator():
 
         # start testing
         for index, (image, target) in enumerate(self.dataset):
-            if index % 500 == 0:
+            if (index + 1) % 100 == 0:
                 print('[Eval: %d / %d]'%(index, len(self.dataset)))
+                break
             # image id
             id_ = int(target['image_id'])
             ids.append(id_)
@@ -91,17 +92,17 @@ class COCOAPIEvaluator():
                         cocoDt = cocoGt.loadRes(coco_results)
                         cocoEval = COCOeval(self.dataset.coco, cocoDt, annType[1])
                         cocoEval.params.imgIds = ids
-                        cocoEval.evaluate()
-                        cocoEval.accumulate()
-                        cocoEval.summarize()
-
-                        ap50_95, ap50 = cocoEval.stats[0], cocoEval.stats[1]
-                        print('ap50_95 : ', ap50_95)
-                        print('ap50 : ', ap50)
-                        self.map = ap50_95
-                        self.ap50_95 = ap50_95
-                        self.ap50 = ap50
-
+                cocoEval.evaluate()
+                cocoEval.accumulate()
+                cocoEval.summarize()
+                # update mAP
+                ap50_95, ap50 = cocoEval.stats[0], cocoEval.stats[1]
+                print('ap50_95 : ', ap50_95)
+                print('ap50 : ', ap50)
+                self.map = ap50_95
+                self.ap50_95 = ap50_95
+                self.ap50 = ap50
+            del coco_results
         else:
             print('No coco detection results !')
 
