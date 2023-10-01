@@ -84,11 +84,12 @@ def train_one_epoch(cfg,
         if max_norm > 0:
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
         optimizer.step()
+        iteration += 1
 
         metric_logger.update(loss=loss_value, **loss_dict_reduced_scaled)
+        print(optimizer.param_groups[0]["lr"])
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
     
-    iteration += 1
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
     print("Averaged stats:", metric_logger)
