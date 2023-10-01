@@ -63,7 +63,7 @@ fcos_cfg = {
         'lr_epoch': [8, 11],  # 1x
         # ----------------- Input -----------------
         ## Transforms
-        'random_sizes': [800],
+        'random_sizes': [800],   #short edge of image
         'train_max_size': 1333,
         'test_min_size': 800,
         'test_max_size': 1333,
@@ -132,7 +132,7 @@ fcos_cfg = {
         'lr_epoch': [8, 11],  # 1x
         # ----------------- Input -----------------
         ## Transforms
-        'random_sizes': [800],
+        'random_sizes': [800],   #short edge of image
         'train_max_size': 1333,
         'test_min_size': 800,
         'test_max_size': 1333,
@@ -197,11 +197,11 @@ fcos_cfg = {
         'warmup_iters': 500,
         'warmup_factor': 0.00066667,
         ## Epoch
-        'max_epoch': 36,       # 1x
-        'lr_epoch': [24, 33],  # 1x
+        'max_epoch': 36,       # 3x
+        'lr_epoch': [24, 33],  # 3x
         # ----------------- Input -----------------
         ## Transforms
-        'random_sizes': [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800],
+        'random_sizes': [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800],    #short edge of image
         'train_max_size': 1333,
         'test_min_size': 800,
         'test_max_size': 1333,
@@ -266,11 +266,11 @@ fcos_cfg = {
         'warmup_iters': 500,
         'warmup_factor': 0.00066667,
         ## Epoch
-        'max_epoch': 36,       # 1x
-        'lr_epoch': [24, 33],  # 1x
+        'max_epoch': 36,       # 3x
+        'lr_epoch': [24, 33],  # 3x
         # ----------------- Input -----------------
         ## Transforms
-        'random_sizes': [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800],
+        'random_sizes': [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800],   #short edge of image
         'train_max_size': 1333,
         'test_min_size': 800,
         'test_max_size': 1333,
@@ -335,11 +335,11 @@ fcos_cfg = {
         'warmup_iters': 500,
         'warmup_factor': 0.00066667,
         ## Epoch
-        'max_epoch': 36,       # 1x
-        'lr_epoch': [24, 33],  # 1x
+        'max_epoch': 36,       # 3x
+        'lr_epoch': [24, 33],  # 3x
         # ----------------- Input -----------------
         ## Transforms
-        'random_sizes': [256, 288, 320, 352, 384, 416, 448, 480, 512, 544, 576, 608],
+        'random_sizes': [256, 288, 320, 352, 384, 416, 448, 480, 512, 544, 576, 608],   #short edge of image
         'train_max_size': 900,
         'test_min_size': 512,
         'test_max_size': 736,
@@ -404,11 +404,11 @@ fcos_cfg = {
         'warmup_iters': 500,
         'warmup_factor': 0.00066667,
         ## Epoch
-        'max_epoch': 36,       # 1x
-        'lr_epoch': [24, 33],  # 1x
+        'max_epoch': 36,       # 3x
+        'lr_epoch': [24, 33],  # 3x
         # ----------------- Input -----------------
         ## Transforms
-        'random_sizes': [256, 288, 320, 352, 384, 416, 448, 480, 512, 544, 576, 608],
+        'random_sizes': [256, 288, 320, 352, 384, 416, 448, 480, 512, 544, 576, 608],   #short edge of image
         'train_max_size': 900,
         'test_min_size': 512,
         'test_max_size': 736,
