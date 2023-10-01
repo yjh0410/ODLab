@@ -1,4 +1,6 @@
 import json
+import os
+import contextlib
 import tempfile
 import torch
 from datasets import build_dataset, build_transform
@@ -33,7 +35,7 @@ class COCOAPIEvaluator():
     @torch.no_grad()
     def evaluate(self, model):
         ids = []
-        data_dict = []
+        coco_results = []
         model.eval()
         model.trainable = False
 
@@ -70,38 +72,36 @@ class COCOAPIEvaluator():
                      "category_id": label,
                      "bbox": bbox,
                      "score": score}
-                data_dict.append(A)
+                coco_results.append(A)
 
         model.train()
         model.trainable = True
         annType = ['segm', 'bbox', 'keypoints']
         # Evaluate the Dt (detection) json comparing with the ground truth
-        if len(data_dict) > 0:
+        if len(coco_results) > 0:
             print('evaluating ......')
             cocoGt = self.dataset.coco
-            # workaround: temporarily write data to json file because pycocotools can't process dict in py36.
             if self.testset:
-                json.dump(data_dict, open('coco_test-dev.json', 'w'))
+                json.dump(coco_results, open('coco_test-dev.json', 'w'))
                 cocoDt = cocoGt.loadRes('coco_test-dev.json')
-                return -1, -1
             else:
-                _, tmp = tempfile.mkstemp()
-                json.dump(data_dict, open(tmp, 'w'))
-                cocoDt = cocoGt.loadRes(tmp)
-                cocoEval = COCOeval(self.dataset.coco, cocoDt, annType[1])
-                cocoEval.params.imgIds = ids
-                cocoEval.evaluate()
-                cocoEval.accumulate()
-                cocoEval.summarize()
+                # suppress pycocotools prints
+                with open(os.devnull, 'w') as devnull:
+                    with contextlib.redirect_stdout(devnull):
+                        cocoDt = cocoGt.loadRes(coco_results)
+                        cocoEval = COCOeval(self.dataset.coco, cocoDt, annType[1])
+                        cocoEval.params.imgIds = ids
+                        cocoEval.evaluate()
+                        cocoEval.accumulate()
+                        cocoEval.summarize()
 
-                ap50_95, ap50 = cocoEval.stats[0], cocoEval.stats[1]
-                print('ap50_95 : ', ap50_95)
-                print('ap50 : ', ap50)
-                self.map = ap50_95
-                self.ap50_95 = ap50_95
-                self.ap50 = ap50
+                        ap50_95, ap50 = cocoEval.stats[0], cocoEval.stats[1]
+                        print('ap50_95 : ', ap50_95)
+                        print('ap50 : ', ap50)
+                        self.map = ap50_95
+                        self.ap50_95 = ap50_95
+                        self.ap50 = ap50
 
-                return ap50, ap50_95
         else:
-            return 0, 0
+            print('No coco detection results !')
 

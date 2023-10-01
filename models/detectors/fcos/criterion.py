@@ -19,9 +19,9 @@ class Criterion(nn.Module):
         self.alpha = cfg['focal_loss_alpha']
         self.gamma = cfg['focal_loss_gamma']
         # ------------- Loss weight -------------
-        self.loss_cls_weight = cfg['loss_cls_weight']
-        self.loss_reg_weight = cfg['loss_reg_weight']
-        self.loss_ctn_weight = cfg['loss_ctn_weight']
+        self.weight_dict = {'loss_cls': cfg['loss_cls_weight'],
+                            'loss_reg': cfg['loss_reg_weight'],
+                            'loss_ctn': cfg['loss_ctn_weight']}
         # ------------- Matcher -------------
         self.matcher_cfg = cfg['matcher_hpy']
         self.matcher = FcosMatcher(num_classes,
@@ -131,16 +131,10 @@ class Criterion(nn.Module):
             pred_ctn[foreground_idxs],  gt_centerness[foreground_idxs], reduction='none')
         loss_centerness = loss_centerness.sum() / num_foreground
 
-        # total loss
-        losses = self.loss_cls_weight * loss_labels + \
-                 self.loss_reg_weight * loss_bboxes + \
-                 self.loss_ctn_weight * loss_centerness
-
         loss_dict = dict(
                 loss_cls = loss_labels,
                 loss_reg = loss_bboxes,
                 loss_ctn = loss_centerness,
-                losses = losses
         )
 
         return loss_dict
