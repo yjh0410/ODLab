@@ -257,18 +257,28 @@ class Compose(object):
 
 # build transforms
 def build_transform(cfg=None, is_train=False):
-    # ---------------- Transform for Training ----------------
+# ---------------- Transform for Training ----------------
     if is_train:
-        return Compose([
-            RandomHorizontalFlip(),
-            RandomResize(cfg['random_sizes'], max_size=cfg['train_max_size']),
+        transforms = []
+        trans_config = cfg['trans_config']
+        for t in trans_config:
+            if t['name'] == 'RandomHFlip':
+                transforms.append(RandomHorizontalFlip())
+            if t['name'] == 'RandomResize':
+                transforms.append(RandomResize(cfg['random_sizes'], max_size=cfg['train_max_size']))
+            if t['name'] == 'RandomSizeCrop':
+                transforms.append(RandomSizeCrop(t['min_crop_size'], max_size=t['max_crop_size']))
+        transforms.extend([
             ToTensor(),
             Normalize(cfg['pixel_mean'], cfg['pixel_std'])
         ])
+        return Compose(transforms)
     # ---------------- Transform for Evaluating ----------------
     else:
-        return Compose([
-                RandomResize([cfg['test_min_size']], max_size=cfg['test_max_size']),
-                ToTensor(),
-                Normalize(cfg['pixel_mean'], cfg['pixel_std'])
-            ])
+        transforms = [
+            RandomResize([cfg['test_min_size']], max_size=cfg['test_max_size']),
+            ToTensor(),
+            Normalize(cfg['pixel_mean'], cfg['pixel_std'])
+        ]
+    
+    return Compose(transforms)
