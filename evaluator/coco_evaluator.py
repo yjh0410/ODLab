@@ -41,9 +41,8 @@ class COCOAPIEvaluator():
 
         # start testing
         for index, (image, target) in enumerate(self.dataset):
-            if (index + 1) % 100 == 0:
+            if index % 100 == 0:
                 print('[Eval: %d / %d]'%(index, len(self.dataset)))
-                break
             # image id
             id_ = int(target['image_id'])
             ids.append(id_)
