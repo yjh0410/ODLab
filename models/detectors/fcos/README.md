@@ -2,7 +2,7 @@
 
 | Model             |  scale     |  FPS  | AP<sup>val<br>0.5:0.95 | AP<sup>val<br>0.5 | Weight | Logs  |
 | ----------------- | ---------- | ----- | ---------------------- |  ---------------  | ------ | ----- |
-| FCOS_R18_1x       |  800,1333  |       |          33.8          |        51.7       |        |  |
+| FCOS_R18_1x       |  800,1333  |       |          33.8          |        51.7       | [ckpt](https://github.com/yjh0410/ODLab/releases/download/detection_weights/fcos_r18_1x_coco.pth) | [Logs](https://github.com/yjh0410/ODLab/releases/download/detection_weights/FCOS-R18-1x.txt) |
 | FCOS_R50_1x       |  800,1333  |       |                        |                   |        |  |
 | FCOS_R18_3x       |  800,1333  |       |                        |                   |        |  |
 | FCOS_R50_3x       |  800,1333  |       |                        |                   |        |  |
