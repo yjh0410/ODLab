@@ -105,12 +105,7 @@ def main():
     fix_random_seed(args)
 
     # ---------------------------- Build config ----------------------------
-    ## Model config
     cfg = build_config(args)
-    ## Modify scheduler
-    scheduler = int(cfg['scheduler'][:-1])
-    cfg['max_epoch'] = cfg['max_epoch'] * scheduler
-    cfg['lr_epoch'] = [ep * scheduler for ep in cfg['lr_epoch']]
 
     # ---------------------------- Build Dataset ----------------------------
     transforms = build_transform(cfg, is_train=True)

@@ -132,6 +132,9 @@ fcos_cfg = {
         'warmup': 'linear',
         'warmup_iters': 500,
         'warmup_factor': 0.00066667,
+        ## Epoch
+        'max_epoch': 12,      # 1x
+        'lr_epoch': [8, 11],  # 1x
         # ----------------- Input -----------------
         ## Image size
         'train_min_size': 800,
@@ -203,6 +206,9 @@ fcos_cfg = {
         'warmup': 'linear',
         'warmup_iters': 500,
         'warmup_factor': 0.00066667,
+        ## Epoch
+        'max_epoch': 36,       # 1x
+        'lr_epoch': [24, 33],  # 1x
         # ----------------- Input -----------------
         ## Image size
         'train_min_size': 800,
@@ -274,6 +280,9 @@ fcos_cfg = {
         'warmup': 'linear',
         'warmup_iters': 500,
         'warmup_factor': 0.00066667,
+        ## Epoch
+        'max_epoch': 36,       # 1x
+        'lr_epoch': [24, 33],  # 1x
         # ----------------- Input -----------------
         ## Image size
         'train_min_size': 800,
@@ -301,8 +310,8 @@ fcos_cfg = {
         'out_stride': [8, 16, 32],
         ## Neck
         'neck': 'pafpn',
-        'fpn_p6_feat': True,
-        'fpn_p7_feat': True,
+        'fpn_p6_feat': False,
+        'fpn_p7_feat': False,
         'fpn_p6_from_c5': False,
         ## Head
         'head': 'fcos_head',
@@ -345,6 +354,9 @@ fcos_cfg = {
         'warmup': 'linear',
         'warmup_iters': 500,
         'warmup_factor': 0.00066667,
+        ## Epoch
+        'max_epoch': 36,       # 1x
+        'lr_epoch': [24, 33],  # 1x
         # ----------------- Input -----------------
         ## Image size
         'train_min_size': 512,
@@ -416,6 +428,9 @@ fcos_cfg = {
         'warmup': 'linear',
         'warmup_iters': 500,
         'warmup_factor': 0.00066667,
+        ## Epoch
+        'max_epoch': 36,       # 1x
+        'lr_epoch': [24, 33],  # 1x
         # ----------------- Input -----------------
         ## Image size
         'train_min_size': 512,
