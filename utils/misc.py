@@ -177,11 +177,6 @@ def _max_by_axis(the_list):
             maxes[index] = max(maxes[index], item)
     return maxes
 
-def collate_fn(batch):
-    batch = list(zip(*batch))
-    tensor, mask = batch_tensor_from_tensor_list(batch[0])
-    return tensor, mask, batch[1]
-
 def batch_tensor_from_tensor_list(tensor_list: List[Tensor]):
     # TODO make this more general
     if tensor_list[0].ndim == 3:
@@ -201,6 +196,14 @@ def batch_tensor_from_tensor_list(tensor_list: List[Tensor]):
         raise ValueError('not supported')
     
     return tensor, mask
+
+def collate_fn(batch):
+    batch = list(zip(*batch))
+    tensor, mask = batch_tensor_from_tensor_list(batch[0])
+    target = batch[1]
+    batch = tuple(tensor, mask, target)
+
+    return batch
 
 
 # ---------------------------- For Model ----------------------------
