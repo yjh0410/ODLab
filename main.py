@@ -150,7 +150,7 @@ def main():
     # ----------------------- Eval before training -----------------------
     if args.eval_first and distributed_utils.is_main_process():
         evaluator.evaluate(model_without_ddp)
-        return
+        # return
 
     # ----------------------- Training -----------------------
     print("Start training")
