@@ -1,7 +1,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 import torch
 
-from .detectors.fcos.build import build_fcos
+from .fcos.build import build_fcos
 
 
 # build object detector

@@ -18,7 +18,7 @@ from config import build_config
 from evaluator import build_evluator
 from datasets import build_dataset, build_dataloader, build_transform
 
-from models import build_model
+from models.detectors import build_model
 from engine import train_one_epoch
 
 
