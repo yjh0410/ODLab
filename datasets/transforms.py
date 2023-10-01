@@ -265,7 +265,7 @@ def build_transform(cfg=None, is_train=False):
             if t['name'] == 'RandomHFlip':
                 transforms.append(RandomHorizontalFlip())
             if t['name'] == 'RandomResize':
-                transforms.append(RandomResize(cfg['random_sizes'], max_size=cfg['train_max_size']))
+                transforms.append(RandomResize(cfg['train_min_size'], max_size=cfg['train_max_size']))
             if t['name'] == 'RandomSizeCrop':
                 transforms.append(RandomSizeCrop(t['min_crop_size'], max_size=t['max_crop_size']))
         transforms.extend([
