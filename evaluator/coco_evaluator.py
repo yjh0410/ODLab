@@ -1,7 +1,6 @@
 import json
 import os
 import contextlib
-import tempfile
 import torch
 from datasets import build_dataset, build_transform
 
@@ -41,7 +40,7 @@ class COCOAPIEvaluator():
 
         # start testing
         for index, (image, target) in enumerate(self.dataset):
-            if index % 100 == 0:
+            if index % 500 == 0:
                 print('[Eval: %d / %d]'%(index, len(self.dataset)))
             # image id
             id_ = int(target['image_id'])
