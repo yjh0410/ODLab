@@ -165,7 +165,6 @@ class FcosMatcher(object):
                     # no center sampling, it will use all the locations within a ground-truth box
                     # [N, M], M = M1 + M2 + ... + MF
                     is_in_boxes = deltas.min(dim=-1).values > 0
-
                 # [N, M], M = M1 + M2 + ... + MF
                 max_deltas = deltas.max(dim=-1).values
                 # limit the regression range for each location
@@ -208,7 +207,9 @@ class FcosMatcher(object):
                 gt_classes.append(tgt_cls_i)
                 gt_anchors_deltas.append(gt_anchors_reg_deltas_i)
                 gt_centerness.append(gt_centerness_i)
-                
+
+                del centers, center_boxes, deltas, max_deltas, center_deltas
+
             else:
                 tgt_cls_i = torch.zeros(anchors_over_all_feature_maps.shape[0], device=device) + self.num_classes
                 gt_anchors_reg_deltas_i = torch.zeros([anchors_over_all_feature_maps.shape[0], 4], device=device)
@@ -217,6 +218,7 @@ class FcosMatcher(object):
                 gt_classes.append(tgt_cls_i.long())
                 gt_anchors_deltas.append(gt_anchors_reg_deltas_i.float())
                 gt_centerness.append(gt_centerness_i.float())
+
 
         # [B, M], [B, M, 4], [B, M]
         return torch.stack(gt_classes), torch.stack(gt_anchors_deltas), torch.stack(gt_centerness)
