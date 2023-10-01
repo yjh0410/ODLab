@@ -106,6 +106,7 @@ def main():
 
     # ---------------------------- Build config ----------------------------
     cfg = build_config(args)
+    print('Model config: ', cfg)
 
     # ---------------------------- Build Dataset ----------------------------
     transforms = build_transform(cfg, is_train=True)
