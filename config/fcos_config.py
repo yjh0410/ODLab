@@ -62,19 +62,14 @@ fcos_cfg = {
         'max_epoch': 12,      # 1x
         'lr_epoch': [8, 11],  # 1x
         # ----------------- Input -----------------
-        ## Image size
-        'train_min_size': 800,
+        ## Transforms
+        'random_sizes': [800],
         'train_max_size': 1333,
         'test_min_size': 800,
         'test_max_size': 1333,
         ## Pixel mean & std
         'pixel_mean': [0.485, 0.456, 0.406],
         'pixel_std':  [0.229, 0.224, 0.225],
-        ## Transforms
-        'trans_config': [
-            {'name': 'RandomResize', 'random_sizes': [800], 'max_size': 1333},
-            {'name': 'RandomHFlip'},
-        ],
     },
 
     'fcos_r50_1x':{
@@ -136,19 +131,14 @@ fcos_cfg = {
         'max_epoch': 12,      # 1x
         'lr_epoch': [8, 11],  # 1x
         # ----------------- Input -----------------
-        ## Image size
-        'train_min_size': 800,
+        ## Transforms
+        'random_sizes': [800],
         'train_max_size': 1333,
         'test_min_size': 800,
         'test_max_size': 1333,
         ## Pixel mean & std
         'pixel_mean': [0.485, 0.456, 0.406],
         'pixel_std':  [0.229, 0.224, 0.225],
-        ## Transforms
-        'trans_config': [
-            {'name': 'RandomResize', 'random_sizes': [800], 'max_size': 1333},
-            {'name': 'RandomHFlip'},
-        ],
     },
 
     'fcos_r18_3x':{
@@ -210,19 +200,14 @@ fcos_cfg = {
         'max_epoch': 36,       # 1x
         'lr_epoch': [24, 33],  # 1x
         # ----------------- Input -----------------
-        ## Image size
-        'train_min_size': 800,
+        ## Transforms
+        'random_sizes': [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800],
         'train_max_size': 1333,
         'test_min_size': 800,
         'test_max_size': 1333,
         ## Pixel mean & std
         'pixel_mean': [0.485, 0.456, 0.406],
         'pixel_std':  [0.229, 0.224, 0.225],
-        ## Transforms
-        'trans_config': [
-            {'name': 'RandomResize', 'random_sizes': [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800], 'max_size': 1333},
-            {'name': 'RandomHFlip'},
-        ],
     },
 
     'fcos_r50_3x':{
@@ -284,19 +269,14 @@ fcos_cfg = {
         'max_epoch': 36,       # 1x
         'lr_epoch': [24, 33],  # 1x
         # ----------------- Input -----------------
-        ## Image size
-        'train_min_size': 800,
+        ## Transforms
+        'random_sizes': [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800],
         'train_max_size': 1333,
         'test_min_size': 800,
         'test_max_size': 1333,
         ## Pixel mean & std
         'pixel_mean': [0.485, 0.456, 0.406],
         'pixel_std':  [0.229, 0.224, 0.225],
-        ## Transforms
-        'trans_config': [
-            {'name': 'RandomResize', 'random_sizes': [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800], 'max_size': 1333},
-            {'name': 'RandomHFlip'},
-        ],
     },
 
     'fcos_rt_r18_3x':{
@@ -358,22 +338,17 @@ fcos_cfg = {
         'max_epoch': 36,       # 1x
         'lr_epoch': [24, 33],  # 1x
         # ----------------- Input -----------------
-        ## Image size
-        'train_min_size': 512,
+        ## Transforms
+        'random_sizes': [256, 288, 320, 352, 384, 416, 448, 480, 512, 544, 576, 608],
         'train_max_size': 900,
         'test_min_size': 512,
         'test_max_size': 736,
         ## Pixel mean & std
         'pixel_mean': [0.485, 0.456, 0.406],
         'pixel_std':  [0.229, 0.224, 0.225],
-        ## Transforms
-        'trans_config': [
-            {'name': 'RandomResize', 'random_sizes': [256, 288, 320, 352, 384, 416, 448, 480, 512, 544, 576, 608], 'max_size': 900},
-            {'name': 'RandomHFlip'},
-        ],
     },
 
-    'fcos_rt_r50_3x':{
+    'fcos_rt_r18_3x':{
         # ----------------- Model-----------------
         ## Backbone
         'backbone': 'resnet50',
@@ -384,8 +359,8 @@ fcos_cfg = {
         'out_stride': [8, 16, 32],
         ## Neck
         'neck': 'pafpn',
-        'fpn_p6_feat': True,
-        'fpn_p7_feat': True,
+        'fpn_p6_feat': False,
+        'fpn_p7_feat': False,
         'fpn_p6_from_c5': False,
         ## Head
         'head': 'fcos_head',
@@ -432,19 +407,14 @@ fcos_cfg = {
         'max_epoch': 36,       # 1x
         'lr_epoch': [24, 33],  # 1x
         # ----------------- Input -----------------
-        ## Image size
-        'train_min_size': 512,
+        ## Transforms
+        'random_sizes': [256, 288, 320, 352, 384, 416, 448, 480, 512, 544, 576, 608],
         'train_max_size': 900,
         'test_min_size': 512,
         'test_max_size': 736,
         ## Pixel mean & std
         'pixel_mean': [0.485, 0.456, 0.406],
         'pixel_std':  [0.229, 0.224, 0.225],
-        ## Transforms
-        'trans_config': [
-            {'name': 'RandomResize', 'random_sizes': [256, 288, 320, 352, 384, 416, 448, 480, 512, 544, 576, 608], 'max_size': 900},
-            {'name': 'RandomHFlip'},
-        ],
     },
 
 }

@@ -150,7 +150,7 @@ def main():
     # ----------------------- Eval before training -----------------------
     if args.eval_first and distributed_utils.is_main_process():
         evaluator.evaluate(model_without_ddp)
-        # return
+        return
 
     # ----------------------- Training -----------------------
     print("Start training")
@@ -181,9 +181,9 @@ def main():
                     # save model
                     print('Saving state, epoch:', epoch + 1)
                     torch.save({'model':        model_without_ddp.state_dict(),
-                                'mAP':          round(cur_map*100, 1),
                                 'optimizer':    optimizer.state_dict(),
                                 'lr_scheduler': lr_scheduler.state_dict(),
+                                'mAP':          round(cur_map*100, 1),
                                 'epoch':        epoch,
                                 'args':         args}, 
                                 os.path.join(path_to_save, '{}_best.pth'.format(args.model)))
