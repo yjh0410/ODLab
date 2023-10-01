@@ -30,7 +30,7 @@ def train_one_epoch(cfg,
     epoch_size = len(data_loader)
 
     t0 = time.time()
-    for iter_i, (images, masks, targets) in enumerate(data_loader):
+    for iter_i, (samples, targets) in enumerate(data_loader):
         ni = iter_i + epoch * epoch_size
         # WarmUp
         if ni < cfg['warmup_iters'] and lr_warmup_stage:
@@ -41,6 +41,7 @@ def train_one_epoch(cfg,
             warmup_lr_scheduler.set_lr(optimizer, cfg['base_lr'], cfg['base_lr'])
 
         # To device
+        images, masks = samples
         images = images.to(device)
         masks  = masks.to(device)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]

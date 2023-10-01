@@ -199,11 +199,9 @@ def batch_tensor_from_tensor_list(tensor_list: List[Tensor]):
 
 def collate_fn(batch):
     batch = list(zip(*batch))
-    tensor, mask = batch_tensor_from_tensor_list(batch[0])
-    target = batch[1]
-    batch = tuple(tensor, mask, target)
+    batch[0] = batch_tensor_from_tensor_list(batch[0])
 
-    return batch
+    return tuple(batch)
 
 
 # ---------------------------- For Model ----------------------------
