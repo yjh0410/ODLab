@@ -47,7 +47,7 @@ def parse_args():
     parser.add_argument('--vis_tgt', action="store_true", default=False,
                         help="visualize input data.")
     # Dataloader
-    parser.add_argument('--num_workers', default=4, type=int, 
+    parser.add_argument('--num_workers', default=2, type=int, 
                         help='Number of workers used in dataloading')
     # Epoch
     parser.add_argument('--eval_epoch', default=2, type=int,
