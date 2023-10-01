@@ -76,21 +76,18 @@ def fix_random_seed(args):
     random.seed(seed)
 
 
-def main():
-    args = parse_args()
-    print("Setting Arguments.. : ", args)
-    print("----------------------------------------------------------")
-
-    # path to save model
-    path_to_save = os.path.join(args.save_folder, args.dataset, args.model)
-    os.makedirs(path_to_save, exist_ok=True)
-
+def main(args):
     # ---------------------------- Build DDP ----------------------------
     distributed_utils.init_distributed_mode(args)
     print("git:\n  {}\n".format(distributed_utils.get_sha()))
     world_size = distributed_utils.get_world_size()
     print('World size: {}'.format(world_size))
     per_gpu_batch = args.batch_size // world_size
+
+    # path to save model
+    path_to_save = os.path.join(args.save_folder, args.dataset, args.model)
+    os.makedirs(path_to_save, exist_ok=True)
+
 
     # ---------------------------- Build CUDA ----------------------------
     if args.cuda:
@@ -191,4 +188,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    args = parse_args()
+    main(args)
