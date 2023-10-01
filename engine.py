@@ -62,12 +62,12 @@ def train_one_epoch(cfg,
 
         # Compute loss
         loss_dict = criterion(outputs, targets)
-        weight_dict = criterion.weight_dict
-        losses = sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict)
+        loss_weight_dict = criterion.weight_dict
+        losses = sum(loss_dict[k] * loss_weight_dict[k] for k in loss_dict.keys() if k in loss_weight_dict)
 
         # Reduce losses over all GPUs for logging purposes
         loss_dict_reduced = distributed_utils.reduce_dict(loss_dict)
-        loss_dict_reduced_scaled = {k: v * weight_dict[k] for k, v in loss_dict_reduced.items() if k in weight_dict}
+        loss_dict_reduced_scaled = {k: v * loss_weight_dict[k] for k, v in loss_dict_reduced.items() if k in loss_weight_dict}
         losses_reduced_scaled = sum(loss_dict_reduced_scaled.values())
 
         loss_value = losses_reduced_scaled.item()
