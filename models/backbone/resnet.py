@@ -7,12 +7,17 @@ import torch
 import torchvision
 from torch import nn
 from torchvision.models._utils import IntermediateLayerGetter
-
+from torchvision.models.resnet import (ResNet18_Weights,
+                                       ResNet34_Weights,
+                                       ResNet50_Weights,
+                                       ResNet101_Weights)
 
 model_urls = {
-    # CLIP pretrained
-    'resnet50_clip':  "https://openaipublic.azureedge.net/clip/models/afeb0e10f9e5a86da6080e35cf09123aca3b358a0c3e3b6c78a7b63bc04b6762/RN50.pt",
-    'resnet101_clip': "https://openaipublic.azureedge.net/clip/models/8fa8567bab74a42d41c5915025a8e4538c3bdbe8804a470a72f30b0d94fab599/RN101.pt",
+    # imagenet pretrain weights
+    'resnet18':  ResNet18_Weights,
+    'resnet34':  ResNet34_Weights,
+    'resnet50':  ResNet50_Weights,
+    'resnet101': ResNet101_Weights,
 }
 
 
@@ -58,26 +63,37 @@ class FrozenBatchNorm2d(torch.nn.Module):
 # -------------------- ResNet series --------------------
 class ResNet(nn.Module):
     """ResNet backbone with frozen BatchNorm."""
-    def __init__(self, name: str, pretrained: bool, res5_dilation: bool, norm_type: str):
+    def __init__(self, name: str, res5_dilation: bool, norm_type: str, pretrained_weights: str = "imagenet1k_v1"):
         super().__init__()
-        # norm layer
+        # Pretrained
+        assert pretrained_weights in [None, "imagenet1k_v1", "imagenet1k_v2"]
+        if pretrained_weights is not None:
+            if name in ('resnet18', 'resnet34'):
+                pretrained_weights = model_urls[name].IMAGENET1K_V1
+            else:
+                if pretrained_weights == "imagenet1k_v1":
+                    pretrained_weights = model_urls[name].IMAGENET1K_V1
+                else:
+                    pretrained_weights = model_urls[name].IMAGENET1K_V2
+        else:
+            pretrained_weights = None
+        print('ImageNet pretrained weight: ', pretrained_weights)
+        # Norm layer
         if norm_type == 'BN':
             norm_layer = nn.BatchNorm2d
         elif norm_type == 'FrozeBN':
             norm_layer = FrozenBatchNorm2d
-        # backbone
+        # Backbone
         backbone = getattr(torchvision.models, name)(
             replace_stride_with_dilation=[False, False, res5_dilation],
-            pretrained=pretrained, norm_layer=norm_layer)
-        feat_dims = [128, 256, 512] if name in ('resnet18', 'resnet34') else [512, 1024, 2048]
-        # freeze 
+            norm_layer=norm_layer, weights=pretrained_weights)
+        return_layers = {"layer2": "0", "layer3": "1", "layer4": "2"}
+        self.body = IntermediateLayerGetter(backbone, return_layers=return_layers)
+        self.feat_dims = [128, 256, 512] if name in ('resnet18', 'resnet34') else [512, 1024, 2048]
+        # Freeze
         for name, parameter in backbone.named_parameters():
             if 'layer2' not in name and 'layer3' not in name and 'layer4' not in name:
                 parameter.requires_grad_(False)
-        return_layers = {"layer2": "0", "layer3": "1", "layer4": "2"}
-
-        self.body = IntermediateLayerGetter(backbone, return_layers=return_layers)
-        self.feat_dims = feat_dims
 
     def forward(self, x):
         xs = self.body(x)
@@ -89,9 +105,9 @@ class ResNet(nn.Module):
 
 
 # build backbone
-def build_resnet(cfg, pretrained=False):
+def build_resnet(cfg, pretrained_weight=None):
     # ResNet series
-    backbone = ResNet(cfg['backbone'], pretrained, cfg['res5_dilation'], cfg['backbone_norm'])
+    backbone = ResNet(cfg['backbone'], cfg['res5_dilation'], cfg['backbone_norm'], pretrained_weight)
 
     return backbone, backbone.feat_dims
 
@@ -100,10 +116,10 @@ if __name__ == '__main__':
     cfg = {
         'backbone':      'resnet50',
         'backbone_norm': 'FrozeBN',
-        'pretrained':    True,
+        'pretrained_weight': 'imagenet1k_v1',
         'res5_dilation': False,
     }
-    model, feat_dim = build_resnet(cfg, pretrained=True)
+    model, feat_dim = build_resnet(cfg, cfg['pretrained_weight'])
     print(feat_dim)
 
     x = torch.randn(2, 3, 320, 320)
