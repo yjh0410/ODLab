@@ -3,7 +3,6 @@
 Train and eval functions used in main.py
 """
 import math
-import time
 import sys
 from typing import Iterable
 
@@ -27,15 +26,13 @@ def train_one_epoch(cfg,
                     ):
     model.train()
     criterion.train()
-    lr_warmup_stage = True
-    epoch_size = len(data_loader)
     metric_logger = MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', SmoothedValue(window_size=1, fmt='{value:.6f}'))
     header = 'Epoch: [{} / {}]'.format(epoch, max_epoch)
+    lr_warmup_stage = True
+    epoch_size = len(data_loader)
     print_freq = 10
 
-    # t0 = time.time()
-    # for iter_i, (samples, targets) in enumerate(data_loader):
     iteration = 0
     for samples, targets in metric_logger.log_every(data_loader, print_freq, header):
         ni = iteration + epoch * epoch_size
