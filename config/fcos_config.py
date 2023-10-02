@@ -105,6 +105,7 @@ fcos_cfg = {
         'test_topk': 100,
         'test_conf_thresh': 0.1,
         'test_nms_thresh': 0.45,
+        'nms_class_agnostic': True,  # We prefer to use class-agnostic NMS in the demo.
         # ----------------- Label Assignment -----------------
         'matcher': 'fcos_matcher',
         'matcher_hpy':{'center_sampling_radius': 1.5,
@@ -179,6 +180,7 @@ fcos_cfg = {
         'test_topk': 100,
         'test_conf_thresh': 0.1,
         'test_nms_thresh': 0.45,
+        'nms_class_agnostic': True,  # We prefer to use class-agnostic NMS in the demo.
         # ----------------- Label Assignment -----------------
         'matcher': 'fcos_matcher',
         'matcher_hpy':{'center_sampling_radius': 1.5,
@@ -253,6 +255,7 @@ fcos_cfg = {
         'test_topk': 100,
         'test_conf_thresh': 0.1,
         'test_nms_thresh': 0.45,
+        'nms_class_agnostic': True,  # We prefer to use class-agnostic NMS in the demo.
         # ----------------- Label Assignment -----------------
         'matcher': 'fcos_matcher',
         'matcher_hpy':{'center_sampling_radius': 1.5,
@@ -327,6 +330,7 @@ fcos_cfg = {
         'test_topk': 100,
         'test_conf_thresh': 0.1,
         'test_nms_thresh': 0.45,
+        'nms_class_agnostic': True,  # We prefer to use class-agnostic NMS in the demo.
         # ----------------- Label Assignment -----------------
         'matcher': 'fcos_matcher',
         'matcher_hpy':{'center_sampling_radius': 1.5,
@@ -373,7 +377,7 @@ fcos_cfg = {
         ],
     },
 
-    'fcos_rt_r18_3x':{
+    'fcos_rt_r50_3x':{
         # ----------------- Model-----------------
         ## Backbone
         'backbone': 'resnet50',
@@ -401,6 +405,7 @@ fcos_cfg = {
         'test_topk': 100,
         'test_conf_thresh': 0.1,
         'test_nms_thresh': 0.45,
+        'nms_class_agnostic': True,  # We prefer to use class-agnostic NMS in the demo.
         # ----------------- Label Assignment -----------------
         'matcher': 'fcos_matcher',
         'matcher_hpy':{'center_sampling_radius': 1.5,
