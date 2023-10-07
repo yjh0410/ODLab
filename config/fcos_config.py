@@ -234,7 +234,7 @@ fcos_cfg = {
     'fcos_r50_3x':{
         # ----------------- Model-----------------
         ## Backbone
-        'backbone': 'resnet18',
+        'backbone': 'resnet50',
         'backbone_norm': 'FrozeBN',
         'res5_dilation': False,
         'pretrained': True,
@@ -539,7 +539,7 @@ fcos_cfg = {
     'fcos_r50_3x_v2':{
         # ----------------- Model-----------------
         ## Backbone
-        'backbone': 'resnet18',
+        'backbone': 'resnet50',
         'backbone_norm': 'FrozeBN',
         'res5_dilation': False,
         'pretrained': True,
