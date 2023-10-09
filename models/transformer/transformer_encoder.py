@@ -44,14 +44,16 @@ class TransformerEncoder(nn.Module):
 
     def forward(self,
                 src,
-                src_key_padding_mask=None,
-                pos_embed=None):
+                mask = None,
+                src_key_padding_mask = None,
+                pos_embed = None):
         output = src
 
         for layer in self.layers:
             output = layer(output,
-                           src_key_padding_mask=src_key_padding_mask,
-                           pos=pos_embed)
+                           src_mask = mask,
+                           src_key_padding_mask = src_key_padding_mask,
+                           pos = pos_embed)
 
         if self.norm is not None:
             output = self.norm(output)

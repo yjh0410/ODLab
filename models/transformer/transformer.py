@@ -123,29 +123,25 @@ class PlainDETRTransformer(nn.Module):
             encoder_norm = nn.LayerNorm(d_model) if norm_before else None
             encoder_layer = TransformerEncoderLayer(d_model, encoder_num_head, encoder_mlp_ratio, encoder_dropout, encoder_act_type, norm_before)
             self.encoder_layers = TransformerEncoder(encoder_layer, num_encoder, encoder_norm)
-        
         ## Upsample layer
         self.upsample_layer = None
         if upsample:
             self.upsample_layer = nn.ConvTranspose2d(d_model, d_model, kernel_size=4, padding=1, stride=2)
-        
         ## Transformer Decoder
         self.decoder_layers = None
         if num_decoder > 0:
             decoder_norm = nn.LayerNorm(d_model)
             decoder_layer = TransformerDecoderLayer(d_model, decoder_num_head, decoder_mlp_ratio, decoder_dropout, decoder_act_type, norm_before)
             self.decoder_layers = TransformerDecoder(decoder_layer, num_decoder, decoder_norm, return_intermediate)
-        
+        ## Adaptive pos_embed
         self.adapt_pos = nn.Sequential(
             nn.Linear(self.d_model, self.d_model),
             nn.ReLU(),
             nn.Linear(self.d_model, self.d_model),
         )
-        
-        # Object Query
+        ## Object Query
         self.refpoint_embed = nn.Embedding(num_queries, 4)
         self.query_embed = nn.Embedding(num_queries, d_model)
-
         ## Output head
         self.class_embed = nn.Linear(self.d_model, num_classes)
         self.bbox_embed  = MLP(self.d_model, self.d_model, 4, 3)
@@ -221,12 +217,10 @@ class PlainDETRTransformer(nn.Module):
         # ------------------------ Transformer Encoder ------------------------
         ## Reshape: [B, C, H, W] -> [B, N, C], N = HW
         src = src.permute(0, 2, 3, 1).reshape(bs, -1, c)
-        
+        pos_embed = self.get_posembed(src)
+        pos_embed = pos_embed.permute(0, 2, 3, 1).reshape(bs, -1, c)
         ## Encoder layer
         if self.encoder_layers:
-            ## Generate pos_embed for src
-            pos_embed = self.get_posembed(src)
-            pos_embed = pos_embed.permute(0, 2, 3, 1).reshape(bs, -1, c)     
             for layer_id, encoder_layer in enumerate(self.encoder_layers):
                 src = encoder_layer(src, src_key_padding_mask=mask, pos_embed=pos_embed)
 
@@ -251,7 +245,7 @@ class PlainDETRTransformer(nn.Module):
         output_classes = []
         output_coords = []
         for layer_id, decoder_layer in enumerate(self.decoder_layers):
-            # pos embed
+            # Adaptive pos embed
             query_pos = self.adapt_pos(self.pos_to_posembed(ref_point))
             # Decoder
             tgt = decoder_layer(tgt, src, memory_key_padding_mask=mask, pos=pos_embed, query_pos=query_pos)
