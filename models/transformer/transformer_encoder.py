@@ -34,7 +34,7 @@ def _get_activation_fn(activation):
     raise RuntimeError(F"activation should be relu/gelu, not {activation}.")
 
 
-# ---------------------------- Transformer Encoder modules ----------------------------
+# ---------------------------- Vanilla Transformer Encoder modules ----------------------------
 class TransformerEncoder(nn.Module):
     def __init__(self, encoder_layer, num_layers, norm=None):
         super().__init__()
@@ -42,12 +42,16 @@ class TransformerEncoder(nn.Module):
         self.num_layers = num_layers
         self.norm = norm
 
-    def forward(self, src, mask=None, src_key_padding_mask=None, pos=None):
+    def forward(self,
+                src,
+                src_key_padding_mask=None,
+                pos_embed=None):
         output = src
 
         for layer in self.layers:
-            output = layer(output, src_mask=mask,
-                           src_key_padding_mask=src_key_padding_mask, pos=pos)
+            output = layer(output,
+                           src_key_padding_mask=src_key_padding_mask,
+                           pos=pos_embed)
 
         if self.norm is not None:
             output = self.norm(output)
@@ -74,8 +78,12 @@ class TransformerEncoderLayer(nn.Module):
     def with_pos_embed(self, tensor, pos: Optional[Tensor]):
         return tensor if pos is None else tensor + pos
 
-    def forward(self, src, src_mask=None, src_key_padding_mask=None, pos=None):
-        q = k = self.with_pos_embed(src, pos)
+    def forward(self,
+                src,
+                src_mask=None,
+                src_key_padding_mask=None,
+                pos_embed=None):
+        q = k = self.with_pos_embed(src, pos_embed)
         v = src
         # self-attention
         src2 = self.self_attn(q, k, v, attn_mask=src_mask, key_padding_mask=src_key_padding_mask)[0]
@@ -85,3 +93,6 @@ class TransformerEncoderLayer(nn.Module):
         src = self.ffn(src)
 
         return src
+
+
+# ---------------------------- XXX Transformer Encoder modules ----------------------------

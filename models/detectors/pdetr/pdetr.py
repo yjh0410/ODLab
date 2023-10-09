@@ -14,13 +14,15 @@ class PlainDETR(nn.Module):
                  num_classes :int   = 20, 
                  conf_thresh :float = 0.05,
                  topk        :int   = 100,
-                 trainable   :bool  = False):
+                 trainable   :bool  = False,
+                 aux_loss    :bool  = False):
         super(PlainDETR, self).__init__()
         # ---------------------- Basic Parameters ----------------------
         self.cfg = cfg
         self.device = device
-        self.topk = topk
+        self.num_topk = topk
         self.num_classes = num_classes
+        self.aux_loss = aux_loss
         self.trainable = trainable
         self.conf_thresh = conf_thresh
         self.stride = cfg['out_stride']
@@ -28,7 +30,73 @@ class PlainDETR(nn.Module):
         # ---------------------- Network Parameters ----------------------
         ## Backbone
         self.backbone, self.feat_dims = build_backbone(cfg, trainable&cfg['pretrained'])
+        self.input_proj = nn.Conv2d(self.feat_dims[-1], cfg['d_model'], kernel_size=1)
 
         ## Transformer
-        self.encoder = build_transformer(cfg, num_classes, return_intermediate=trainable)
-        
+        self.transformer = build_transformer(cfg, num_classes, return_intermediate=trainable)
+
+    def post_process(self, cls_pred, box_pred):
+        ## Top-k select
+        cls_pred = cls_pred[0].flatten().sigmoid_()
+        box_pred = box_pred[0]
+        predicted_prob, topk_idxs = cls_pred.sort(descending=True)
+        topk_idxs = topk_idxs[:self.num_topk]
+        topk_box_idxs = torch.div(topk_idxs, self.num_classes, rounding_mode='floor')
+        ## Top-k results
+        topk_scores = predicted_prob[:self.num_topk]
+        topk_labels = topk_idxs % self.num_classes
+        topk_bboxes = box_pred[topk_box_idxs]
+
+        return topk_bboxes, topk_scores, topk_labels
+
+    @torch.jit.unused
+    def set_aux_loss(self, outputs_class, outputs_coord):
+        # this is a workaround to make torchscript happy, as torchscript
+        # doesn't support dictionary with non-homogeneous values, such
+        # as a dict having both a Tensor and a list.
+        return [{'pred_logits': a, 'pred_boxes': b}
+                for a, b in zip(outputs_class[:-1], outputs_coord[:-1])]
+
+    @torch.no_grad()
+    def inference_single_image(self, x):
+        # ---------------- Backbone ----------------
+        pyramid_feats = self.backbone(x)
+        feat = self.input_proj(pyramid_feats[-1])
+
+        # ---------------- Transformer ----------------
+        output_classes, output_coords = self.transformer(feat)
+
+        # ---------------- PostProcess ----------------
+        bboxes, scores, labels = self.post_process(output_classes[-1], output_coords[-1])
+
+        # normalize bbox
+        bboxes[..., 0::2] /= x.shape[-1]
+        bboxes[..., 1::2] /= x.shape[-2]
+        bboxes = bboxes.clip(0., 1.)
+
+        return bboxes, scores, labels
+
+    def forward(self, x, mask=None):
+        if not self.trainable:
+            return self.inference_single_image(x)
+        else:
+            # Backbone
+            pyramid_feats = self.backbone(x)
+            feat = self.input_proj(pyramid_feats[-1])
+
+            # Modify mask
+            fmp_size = feat.shape[-2:]
+            if mask is not None:
+                # [B, H, W]
+                mask = nn.functional.interpolate(mask[None].float(), size=fmp_size).bool()[0]
+            else:
+                mask = torch.zeros([x.shape[0], *fmp_size], device=x.device, dtype=torch.bool)
+
+            # Transformer
+            output_classes, output_coords = self.transformer(feat, mask)
+
+            outputs = {'pred_logits': output_classes[-1], 'pred_boxes': output_coords[-1]}
+            if self.aux_loss:
+                outputs['aux_outputs'] = self.set_aux_loss(output_classes, output_coords)
+            
+            return outputs

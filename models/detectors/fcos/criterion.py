@@ -9,7 +9,7 @@ from .matcher import FcosMatcher
 
 
 class Criterion(nn.Module):
-    def __init__(self, cfg, device, num_classes=80):
+    def __init__(self, cfg, device, num_classes=90):
         super().__init__()
         # ------------- Basic parameters -------------
         self.cfg = cfg

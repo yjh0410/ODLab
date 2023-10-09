@@ -24,7 +24,7 @@ def _get_clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
 
 
-# ---------------------------- Transformer Encoder modules ----------------------------
+# ---------------------------- Vanilla Transformer Decoder modules ----------------------------
 class TransformerDecoder(nn.Module):
     def __init__(self, decoder_layer, num_layers, norm=None, return_intermediate=False):
         super().__init__()
@@ -117,3 +117,6 @@ class TransformerDecoderLayer(nn.Module):
         tgt = self.ffn(tgt)
         
         return tgt
+
+
+# ---------------------------- XXX Transformer Decoder modules ----------------------------
