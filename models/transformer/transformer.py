@@ -52,7 +52,7 @@ class DETRTransformer(nn.Module):
         self.encoder_layers = _get_clones(encoder_layer, num_encoder)
         self.encoder_norm = nn.LayerNorm(d_model) if norm_before else None
         ## Transformer Decoder
-        decoder_layer = PlainDETRTransformerDecoderLayer(d_model, decoder_num_head, decoder_mlp_ratio, decoder_dropout, decoder_act_type)
+        decoder_layer = DETRTransformerDecoderLayer(d_model, decoder_num_head, decoder_mlp_ratio, decoder_dropout, decoder_act_type)
         self.decoder_layers = _get_clones(decoder_layer, num_decoder)
         self.decoder_norm = nn.LayerNorm(d_model)
         # Object Query
@@ -76,20 +76,25 @@ class DETRTransformer(nn.Module):
         mask = mask.flatten(1)
 
         # Transformer encoder
-        memory = self.encoder_layers(src, src_key_padding_mask=mask, pos=pos_embed)
+        for encoder_layer in self.encoder_layers:
+            src = encoder_layer(src, src_key_padding_mask=mask, pos_embed=pos_embed)
+        memory = src
 
         # Transformer decoder
         query_embed = self.query_embed.weight.unsqueeze(1).repeat(1, bs, 1)
         tgt = torch.zeros_like(query_embed)
-        hs = self.decoder_layers(tgt, memory, memory_key_padding_mask=mask, pos=pos_embed, query_pos=query_embed)
-        hs = hs.transpose(1, 2)
-        memory = memory.permute(1, 2, 0).reshape(bs, c, h, w)
+        output_classes = []
+        output_coords = []
+        for decoder_layer in self.decoder_layers:
+            tgt = decoder_layer(tgt, memory, memory_key_padding_mask=mask, pos=pos_embed, query_pos=query_embed)
+            output = self.decoder_norm(tgt)
+            output_class = self.class_embed(output)
+            output_coord = self.bbox_embed(output)
 
-        # Output head
-        output_classes = self.class_embed(h)
-        output_coords = self.bbox_embed(h).sigmoid()
+            output_classes.append(output_class)
+            output_coords.append(output_coord)
 
-        return output_classes, output_coords
+        return torch.stack(output_classes), torch.stack(output_coords)
 
 
 # ----------------------------- PlainDETR Transformer -----------------------------
@@ -191,15 +196,14 @@ class PlainDETRTransformer(nn.Module):
         y_embed, x_embed = torch.meshgrid(
             [torch.arange(1, hs+1, dtype=torch.float32),
              torch.arange(1, ws+1, dtype=torch.float32)])
-        y_embed = y_embed / (hs + 1e-6) * scale
-        x_embed = x_embed / (ws + 1e-6) * scale
+        y_embed = (y_embed - 0.5) / hs * scale
+        x_embed = (x_embed - 0.5) / ws * scale
     
         # [H, W] -> [1, H, W]
         y_embed = y_embed[None, :, :].to(x.device)
         x_embed = x_embed[None, :, :].to(x.device)
-
-        # [1, H, W, 2]
         pos = torch.stack([x_embed, y_embed], dim=-1)
+
         # [1, H, W, C]
         pos_embed = self.pos2posembed(pos, temperature)
         pos_embed = pos_embed.permute(0, 3, 1, 2)
