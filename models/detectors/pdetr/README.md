@@ -1,4 +1,4 @@
-# PlainDETR: DETR without Multi-level design
+# PlainDETR: DETR without Multi-Scale or Locality Design
 
 - Tricks:
 
