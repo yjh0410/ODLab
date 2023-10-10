@@ -125,6 +125,7 @@ if __name__ == "__main__":
             {'name': 'RandomResize', 'random_sizes': [800], 'max_size': 1333},
             {'name': 'RandomHFlip'},
         ],
+        'normalize_coords': False,
     }
 
     # build dataset
@@ -143,6 +144,9 @@ if __name__ == "__main__":
         tgt_bboxes = target["boxes"]
         tgt_labels = target["labels"]
         for box, label in zip(tgt_bboxes, tgt_labels):
+            if cfg['normalize_coords']:
+                box[..., [0, 2]] *= orig_w
+                box[..., [1, 3]] *= orig_h
             # get box target
             x1, y1, x2, y2 = box.long()
             # get class label

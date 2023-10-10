@@ -77,6 +77,7 @@ fcos_cfg = {
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
         ],
+        'normalize_coords': False,
     },
 
     'fcos_r50_1x':{
@@ -153,6 +154,7 @@ fcos_cfg = {
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
         ],
+        'normalize_coords': False,
     },
 
     'fcos_r18_3x':{
@@ -229,6 +231,7 @@ fcos_cfg = {
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
         ],
+        'normalize_coords': False,
     },
 
     'fcos_r50_3x':{
@@ -305,6 +308,7 @@ fcos_cfg = {
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
         ],
+        'normalize_coords': False,
     },
 
     'fcos_rt_r18_3x':{
@@ -381,6 +385,7 @@ fcos_cfg = {
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
         ],
+        'normalize_coords': False,
     },
 
     'fcos_rt_r50_3x':{
@@ -457,6 +462,7 @@ fcos_cfg = {
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
         ],
+        'normalize_coords': False,
     },
 
     # ImageNet1k-V2 pretrained
@@ -534,6 +540,7 @@ fcos_cfg = {
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
         ],
+        'normalize_coords': False,
     },
 
     'fcos_r50_3x_v2':{
@@ -610,6 +617,7 @@ fcos_cfg = {
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
         ],
+        'normalize_coords': False,
     },
 
     'fcos_rt_r50_3x_v2':{
@@ -686,6 +694,7 @@ fcos_cfg = {
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
         ],
+        'normalize_coords': False,
     },
 
 }

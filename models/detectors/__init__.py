@@ -2,6 +2,7 @@
 import torch
 
 from .fcos.build import build_fcos
+from .pdetr.build import build_pdetr
 
 
 # build object detector
@@ -9,6 +10,9 @@ def build_model(args, cfg, device, num_classes=90, trainable=False):
     # FCOS    
     if 'fcos' in args.model:
         model, criterion = build_fcos(cfg, device, num_classes, trainable)
+    # PlainDETR    
+    if 'pdetr' in args.model:
+        model, criterion = build_pdetr(cfg, device, num_classes, trainable)
         
     if trainable:
         # Load pretrained weight

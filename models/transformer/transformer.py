@@ -12,9 +12,13 @@ import copy
 import torch
 import torch.nn as nn
 
-from .transformer_encoder import TransformerEncoderLayer, TransformerEncoder
-from .transformer_decoder import TransformerDecoderLayer, TransformerDecoder
+from .transformer_encoder import DETRTransformerEncoderLayer, PlainDETRTransformerEncoderLayer
+from .transformer_decoder import DETRTransformerDecoderLayer, PlainDETRTransformerDecoderLayer
 from ..basic.mlp import MLP
+
+
+def _get_clones(module, N):
+    return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
 
 
 # ----------------------------- DETR Transformer -----------------------------
@@ -44,13 +48,13 @@ class DETRTransformer(nn.Module):
         self.return_intermediate = return_intermediate
         # --------------- Network parameters ---------------
         ## Transformer Encoder
-        encoder_norm = nn.LayerNorm(d_model) if norm_before else None
-        encoder_layer = TransformerEncoderLayer(d_model, encoder_num_head, encoder_mlp_ratio, encoder_dropout, encoder_act_type, norm_before)
-        self.encoder_layers = TransformerEncoder(encoder_layer, num_encoder, encoder_norm)
+        encoder_layer = DETRTransformerEncoderLayer(d_model, encoder_num_head, encoder_mlp_ratio, encoder_dropout, encoder_act_type)
+        self.encoder_layers = _get_clones(encoder_layer, num_encoder)
+        self.encoder_norm = nn.LayerNorm(d_model) if norm_before else None
         ## Transformer Decoder
-        decoder_norm = nn.LayerNorm(d_model)
-        decoder_layer = TransformerDecoderLayer(d_model, decoder_num_head, decoder_mlp_ratio, decoder_dropout, decoder_act_type, norm_before)
-        self.decoder_layers = TransformerDecoder(decoder_layer, num_decoder, decoder_norm, return_intermediate)
+        decoder_layer = PlainDETRTransformerDecoderLayer(d_model, decoder_num_head, decoder_mlp_ratio, decoder_dropout, decoder_act_type)
+        self.decoder_layers = _get_clones(decoder_layer, num_decoder)
+        self.decoder_norm = nn.LayerNorm(d_model)
         # Object Query
         self.query_embed = nn.Embedding(num_queries, d_model)
         ## Output head
@@ -120,9 +124,9 @@ class PlainDETRTransformer(nn.Module):
         ## Transformer Encoder
         self.encoder_layers = None
         if num_encoder > 0:
-            encoder_norm = nn.LayerNorm(d_model) if norm_before else None
-            encoder_layer = TransformerEncoderLayer(d_model, encoder_num_head, encoder_mlp_ratio, encoder_dropout, encoder_act_type, norm_before)
-            self.encoder_layers = TransformerEncoder(encoder_layer, num_encoder, encoder_norm)
+            encoder_layer = PlainDETRTransformerEncoderLayer(d_model, encoder_num_head, encoder_mlp_ratio, encoder_dropout, encoder_act_type)
+            self.encoder_layers = _get_clones(encoder_layer, num_encoder)
+            self.encoder_norm = nn.LayerNorm(d_model) if norm_before else None
         ## Upsample layer
         self.upsample_layer = None
         if upsample:
@@ -130,9 +134,9 @@ class PlainDETRTransformer(nn.Module):
         ## Transformer Decoder
         self.decoder_layers = None
         if num_decoder > 0:
-            decoder_norm = nn.LayerNorm(d_model)
-            decoder_layer = TransformerDecoderLayer(d_model, decoder_num_head, decoder_mlp_ratio, decoder_dropout, decoder_act_type, norm_before)
-            self.decoder_layers = TransformerDecoder(decoder_layer, num_decoder, decoder_norm, return_intermediate)
+            decoder_layer = PlainDETRTransformerDecoderLayer(d_model, decoder_num_head, decoder_mlp_ratio, decoder_dropout, decoder_act_type)
+            self.decoder_layers = _get_clones(decoder_layer, num_decoder)
+            self.decoder_norm = nn.LayerNorm(d_model)
         ## Adaptive pos_embed
         self.adapt_pos = nn.Sequential(
             nn.Linear(self.d_model, self.d_model),
@@ -165,34 +169,7 @@ class PlainDETRTransformer(nn.Module):
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
 
-    def get_posembed(self, x, temperature=10000):
-        num_pos_feats, hs, ws = x.shape[1]//2, x.shape[2], x.shape[3]
-        # generate xy coord mat
-        y_embed, x_embed = torch.meshgrid(
-            [torch.arange(1, hs+1, dtype=torch.float32),
-             torch.arange(1, ws+1, dtype=torch.float32)])
-        y_embed = y_embed / (hs + 1e-6) * self.scale
-        x_embed = x_embed / (ws + 1e-6) * self.scale
-    
-        # [H, W] -> [1, H, W]
-        y_embed = y_embed[None, :, :].to(x.device)
-        x_embed = x_embed[None, :, :].to(x.device)
-
-        dim_t = torch.arange(num_pos_feats, dtype=torch.float32, device=x.device)
-        dim_t_ = torch.div(dim_t, 2, rounding_mode='floor') / num_pos_feats
-        dim_t = temperature ** (2 * dim_t_)
-
-        pos_x = torch.div(x_embed[..., None], dim_t)
-        pos_y = torch.div(y_embed[..., None], dim_t)
-        pos_x = torch.stack((pos_x[..., 0::2].sin(), pos_x[..., 1::2].cos()), dim=4).flatten(3)
-        pos_y = torch.stack((pos_y[..., 0::2].sin(), pos_y[..., 1::2].cos()), dim=4).flatten(3)
-
-        # [B, H, W, C] -> [B, C, H, W]
-        pos_embed = torch.cat((pos_y, pos_x), dim=3).permute(0, 3, 1, 2)
-        
-        return pos_embed        
-
-    def pos_to_posembed(self, pos, temperature=10000):
+    def pos2posembed(self, pos, temperature=10000):
         scale = 2 * math.pi
         num_pos_feats = self.d_model // 2
         pos = pos * scale
@@ -207,36 +184,87 @@ class PlainDETRTransformer(nn.Module):
         
         return posemb
 
+    def get_posembed(self, x, temperature=10000):
+        hs, ws = x.shape[-2:]
+        scale = 2 * math.pi
+        # generate xy coord mat
+        y_embed, x_embed = torch.meshgrid(
+            [torch.arange(1, hs+1, dtype=torch.float32),
+             torch.arange(1, ws+1, dtype=torch.float32)])
+        y_embed = y_embed / (hs + 1e-6) * scale
+        x_embed = x_embed / (ws + 1e-6) * scale
+    
+        # [H, W] -> [1, H, W]
+        y_embed = y_embed[None, :, :].to(x.device)
+        x_embed = x_embed[None, :, :].to(x.device)
+
+        # [1, H, W, 2]
+        pos = torch.stack([x_embed, y_embed], dim=-1)
+        # [1, H, W, C]
+        pos_embed = self.pos2posembed(pos, temperature)
+        pos_embed = pos_embed.permute(0, 3, 1, 2)
+
+        # dim_t = torch.arange(num_pos_feats, dtype=torch.float32, device=x.device)
+        # dim_t_ = torch.div(dim_t, 2, rounding_mode='floor') / num_pos_feats
+        # dim_t = temperature ** (2 * dim_t_)
+
+        # pos_x = torch.div(x_embed[..., None], dim_t)
+        # pos_y = torch.div(y_embed[..., None], dim_t)
+        # pos_x = torch.stack((pos_x[..., 0::2].sin(), pos_x[..., 1::2].cos()), dim=4).flatten(3)
+        # pos_y = torch.stack((pos_y[..., 0::2].sin(), pos_y[..., 1::2].cos()), dim=4).flatten(3)
+
+        # # [B, H, W, C] -> [B, C, H, W]
+        # pos_embed = torch.cat((pos_y, pos_x), dim=3).permute(0, 3, 1, 2)
+        
+        return pos_embed        
+
     def inverse_sigmoid(self, x):
         x = x.clamp(min=0, max=1)
         return torch.log(x.clamp(min=1e-5)/(1 - x).clamp(min=1e-5))
 
-    def forward(self, src, mask):
+    def resize_mask(self, src, mask=None):
         bs, c, h, w = src.shape
+        if mask is not None:
+            # [B, H, W]
+            mask = nn.functional.interpolate(mask[None].float(), size=[h, w]).bool()[0]
+        else:
+            mask = torch.zeros([bs, h, w], device=src.device, dtype=torch.bool)
+
+        return mask
+
+    def forward(self, src, src_mask=None):
+        bs, c, h, w = src.shape
+        mask = self.resize_mask(src, src_mask)
+        mask = mask.flatten(1)
 
         # ------------------------ Transformer Encoder ------------------------
-        ## Reshape: [B, C, H, W] -> [B, N, C], N = HW
-        src = src.permute(0, 2, 3, 1).reshape(bs, -1, c)
+        ## Get pos_embed: [B, C, H, W]
         pos_embed = self.get_posembed(src)
-        pos_embed = pos_embed.permute(0, 2, 3, 1).reshape(bs, -1, c)
+        ## Reshape: [B, C, H, W] -> [N, B, C], N = HW
+        src = src.flatten(2).permute(2, 0, 1)
+        pos_embed = pos_embed.flatten(2).permute(2, 0, 1)
         ## Encoder layer
         if self.encoder_layers:
-            for layer_id, encoder_layer in enumerate(self.encoder_layers):
+            for encoder_layer in self.encoder_layers:
                 src = encoder_layer(src, src_key_padding_mask=mask, pos_embed=pos_embed)
 
         ## Upsample feature
         if self.upsample_layer:
-            # Reshape: [B, N, C] -> [B, C, H, W]
-            src = src.permute(0, 2, 1).reshape(bs, c, h, w)
+            # Reshape: [N, B, C] -> [B, C, H, W]
+            src = src.permute(1, 2, 0).reshape(bs, c, h, w)
             src = self.upsample_layer(src)
+            mask = self.resize_mask(src, src_mask)
+            mask = mask.flatten(1)
             # Generate pos_embed for upsampled src
             pos_embed = self.get_posembed(src)
-            pos_embed = pos_embed.permute(0, 2, 3, 1).reshape(bs, -1, c)
+            ## Reshape: [B, C, H, W] -> [N, B, C], N = HW
+            src = src.flatten(2).permute(2, 0, 1)
+            pos_embed = pos_embed.flatten(2).permute(2, 0, 1)
 
         # ------------------------ Transformer Decoder ------------------------
-        ## Reshape tgt: [Nq, C] -> [B, Nq, C]
-        tgt = self.query_embed.weight[None].repeat(bs, 1, 1)
-        rfp_embed = self.refpoint_embed.weight.weight[None].repeat(bs, 1, 1)
+        ## Reshape tgt: [Nq, C] -> [Nq, B, C]
+        tgt = self.query_embed.weight[:, None, :].repeat(1, bs, 1)
+        rfp_embed = self.refpoint_embed.weight[:, None, :].repeat(1, bs, 1)
         ref_point = rfp_embed.sigmoid()
         ref_points = [ref_point]
         
@@ -246,7 +274,7 @@ class PlainDETRTransformer(nn.Module):
         output_coords = []
         for layer_id, decoder_layer in enumerate(self.decoder_layers):
             # Adaptive pos embed
-            query_pos = self.adapt_pos(self.pos_to_posembed(ref_point))
+            query_pos = self.adapt_pos(self.pos2posembed(ref_point))
             # Decoder
             tgt = decoder_layer(tgt, src, memory_key_padding_mask=mask, pos=pos_embed, query_pos=query_pos)
             # Iter update

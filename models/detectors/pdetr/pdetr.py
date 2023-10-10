@@ -12,7 +12,6 @@ class PlainDETR(nn.Module):
                  cfg,
                  device, 
                  num_classes :int   = 20, 
-                 conf_thresh :float = 0.05,
                  topk        :int   = 100,
                  trainable   :bool  = False,
                  aux_loss    :bool  = False):
@@ -24,8 +23,8 @@ class PlainDETR(nn.Module):
         self.num_classes = num_classes
         self.aux_loss = aux_loss
         self.trainable = trainable
-        self.conf_thresh = conf_thresh
-        self.stride = cfg['out_stride']
+        self.max_stride = cfg['max_stride']
+        self.out_stride = cfg['out_stride']
 
         # ---------------------- Network Parameters ----------------------
         ## Backbone
@@ -83,14 +82,6 @@ class PlainDETR(nn.Module):
             # Backbone
             pyramid_feats = self.backbone(x)
             feat = self.input_proj(pyramid_feats[-1])
-
-            # Modify mask
-            fmp_size = feat.shape[-2:]
-            if mask is not None:
-                # [B, H, W]
-                mask = nn.functional.interpolate(mask[None].float(), size=fmp_size).bool()[0]
-            else:
-                mask = torch.zeros([x.shape[0], *fmp_size], device=x.device, dtype=torch.bool)
 
             # Transformer
             output_classes, output_coords = self.transformer(feat, mask)

@@ -220,21 +220,22 @@ class ToTensor(object):
         return F.to_tensor(img), target
 
 class Normalize(object):
-    def __init__(self, mean, std):
+    def __init__(self, mean, std, normalize_coords=False):
         self.mean = mean
         self.std = std
+        self.normalize_coords = normalize_coords
 
     def __call__(self, image, target=None):
         image = F.normalize(image, mean=self.mean, std=self.std)
-        # if target is None:
-        #     return image, None
-        # target = target.copy()
-        # h, w = image.shape[-2:]
-        # if "boxes" in target:
-        #     boxes = target["boxes"]
-        #     boxes = box_xyxy_to_cxcywh(boxes)
-        #     boxes = boxes / torch.tensor([w, h, w, h], dtype=torch.float32)
-        #     target["boxes"] = boxes
+        if target is None:
+            return image, None
+        if self.normalize_coords:
+            target = target.copy()
+            h, w = image.shape[-2:]
+            if "boxes" in target:
+                boxes = target["boxes"]
+                boxes = boxes / torch.tensor([w, h, w, h], dtype=torch.float32)
+                target["boxes"] = boxes
         return image, target
 
 class Compose(object):
@@ -270,7 +271,7 @@ def build_transform(cfg=None, is_train=False):
                 transforms.append(RandomSizeCrop(t['min_crop_size'], max_size=t['max_crop_size']))
         transforms.extend([
             ToTensor(),
-            Normalize(cfg['pixel_mean'], cfg['pixel_std'])
+            Normalize(cfg['pixel_mean'], cfg['pixel_std'], cfg['normalize_coords'])
         ])
         return Compose(transforms)
     # ---------------- Transform for Evaluating ----------------
@@ -278,7 +279,7 @@ def build_transform(cfg=None, is_train=False):
         transforms = [
             RandomResize([cfg['test_min_size']], max_size=cfg['test_max_size']),
             ToTensor(),
-            Normalize(cfg['pixel_mean'], cfg['pixel_std'])
+            Normalize(cfg['pixel_mean'], cfg['pixel_std'], cfg['normalize_coords'])
         ]
     
     return Compose(transforms)
