@@ -2,11 +2,11 @@
 
 - Tricks:
 
-- [!x] Focal loss for classification.
+- [x] Focal loss for classification.
 - [x] Iterative refinement
-- [x] Content-related query
-- [x] Mixed query selection
-- [x] Hybrid Matching
+- [ ] Content-related query
+- [ ] Mixed query selection
+- [ ] Hybrid Matching
 
 - ImageNet-1K_V1 pretrained
 
