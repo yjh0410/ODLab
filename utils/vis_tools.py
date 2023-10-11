@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 # -------------------------- For Detection Task --------------------------
 ## visualize the input data during the training stage
-def vis_data(images, targets):
+def vis_data(images, targets, normalized_coord=False):
     """
         images: (tensor) [B, 3, H, W]
         targets: (list) a list of targets

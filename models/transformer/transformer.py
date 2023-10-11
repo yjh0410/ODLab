@@ -355,7 +355,7 @@ class PlainDETRTransformer(nn.Module):
         output_classes = []
         output_coords = []
         for layer_id, decoder_layer in enumerate(self.decoder_layers):
-            # conditional query
+            # Conditional query
             query_pos = self.ref_point_head(self.pos2posembed(ref_point))
             
             # Decoder

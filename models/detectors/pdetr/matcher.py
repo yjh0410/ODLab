@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from scipy.optimize import linear_sum_assignment
-from utils.box_ops import box_cxcywh_to_xyxy, generalized_box_iou
+from utils.box_ops import box_cxcywh_to_xyxy, box_xyxy_to_cxcywh, generalized_box_iou
 
 
 class HungarianMatcher(nn.Module):
@@ -31,7 +31,7 @@ class HungarianMatcher(nn.Module):
 
         # -------------------- Regression cost --------------------
         ## L1 cost: [Nq, M]
-        cost_bbox = torch.cdist(out_bbox, tgt_bbox.to(out_bbox.device), p=1)
+        cost_bbox = torch.cdist(out_bbox, box_xyxy_to_cxcywh(tgt_bbox).to(out_bbox.device), p=1)
         ## GIoU cost: Nq, M]
         cost_giou = -generalized_box_iou(box_cxcywh_to_xyxy(out_bbox), tgt_bbox.to(out_bbox.device))
 

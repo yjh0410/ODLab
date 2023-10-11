@@ -47,6 +47,9 @@ class CocoDetection(torchvision.datasets.CocoDetection):
         keep = (boxes[:, 3] > boxes[:, 1]) & (boxes[:, 2] > boxes[:, 0])
         boxes = boxes[keep]
         classes = classes[keep]
+        if 90 in classes:
+            print(classes)
+            print('woring !!!!')
 
         target = {}
         target["boxes"] = boxes
