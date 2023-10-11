@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 # -------------------------- For Detection Task --------------------------
 ## visualize the input data during the training stage
-def vis_data(images, targets, normalized_coord=False):
+def vis_data(images, targets, class_labels=None, normalized_coord=False):
     """
         images: (tensor) [B, 3, H, W]
         targets: (list) a list of targets
@@ -15,7 +15,7 @@ def vis_data(images, targets, normalized_coord=False):
     np.random.seed(0)
     class_colors = [(np.random.randint(255),
                      np.random.randint(255),
-                     np.random.randint(255)) for _ in range(90)]
+                     np.random.randint(255)) for _ in range(80)]
     pixel_means = [0.485, 0.456, 0.406]
     pixel_std   = [0.229, 0.224, 0.225]
 
@@ -38,6 +38,13 @@ def vis_data(images, targets, normalized_coord=False):
             color = class_colors[cls_id]
             # draw box
             cv2.rectangle(image, (x1, y1), (x2, y2), color, 2)
+            if class_labels is not None:
+                class_name = class_labels[cls_id]
+                # plot title bbox
+                t_size = cv2.getTextSize(class_name, 0, fontScale=1, thickness=2)[0]
+                cv2.rectangle(image, (x1, y1-t_size[1]), (int(x1 + t_size[0] * 0.4), y1), color, -1)
+                # put the test on the title bbox
+                cv2.putText(image, class_name, (int(x1), int(y1 - 5)), 0, 0.4, (0, 0, 0), 1, lineType=cv2.LINE_AA)
 
         cv2.imshow('train target', image)
         cv2.waitKey(0)

@@ -159,7 +159,7 @@ def main():
 
         # Train one epoch
         train_one_epoch(cfg, model, criterion, train_loader, optimizer, device, epoch,
-                        cfg['max_epoch'], cfg['clip_max_norm'], args.vis_tgt, wp_lr_scheduler)
+                        cfg['max_epoch'], cfg['clip_max_norm'], args.vis_tgt, wp_lr_scheduler, dataset_info['class_labels'])
         
         # LR Scheduler
         lr_scheduler.step()

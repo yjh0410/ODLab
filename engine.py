@@ -23,6 +23,7 @@ def train_one_epoch(cfg,
                     max_norm    : float,
                     vis_target  : bool,
                     warmup_lr_scheduler,
+                    class_labels = None,
                     ):
     model.train()
     criterion.train()
@@ -52,7 +53,7 @@ def train_one_epoch(cfg,
 
         # Visualize train targets
         if vis_target:
-            vis_data(images, targets)
+            vis_data(images, targets, class_labels)
 
         # Inference
         outputs = model(images, masks)
