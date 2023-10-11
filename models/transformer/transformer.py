@@ -239,6 +239,8 @@ class PlainDETRTransformer(nn.Module):
         for p in self.parameters():
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
+        xavier_uniform_(self.ref_point_head.weight.data, gain=1.0)
+        constant_(self.ref_point_head.bias.data, 0.0)
 
     def pos2posembed(self, pos, temperature=10000):
         scale = 2 * math.pi
