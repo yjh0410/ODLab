@@ -29,7 +29,10 @@ class PlainDETR(nn.Module):
         # ---------------------- Network Parameters ----------------------
         ## Backbone
         self.backbone, self.feat_dims = build_backbone(cfg, trainable&cfg['pretrained'])
-        self.input_proj = nn.Conv2d(self.feat_dims[-1], cfg['d_model'], kernel_size=1)
+        self.input_proj = nn.Sequential(
+            nn.Conv2d(self.feat_dims[-1], cfg['d_model'], kernel_size=1),
+            nn.GroupNorm(32, cfg['d_model'])
+        )
 
         ## Transformer
         self.transformer = build_transformer(cfg, num_classes, return_intermediate=trainable)

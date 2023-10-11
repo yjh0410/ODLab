@@ -11,6 +11,7 @@ import math
 import copy
 import torch
 import torch.nn as nn
+from torch.nn.init import xavier_uniform_, constant_
 
 from .transformer_encoder import DETRTransformerEncoderLayer, PlainDETRTransformerEncoderLayer
 from .transformer_decoder import DETRTransformerDecoderLayer, PlainDETRTransformerDecoderLayer
@@ -186,6 +187,7 @@ class PlainDETRTransformer(nn.Module):
         # --------------- Basic parameters ---------------
         self.d_model = d_model
         self.upsample = upsample
+        self.num_queries = num_queries
         self.num_classes = num_classes
         self.return_intermediate = return_intermediate
         # --------------- Network parameters ---------------
@@ -209,21 +211,18 @@ class PlainDETRTransformer(nn.Module):
             self.decoder_norm = nn.LayerNorm(d_model)
 
         ## Adaptive pos_embed
-        self.adapt_pos = nn.Sequential(
-            nn.Linear(self.d_model, self.d_model),
-            nn.ReLU(),
-            nn.Linear(self.d_model, self.d_model),
-        )
-
+        self.ref_point_head = MLP(2*d_model, d_model, d_model, 2)
+        self.query_pos_sine_scale = MLP(d_model, d_model, d_model, 2)
+        
         ## Object Query
+        self.tgt_embed = nn.Embedding(num_queries, d_model)
         self.refpoint_embed = nn.Embedding(num_queries, 4)
-        self.query_embed = nn.Embedding(num_queries, d_model)
-
+        
         ## Output head
-        self.class_embed = nn.Linear(self.d_model, num_classes)
-        self.bbox_embed  = MLP(self.d_model, self.d_model, 4, 3)
-        self.class_embed = nn.ModuleList([copy.deepcopy(self.class_embed) for _ in range(num_decoder)])
-        self.bbox_embed  = nn.ModuleList([copy.deepcopy(self.bbox_embed)  for _ in range(num_decoder)])
+        class_embed = nn.Linear(self.d_model, num_classes)
+        bbox_embed  = MLP(self.d_model, self.d_model, 4, 3)
+        self.class_embed = nn.ModuleList([copy.deepcopy(class_embed) for _ in range(num_decoder)])
+        self.bbox_embed  = nn.ModuleList([copy.deepcopy(bbox_embed)  for _ in range(num_decoder)])
 
         self.init_weight()
 
@@ -253,7 +252,19 @@ class PlainDETRTransformer(nn.Module):
         pos_y = pos[..., 1, None] / dim_t
         pos_x = torch.stack((pos_x[..., 0::2].sin(), pos_x[..., 1::2].cos()), dim=-1).flatten(-2)
         pos_y = torch.stack((pos_y[..., 0::2].sin(), pos_y[..., 1::2].cos()), dim=-1).flatten(-2)
-        posemb = torch.cat((pos_y, pos_x), dim=-1)
+        
+        if pos.size(-1) == 2:    
+            posemb = torch.cat((pos_y, pos_x), dim=-1)
+        elif pos.size(-1) == 4:
+            w_embed = pos[:, :, 2] * scale
+            pos_w = w_embed[:, :, None] / dim_t
+            pos_w = torch.stack((pos_w[:, :, 0::2].sin(), pos_w[:, :, 1::2].cos()), dim=3).flatten(2)
+            h_embed = pos[:, :, 3] * scale
+            pos_h = h_embed[:, :, None] / dim_t
+            pos_h = torch.stack((pos_h[:, :, 0::2].sin(), pos_h[:, :, 1::2].cos()), dim=3).flatten(2)
+            posemb = torch.cat((pos_y, pos_x, pos_w, pos_h), dim=-1)
+        else:
+            raise ValueError("Unknown pos_tensor shape(-1):{}".format(pos.size(-1)))
         
         return posemb
 
@@ -268,7 +279,7 @@ class PlainDETRTransformer(nn.Module):
         y_embed = (y_embed - 0.5) / (y_embed[:, -1:, :] + 1e-6)* scale
         x_embed = (x_embed - 0.5) / (x_embed[:, :, -1:] + 1e-6)* scale
     
-        # [H, W] -> [B, H, W]
+        # [H, W] -> [B, H, W, 2]
         pos = torch.stack([x_embed, y_embed], dim=-1)
 
         # [B, H, W, C]
@@ -333,29 +344,31 @@ class PlainDETRTransformer(nn.Module):
             mask = mask.flatten(1)
 
         # ------------------------ Transformer Decoder ------------------------
-        ## Reshape tgt: [Nq, C] -> [Nq, B, C]
-        tgt = self.query_embed.weight[:, None, :].repeat(1, bs, 1)
-        rfp_embed = self.refpoint_embed.weight[:, None, :].repeat(1, bs, 1)
-        ref_point = rfp_embed.sigmoid()
+        tgt = self.tgt_embed.weight[:, None, :].repeat(1, bs, 1)
+        refpoint_embed = self.refpoint_embed.weight[:, None, :].repeat(1, bs, 1)
+        ref_point = refpoint_embed.sigmoid()
         ref_points = [ref_point]
         
         ## Decoder layer
+        output = tgt
         outputs = []
         output_classes = []
         output_coords = []
         for layer_id, decoder_layer in enumerate(self.decoder_layers):
-            # Adaptive pos embed
-            query_pos = self.adapt_pos(self.pos2posembed(ref_point))
+            # conditional query
+            query_pos = self.ref_point_head(self.pos2posembed(ref_point))
+            
             # Decoder
-            tgt = decoder_layer(tgt, src, memory_key_padding_mask=mask, pos=pos_embed, query_pos=query_pos)
+            output = decoder_layer(output, src, memory_key_padding_mask=mask, pos=pos_embed, query_pos=query_pos)
+            
             # Iter update
-            delta_unsig = self.bbox_embed[layer_id](tgt)
+            delta_unsig = self.bbox_embed[layer_id](output)
             outputs_unsig = delta_unsig + self.inverse_sigmoid(ref_point)
             new_ref_point = outputs_unsig.sigmoid()
             ref_point = new_ref_point.detach()
 
-            outputs.append(tgt)
-            ref_points.append(ref_point)
+            outputs.append(self.decoder_norm(output))
+            ref_points.append(new_ref_point)
 
         # ------------------------ Detection Head ------------------------
         for lid, (ref_sig, output) in enumerate(zip(ref_points[:-1], outputs)):
