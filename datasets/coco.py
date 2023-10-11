@@ -47,9 +47,6 @@ class CocoDetection(torchvision.datasets.CocoDetection):
         keep = (boxes[:, 3] > boxes[:, 1]) & (boxes[:, 2] > boxes[:, 0])
         boxes = boxes[keep]
         classes = classes[keep]
-        if 90 in classes:
-            print(classes)
-            print('woring !!!!')
 
         target = {}
         target["boxes"] = boxes
@@ -112,7 +109,7 @@ if __name__ == "__main__":
     np.random.seed(0)
     class_colors = [(np.random.randint(255),
                      np.random.randint(255),
-                     np.random.randint(255)) for _ in range(90)]
+                     np.random.randint(255)) for _ in range(91)]
 
     # config
     cfg = {
@@ -146,6 +143,7 @@ if __name__ == "__main__":
 
         tgt_bboxes = target["boxes"]
         tgt_labels = target["labels"]
+        print(len(dataset.coco_labels))
         for box, label in zip(tgt_bboxes, tgt_labels):
             if cfg['normalize_coords']:
                 box[..., [0, 2]] *= orig_w

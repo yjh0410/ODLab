@@ -12,7 +12,7 @@ def build_dataset(args, transform=None, is_train=False):
         dataset = build_coco(args, transform, is_train)
         dataset_info = {
             'class_labels': dataset.coco_labels,
-            'num_classes': 90
+            'num_classes': 91
         }
 
     return dataset, dataset_info

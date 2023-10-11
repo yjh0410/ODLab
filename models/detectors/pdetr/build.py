@@ -6,7 +6,7 @@ from .pdetr import PlainDETR
 
 
 # build PlainDETR
-def build_pdetr(cfg, device, num_classes=90, trainable=False):
+def build_pdetr(cfg, device, num_classes=91, trainable=False):
     # -------------- Build PlainDETR --------------
     model = PlainDETR(cfg         = cfg,
                       device      = device,

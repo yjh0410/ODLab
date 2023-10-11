@@ -6,7 +6,7 @@ from .fcos import FCOS
 
 
 # build FCOS
-def build_fcos(cfg, device, num_classes=90, trainable=False):
+def build_fcos(cfg, device, num_classes=91, trainable=False):
     # -------------- Build FCOS --------------
     model = FCOS(cfg         = cfg,
                  device      = device,
