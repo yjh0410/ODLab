@@ -212,6 +212,7 @@ class PlainDETRTransformer(nn.Module):
 
         ## Adaptive pos_embed
         self.ref_point_head = nn.Linear(d_model, 2)
+        self.adaptive_pos = MLP(2*d_model, d_model, d_model, 2)
         
         ## Object Query
         self.query_embed = nn.Embedding(num_queries, d_model * 2)
@@ -336,7 +337,7 @@ class PlainDETRTransformer(nn.Module):
             mask = self.resize_mask(src, src_mask)
             # Generate pos_embed for upsampled src
             pos_embed = self.get_posembed(mask)
-            ## Reshape: [B, C, H, W] -> [N, B, C], N = HW
+            # Reshape: [B, C, H, W] -> [N, B, C], N = HW
             src = src.flatten(2).permute(2, 0, 1)
             pos_embed = pos_embed.flatten(2).permute(2, 0, 1)
             mask = mask.flatten(1)
@@ -353,7 +354,10 @@ class PlainDETRTransformer(nn.Module):
         outputs = []
         output_classes = []
         output_coords = []
-        for layer_id, decoder_layer in enumerate(self.decoder_layers):            
+        for layer_id, decoder_layer in enumerate(self.decoder_layers):
+            # # Conditional query
+            # query_embed = self.adaptive_pos(torch.cat([query_embed, self.pos2posembed(ref_point)], dim=-1))
+
             # Decoder
             output = decoder_layer(output, src, memory_key_padding_mask=mask, pos=pos_embed, query_pos=query_embed)
             

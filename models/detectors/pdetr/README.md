@@ -4,9 +4,10 @@
 
 - [x] Focal loss for classification.
 - [x] Iterative refinement
+- [ ] Hybrid Matching
 - [ ] Content-related query
 - [ ] Mixed query selection
-- [ ] Hybrid Matching
+
 
 - ImageNet-1K_V1 pretrained
 
