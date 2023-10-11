@@ -6,7 +6,7 @@ from .pdetr.build import build_pdetr
 
 
 # build object detector
-def build_model(args, cfg, device, num_classes=91, trainable=False):
+def build_model(args, cfg, device, num_classes=80, trainable=False):
     # FCOS    
     if 'fcos' in args.model:
         model, criterion = build_fcos(cfg, device, num_classes, trainable)

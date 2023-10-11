@@ -17,7 +17,7 @@ class FCOS(nn.Module):
     def __init__(self, 
                  device, 
                  cfg,
-                 num_classes :int   = 20, 
+                 num_classes :int   = 80, 
                  conf_thresh :float = 0.05,
                  nms_thresh  :float = 0.6,
                  topk        :int   = 1000,

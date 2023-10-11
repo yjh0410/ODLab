@@ -11,7 +11,7 @@ class PlainDETR(nn.Module):
     def __init__(self, 
                  cfg,
                  device, 
-                 num_classes :int   = 20, 
+                 num_classes :int   = 80, 
                  topk        :int   = 100,
                  trainable   :bool  = False,
                  aux_loss    :bool  = False):
