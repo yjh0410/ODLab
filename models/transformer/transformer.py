@@ -211,12 +211,10 @@ class PlainDETRTransformer(nn.Module):
             self.decoder_norm = nn.LayerNorm(d_model)
 
         ## Adaptive pos_embed
-        self.ref_point_head = MLP(2*d_model, d_model, d_model, 2)
-        self.query_pos_sine_scale = MLP(d_model, d_model, d_model, 2)
+        self.ref_point_head = nn.Linear(d_model, 2)
         
         ## Object Query
-        self.tgt_embed = nn.Embedding(num_queries, d_model)
-        self.refpoint_embed = nn.Embedding(num_queries, 4)
+        self.query_embed = nn.Embedding(num_queries, d_model * 2)
         
         ## Output head
         class_embed = nn.Linear(self.d_model, num_classes)
@@ -344,9 +342,10 @@ class PlainDETRTransformer(nn.Module):
             mask = mask.flatten(1)
 
         # ------------------------ Transformer Decoder ------------------------
-        tgt = self.tgt_embed.weight[:, None, :].repeat(1, bs, 1)
-        refpoint_embed = self.refpoint_embed.weight[:, None, :].repeat(1, bs, 1)
-        ref_point = refpoint_embed.sigmoid()
+        query_embed, tgt = torch.split(self.query_embed.weight[:self.num_queries, :], c, dim=1)
+        tgt = tgt[:, None, :].repeat(1, bs, 1)
+        query_embed = query_embed[:, None, :].repeat(1, bs, 1)
+        ref_point = self.ref_point_head(query_embed).sigmoid()
         ref_points = [ref_point]
         
         ## Decoder layer
@@ -354,28 +353,25 @@ class PlainDETRTransformer(nn.Module):
         outputs = []
         output_classes = []
         output_coords = []
-        for layer_id, decoder_layer in enumerate(self.decoder_layers):
-            # Conditional query
-            query_pos = self.ref_point_head(self.pos2posembed(ref_point))
-            
+        for layer_id, decoder_layer in enumerate(self.decoder_layers):            
             # Decoder
-            output = decoder_layer(output, src, memory_key_padding_mask=mask, pos=pos_embed, query_pos=query_pos)
+            output = decoder_layer(output, src, memory_key_padding_mask=mask, pos=pos_embed, query_pos=query_embed)
             
             # Iter update
-            delta_unsig = self.bbox_embed[layer_id](output)
-            outputs_unsig = delta_unsig + self.inverse_sigmoid(ref_point)
-            new_ref_point = outputs_unsig.sigmoid()
+            tmp = self.bbox_embed[layer_id](output)
+            new_ref_point = tmp[..., :2] + self.inverse_sigmoid(ref_point)
+            new_ref_point = new_ref_point.sigmoid()
             ref_point = new_ref_point.detach()
 
             outputs.append(self.decoder_norm(output))
-            ref_points.append(new_ref_point)
+            ref_points.append(ref_point)
 
         # ------------------------ Detection Head ------------------------
         for lid, (ref_sig, output) in enumerate(zip(ref_points[:-1], outputs)):
             ## bbox pred
             tmp = self.bbox_embed[lid](output)
-            output_coord = tmp + self.inverse_sigmoid(ref_sig)
-            output_coord = output_coord.sigmoid()
+            tmp[..., :2] += self.inverse_sigmoid(ref_sig)
+            output_coord = tmp.sigmoid()
             ## class pred
             output_class = self.class_embed[lid](output)
 
