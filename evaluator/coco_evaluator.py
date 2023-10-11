@@ -62,7 +62,7 @@ class COCOAPIEvaluator():
                 y1 = float(box[1])
                 x2 = float(box[2])
                 y2 = float(box[3])
-                label = int(cls_inds[i])
+                label = self.dataset.coco_indexs[int(cls_inds[i])]
                 
                 # COCO json format
                 bbox = [x1, y1, x2 - x1, y2 - y1]

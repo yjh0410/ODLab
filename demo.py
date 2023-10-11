@@ -41,8 +41,8 @@ def parse_args():
     # Model
     parser.add_argument('-m', '--model', default='fcos_r18_1x', type=str,
                         help='build detector')
-    parser.add_argument('-nc', '--num_classes', default=91, type=int,
-                        help='number of classes (91 for COCO).')
+    parser.add_argument('-nc', '--num_classes', default=80, type=int,
+                        help='number of classes.')
     parser.add_argument('--weight', default=None,
                         type=str, help='Trained state_dict file path to open')
     parser.add_argument('-ct', '--conf_thresh', default=0.1, type=float,

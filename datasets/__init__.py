@@ -1,9 +1,8 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 import torch.utils.data
-import torchvision
 from torch.utils.data import DataLoader, DistributedSampler
 
-from .coco import build_coco
+from .coco import build_coco, coco_labels, coco_indexs
 from .transforms import build_transform
 
 
@@ -12,7 +11,7 @@ def build_dataset(args, transform=None, is_train=False):
         dataset = build_coco(args, transform, is_train)
         dataset_info = {
             'class_labels': dataset.coco_labels,
-            'num_classes': 91
+            'num_classes': 80
         }
 
     return dataset, dataset_info
