@@ -38,12 +38,12 @@ class FFN(nn.Module):
         self.dropout2 = nn.Dropout(dropout)
         self.linear2 = nn.Linear(self.fpn_dim, d_model)
         self.dropout3 = nn.Dropout(dropout)
-        self.norm2 = nn.LayerNorm(d_model)
+        self.norm = nn.LayerNorm(d_model)
 
     def forward(self, src):
         src2 = self.linear2(self.dropout2(self.activation(self.linear1(src))))
         src = src + self.dropout3(src2)
-        src = self.norm2(src)
+        src = self.norm(src)
         
         return src
     

@@ -196,23 +196,23 @@ class PlainDETRTransformer(nn.Module):
         if num_encoder > 0:
             encoder_layer = PlainDETRTransformerEncoderLayer(d_model, encoder_num_head, encoder_mlp_ratio, encoder_dropout, encoder_act_type)
             self.encoder_layers = _get_clones(encoder_layer, num_encoder)
-            self.encoder_norm = nn.LayerNorm(d_model) if norm_before else None
 
         ## Upsample layer
         self.upsample_layer = None
         if upsample:
-            self.upsample_layer = nn.ConvTranspose2d(d_model, d_model, kernel_size=4, padding=1, stride=2)
+            self.upsample_layer = nn.Sequential(
+                nn.ConvTranspose2d(d_model, d_model, kernel_size=4, padding=1, stride=2),
+                nn.GroupNorm(32, d_model)
+            )
 
         ## Transformer Decoder
         self.decoder_layers = None
         if num_decoder > 0:
             decoder_layer = PlainDETRTransformerDecoderLayer(d_model, decoder_num_head, decoder_mlp_ratio, decoder_dropout, decoder_act_type)
             self.decoder_layers = _get_clones(decoder_layer, num_decoder)
-            self.decoder_norm = nn.LayerNorm(d_model)
 
         ## Adaptive pos_embed
         self.ref_point_head = nn.Linear(d_model, 2)
-        self.adaptive_pos = MLP(2*d_model, d_model, d_model, 2)
         
         ## Object Query
         self.query_embed = nn.Embedding(num_queries, d_model * 2)
@@ -357,9 +357,6 @@ class PlainDETRTransformer(nn.Module):
         output_classes = []
         output_coords = []
         for layer_id, decoder_layer in enumerate(self.decoder_layers):
-            # # Conditional query
-            # query_embed = self.adaptive_pos(torch.cat([query_embed, self.pos2posembed(ref_point)], dim=-1))
-
             # Decoder
             output = decoder_layer(output, src, memory_key_padding_mask=mask, pos=pos_embed, query_pos=query_embed)
             
@@ -369,7 +366,7 @@ class PlainDETRTransformer(nn.Module):
             new_ref_point = new_ref_point.sigmoid()
             ref_point = new_ref_point.detach()
 
-            outputs.append(self.decoder_norm(output))
+            outputs.append(output)
             ref_points.append(ref_point)
 
         # ------------------------ Detection Head ------------------------
