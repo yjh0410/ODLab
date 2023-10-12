@@ -4,6 +4,7 @@
 
 - [x] Focal loss for classification.
 - [x] Iterative refinement
+- [ ] Box reparameterization
 - [ ] Hybrid Matching
 - [ ] Content-related query
 - [ ] Mixed query selection

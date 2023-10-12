@@ -128,7 +128,7 @@ if __name__ == "__main__":
         'pixel_std':  [0.229, 0.224, 0.225],
         # trans config
         'trans_config': [
-            {'name': 'RandomResize', 'random_sizes': [800], 'max_size': 1333},
+            {'name': 'RandomResize', 'random_sizes': [400, 500, 600, 700, 800], 'max_size': 1333},
             {'name': 'RandomHFlip'},
         ],
         'normalize_coords': False,

@@ -53,7 +53,7 @@ def train_one_epoch(cfg,
 
         # Visualize train targets
         if vis_target:
-            vis_data(images, targets, class_labels)
+            vis_data(images, targets, masks, class_labels, cfg['normalize_coords'])
 
         # Inference
         outputs = model(images, masks)

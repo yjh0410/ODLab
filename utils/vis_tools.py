@@ -1,14 +1,16 @@
 import cv2
 import os
+import torch
 import numpy as np
 import matplotlib.pyplot as plt
 
 
 # -------------------------- For Detection Task --------------------------
 ## visualize the input data during the training stage
-def vis_data(images, targets, class_labels=None, normalized_coord=False):
+def vis_data(images, targets, masks=None, class_labels=None, normalized_coord=False):
     """
         images: (tensor) [B, 3, H, W]
+        masks: (Tensor) [B, H, W]
         targets: (list) a list of targets
     """
     batch_size = images.size(0)
@@ -23,6 +25,9 @@ def vis_data(images, targets, class_labels=None, normalized_coord=False):
         target = targets[bi]
         # to numpy
         image = images[bi].permute(1, 2, 0).cpu().numpy()
+        not_mask = ~masks[bi]
+        img_h = not_mask.cumsum(0, dtype=torch.int32)[-1, 0]
+        img_w = not_mask.cumsum(1, dtype=torch.int32)[0, -1]
         # denormalize
         image = (image * pixel_std + pixel_means) * 255
         image = image[:, :, (2, 1, 0)].astype(np.uint8)
@@ -31,7 +36,11 @@ def vis_data(images, targets, class_labels=None, normalized_coord=False):
         tgt_boxes = target['boxes']
         tgt_labels = target['labels']
         for box, label in zip(tgt_boxes, tgt_labels):
-            x1, y1, x2, y2 = box
+            box_ = box.clone()
+            if normalized_coord:
+                box_[..., [0, 2]] *= img_w
+                box_[..., [1, 3]] *= img_h
+            x1, y1, x2, y2 = box_
             cls_id = int(label)
             x1, y1 = int(x1), int(y1)
             x2, y2 = int(x2), int(y2)
