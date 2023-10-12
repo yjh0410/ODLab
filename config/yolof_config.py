@@ -3,7 +3,7 @@
 
 yolof_cfg = {
     # ImageNet1k-V1 pretrained
-    'yolof_r18_1x':{
+    'yolof_r18_c5_1x':{
         # ----------------- Model-----------------
         ## Backbone
         'backbone': 'resnet18',
