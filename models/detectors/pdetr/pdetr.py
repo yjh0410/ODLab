@@ -71,10 +71,10 @@ class PlainDETR(nn.Module):
         # ---------------- PostProcess ----------------
         bboxes, scores, labels = self.post_process(output_classes[-1], output_coords[-1])
 
-        # normalize bbox
-        bboxes[..., 0::2] /= x.shape[-1]
-        bboxes[..., 1::2] /= x.shape[-2]
-        bboxes = bboxes.clip(0., 1.)
+        # # normalize bbox
+        # bboxes[..., 0::2] /= x.shape[-1]
+        # bboxes[..., 1::2] /= x.shape[-2]
+        # bboxes = bboxes.clip(0., 1.)
 
         return bboxes, scores, labels
 
