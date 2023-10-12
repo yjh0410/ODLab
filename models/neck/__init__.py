@@ -4,30 +4,25 @@ from .fpn import BasicFPN, PaFPN
 
 # build neck
 def build_neck(cfg, in_dim, out_dim):
-    if 'neck' in cfg.keys():
-        model_type = 'neck'
-    elif 'encoder' in cfg.keys():
-        model_type = 'encoder'
-        
     print('==============================')
-    print('Neck: {}'.format(cfg[model_type]))
+    print('Neck: {}'.format(cfg['neck']))
     
-    if cfg[model_type] == 'dilated_encoder':
+    if cfg['neck'] == 'dilated_encoder':
         model = DilatedEncoder(in_dim       = in_dim,
                                out_dim      = out_dim,
-                               expand_ratio = cfg['encoder_expand_ratio'],
-                               dilations    = cfg['encoder_dilations'],
-                               act_type     = cfg[model_type + '_act'],
-                               norm_type    = cfg[model_type + '_norm']
+                               expand_ratio = cfg['neck_expand_ratio'],
+                               dilations    = cfg['neck_dilations'],
+                               act_type     = cfg['neck_act'],
+                               norm_type    = cfg['neck_norm']
                                )
-    elif cfg[model_type] == 'basic_fpn':
+    elif cfg['neck'] == 'basic_fpn':
         model = BasicFPN(in_dims = in_dim,
                          out_dim = out_dim,
                          p6_feat = cfg['fpn_p6_feat'],
                          p7_feat = cfg['fpn_p7_feat'],
                          from_c5 = cfg['fpn_p6_from_c5'], 
                          )
-    elif cfg[model_type] == 'pafpn':
+    elif cfg['neck'] == 'pafpn':
         model = PaFPN(in_dims = in_dim,
                       out_dim = out_dim,
                       p6_feat = cfg['fpn_p6_feat'],
