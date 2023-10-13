@@ -8,7 +8,6 @@ class RetinaNetHead(nn.Module):
     def __init__(self, cfg, in_dim, out_dim, num_classes, num_cls_head=1, num_reg_head=1, act_type='relu', norm_type='BN'):
         super().__init__()
         self.fmp_size = None
-        self.DEFAULT_EXP_CLAMP = math.log(1e8)
         self.DEFAULT_SCALE_CLAMP = math.log(1000.0 / 16)
         # ------------------ Basic parameters -------------------
         self.cfg = cfg
