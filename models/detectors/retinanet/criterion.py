@@ -93,6 +93,7 @@ class Criterion(nn.Module):
         tgt_classes = tgt_classes.flatten()
         tgt_boxes = tgt_boxes.view(-1, 4)
         valid_idxs = (tgt_classes >= 0) & masks
+        del anchor_boxes_xyxy
 
         foreground_idxs = (tgt_classes >= 0) & (tgt_classes != self.num_classes)
         num_foreground = foreground_idxs.sum()
