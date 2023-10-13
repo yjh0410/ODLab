@@ -111,7 +111,7 @@ class Criterion(nn.Module):
         reg_preds_pos = reg_preds[foreground_idxs]
         tgt_boxes_pos = tgt_boxes[foreground_idxs].to(reg_preds.device)
         anchors_pos = anchor_boxes.view(-1, 4)[foreground_idxs]
-        loss_bboxes = self.loss_bboxes(reg_preds_pos, tgt_boxes_pos, anchors_pos, num_foreground)
+        loss_bboxes = self.loss_bboxes(reg_preds_pos, tgt_boxes_pos, anchors_pos, num_foreground, use_giou=self.cfg['use_giou_loss'])
 
         loss_dict = dict(
                 loss_cls = loss_labels,
