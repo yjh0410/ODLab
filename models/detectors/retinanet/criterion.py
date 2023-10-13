@@ -9,9 +9,9 @@ from utils.distributed_utils import get_world_size, is_dist_avail_and_initialize
 from .matcher import RetinaNetMatcher
 
 
-class Criterion(object):
+class Criterion(nn.Module):
     def __init__(self, cfg, device, num_classes=80):
-        # super().__init__()
+        super().__init__()
         # ------------- Basic parameters -------------
         self.cfg = cfg
         self.device = device
@@ -60,7 +60,7 @@ class Criterion(object):
 
         return loss_reg.sum() / num_boxes
 
-    def __call__(self, outputs, targets):
+    def forward(self, outputs, targets):
         """
             outputs['pred_cls']: (Tensor) [B, M, C]
             outputs['pred_reg']: (Tensor) [B, M, 4]
@@ -74,12 +74,11 @@ class Criterion(object):
         cls_preds = torch.cat(outputs['pred_cls'], dim=1).view(-1, self.num_classes)
         reg_preds = torch.cat(outputs['pred_reg'], dim=1).view(-1, 4)
         masks = ~torch.cat(outputs['mask'], dim=1).view(-1)
-        bs = cls_preds.size(0)
+        B = len(targets)
        
         # process anchor boxes
         anchor_boxes = torch.cat(outputs['anchors'])
-        print(anchor_boxes.shape)
-        anchor_boxes = anchor_boxes[None].repeat(bs, 1, 1)
+        anchor_boxes = anchor_boxes[None].repeat(B, 1, 1)
         anchor_boxes = box_cxcywh_to_xyxy(anchor_boxes)
 
         # -------------------- Label Assignment --------------------
