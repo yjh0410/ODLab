@@ -130,12 +130,13 @@ if __name__ == "__main__":
         'trans_config': [
             {'name': 'RandomResize', 'random_sizes': [400, 500, 600, 700, 800], 'max_size': 1333},
             {'name': 'RandomHFlip'},
+            {'name': 'RandomShift', 'max_shift': 100}
         ],
         'normalize_coords': False,
     }
 
     # build dataset
-    transform = build_transform(cfg, is_train=args.is_train)
+    transform = build_transform(cfg, is_train=True)
     dataset = build_coco(args, transform, is_train=args.is_train)
 
     for index, (image, target) in enumerate(dataset):

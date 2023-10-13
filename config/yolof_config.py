@@ -79,6 +79,7 @@ yolof_cfg = {
         'trans_config': [
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
+            {'name': 'RandomShift', 'max_shift': 32},
         ],
         'normalize_coords': False,
     },

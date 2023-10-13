@@ -4,6 +4,7 @@ Transforms and data augmentation for both image + bbox.
 """
 import PIL
 import random
+import numpy as np
 
 import torch
 import torchvision
@@ -170,17 +171,6 @@ class RandomSizeCrop(object):
         region = T.RandomCrop.get_params(img, [h, w])
         return crop(img, target, region)
 
-class CenterCrop(object):
-    def __init__(self, size):
-        self.size = size
-
-    def __call__(self, img, target=None):
-        image_width, image_height = img.size
-        crop_height, crop_width = self.size
-        crop_top = int(round((image_height - crop_height) / 2.))
-        crop_left = int(round((image_width - crop_width) / 2.))
-        return crop(img, target, (crop_top, crop_left, crop_height, crop_width))
-
 class RandomHorizontalFlip(object):
     def __init__(self, p=0.5):
         self.p = p
@@ -199,6 +189,28 @@ class RandomResize(object):
     def __call__(self, img, target=None):
         size = random.choice(self.sizes)
         return resize(img, target, size, self.max_size)
+
+class RandomShift(object):
+    def __init__(self, p=0.5, max_shift=32):
+        self.p = p
+        self.max_shift = max_shift
+
+    def __call__(self, image, target=None):
+        if random.random() < self.p:
+            img_h, img_w = image.height, image.width
+            shift_x = random.randint(-self.max_shift, self.max_shift)
+            shift_y = random.randint(-self.max_shift, self.max_shift)
+            shifted_image = F.affine(image, translate=[shift_x, shift_y], angle=0, scale=1.0, shear=0)
+
+            target = target.copy()
+            target["boxes"][..., [0, 2]] += shift_x
+            target["boxes"][..., [1, 3]] += shift_y
+            target["boxes"][..., [0, 2]] = target["boxes"][..., [0, 2]].clip(0, img_w)
+            target["boxes"][..., [1, 3]] = target["boxes"][..., [1, 3]].clip(0, img_h)
+
+            return shifted_image, target
+
+        return image, target
 
 class RandomSelect(object):
     """
@@ -269,6 +281,8 @@ def build_transform(cfg=None, is_train=False):
                 transforms.append(RandomResize(cfg['train_min_size'], max_size=cfg['train_max_size']))
             if t['name'] == 'RandomSizeCrop':
                 transforms.append(RandomSizeCrop(t['min_crop_size'], max_size=t['max_crop_size']))
+            if t['name'] == 'RandomShift':
+                transforms.append(RandomShift(max_shift=t['max_shift']))
         transforms.extend([
             ToTensor(),
             Normalize(cfg['pixel_mean'], cfg['pixel_std'], cfg['normalize_coords'])
