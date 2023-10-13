@@ -48,21 +48,19 @@ class Criterion(nn.Module):
         """
         # GIoU loss
         if use_giou:
-            # giou
             pred_giou = generalized_box_iou(pred_box, tgt_box)  # [N, M]
-            # giou loss
             loss_reg = 1. - torch.diag(pred_giou)
+        
         # L1 loss
         else:
             # xyxy -> cxcy&bwbh
             tgt_cxcy = (tgt_box[..., :2] + tgt_box[..., 2:]) * 0.5
             tgt_bwbh = tgt_box[..., 2:] - tgt_box[..., :2]
-
             # encode gt box
             tgt_offsets = (tgt_cxcy - anchors[..., :2]) / anchors[..., 2:]
             tgt_sizes = torch.log(tgt_bwbh / anchors[..., 2:])
             tgt_box_encode = torch.cat([tgt_offsets, tgt_sizes], dim=-1)
-
+            # compute l1 loss
             loss_reg = F.l1_loss(pred_reg, tgt_box_encode, reduction='none')
 
         return loss_reg.sum() / num_boxes
@@ -112,12 +110,14 @@ class Criterion(nn.Module):
         if self.cfg['use_giou_loss']:
             box_preds_pos = box_preds[foreground_idxs]
             tgt_boxes_pos = tgt_boxes[foreground_idxs].to(reg_preds.device)
-            loss_bboxes = self.loss_bboxes(pred_box=box_preds_pos, tgt_box=tgt_boxes_pos, num_boxes=num_foreground, use_giou=self.cfg['use_giou_loss'])
+            loss_bboxes = self.loss_bboxes(
+                pred_box=box_preds_pos, tgt_box=tgt_boxes_pos, num_boxes=num_foreground, use_giou=self.cfg['use_giou_loss'])
         else:
             reg_preds_pos = reg_preds[foreground_idxs]
             tgt_boxes_pos = tgt_boxes[foreground_idxs].to(reg_preds.device)
             anchors_pos = anchor_boxes.view(-1, 4)[foreground_idxs]
-            loss_bboxes = self.loss_bboxes(reg_preds_pos=reg_preds_pos, tgt_box=tgt_boxes_pos, anchors=anchors_pos, num_boxes=num_foreground, use_giou=self.cfg['use_giou_loss'])
+            loss_bboxes = self.loss_bboxes(
+                pred_reg=reg_preds_pos, tgt_box=tgt_boxes_pos, anchors=anchors_pos, num_boxes=num_foreground, use_giou=self.cfg['use_giou_loss'])
 
         loss_dict = dict(
                 loss_cls = loss_labels,

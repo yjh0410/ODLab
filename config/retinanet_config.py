@@ -48,7 +48,7 @@ retinanet_cfg = {
         'focal_loss_gamma': 2.0,
         'loss_cls_weight': 1.0,
         'loss_reg_weight': 1.0,
-        'use_giou_loss': True,
+        'use_giou_loss': False,
         # ----------------- Training -----------------
         ## Training scheduler
         'scheduler': '1x',
