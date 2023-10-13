@@ -81,7 +81,7 @@ class YOLOFHead(nn.Module):
         nn.init.normal_(self.obj_pred.weight, mean=0, std=0.01)
         nn.init.constant_(self.obj_pred.bias, 0.0)
 
-    def generate_anchors(self, fmp_size):
+    def get_anchors(self, fmp_size):
         """fmp_size: list -> [H, W] \n
            stride: int -> output stride
         """
@@ -141,7 +141,7 @@ class YOLOFHead(nn.Module):
 
         # ------------------- Generate anchor box -------------------
         fmp_size = cls_feats.shape[2:]
-        anchor_boxes = self.generate_anchors(fmp_size)   # [M, 4]
+        anchor_boxes = self.get_anchors(fmp_size)   # [M, 4]
         anchor_boxes = anchor_boxes.to(cls_feats.device)
 
         # ------------------- Predict -------------------

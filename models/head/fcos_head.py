@@ -103,7 +103,7 @@ class FCOSHead(nn.Module):
         bias_value = -torch.log(torch.tensor((1. - init_prob) / init_prob))
         torch.nn.init.constant_(self.cls_pred.bias, bias_value)
         
-    def generate_anchors(self, level, fmp_size):
+    def get_anchors(self, level, fmp_size):
         """
             fmp_size: (List) [H, W]
         """
@@ -144,7 +144,7 @@ class FCOSHead(nn.Module):
             # ------------------- Generate anchor box -------------------
             B, _, H, W = cls_feat.size()
             fmp_size = [H, W]
-            anchors = self.generate_anchors(level, fmp_size)   # [M, 4]
+            anchors = self.get_anchors(level, fmp_size)   # [M, 4]
             anchors = anchors.to(cls_feat.device)
 
             # ------------------- Predict -------------------

@@ -20,52 +20,47 @@ class RetinaNetHead(nn.Module):
         self.norm_type=norm_type
         self.stride = cfg['out_stride']
         # ------------------ Anchor parameters -------------------
-        self.anchor_size = self.generate_anchor_sizes(cfg)  # [S, KA, 2]
+        self.anchor_size = self.get_anchor_sizes(cfg)  # [S, KA, 2]
         self.num_anchors = self.anchor_size.shape[1]
 
         # ------------------ Network parameters -------------------
         ## cls head
         cls_heads = []
         self.cls_head_dim = out_dim
-        for i in range(cfg['num_cls_heads']):
+        for i in range(self.num_cls_head):
             if i == 0:
                 cls_heads.append(
                     Conv(in_dim, self.cls_head_dim, k=3, p=1, s=1, 
                         act_type=self.act_type,
-                        norm_type=self.norm_type,
-                        depthwise=cfg['head_depthwise'])
+                        norm_type=self.norm_type)
                         )
             else:
                 cls_heads.append(
                     Conv(self.cls_head_dim, self.cls_head_dim, k=3, p=1, s=1, 
                         act_type=self.act_type,
-                        norm_type=self.norm_type,
-                        depthwise=cfg['head_depthwise'])
+                        norm_type=self.norm_type)
                         )
-        
         ## reg head
         reg_heads = []
         self.reg_head_dim = out_dim
-        for i in range(cfg['num_reg_heads']):
+        for i in range(self.num_reg_head):
             if i == 0:
                 reg_heads.append(
                     Conv(in_dim, self.reg_head_dim, k=3, p=1, s=1, 
                         act_type=self.act_type,
-                        norm_type=self.norm_type,
-                        depthwise=cfg['head_depthwise'])
+                        norm_type=self.norm_type)
                         )
             else:
                 reg_heads.append(
                     Conv(self.reg_head_dim, self.reg_head_dim, k=3, p=1, s=1, 
                         act_type=self.act_type,
-                        norm_type=self.norm_type,
-                        depthwise=cfg['head_depthwise'])
+                        norm_type=self.norm_type)
                         )
         self.cls_heads = nn.Sequential(*cls_heads)
         self.reg_heads = nn.Sequential(*reg_heads)
 
         ## pred layers
-        self.cls_pred = nn.Conv2d(self.cls_head_dim, num_classes, kernel_size=3, padding=1)
+        self.cls_pred = nn.Conv2d(self.cls_head_dim, num_classes * self.num_anchors, kernel_size=3, padding=1)
         self.reg_pred = nn.Conv2d(self.reg_head_dim, 4 * self.num_anchors, kernel_size=3, padding=1)
 
         # init bias
@@ -85,7 +80,7 @@ class RetinaNetHead(nn.Module):
         bias_value = -torch.log(torch.tensor((1. - init_prob) / init_prob))
         torch.nn.init.constant_(self.cls_pred.bias, bias_value)
         
-    def generate_anchor_sizes(self, cfg):
+    def get_anchor_sizes(self, cfg):
         basic_anchor_size =   cfg['anchor_config']['basic_size']
         anchor_aspect_ratio = cfg['anchor_config']['aspect_ratio']
         anchor_area_scale =   cfg['anchor_config']['area_scale']
@@ -107,7 +102,7 @@ class RetinaNetHead(nn.Module):
 
         return anchor_sizes
 
-    def generate_anchors(self, level, fmp_size):
+    def get_anchors(self, level, fmp_size):
         """
             fmp_size: (List) [H, W]
         """
@@ -169,7 +164,7 @@ class RetinaNetHead(nn.Module):
             # ------------------- Generate anchor box -------------------
             B, _, H, W = cls_feat.size()
             fmp_size = [H, W]
-            anchor_boxes = self.generate_anchors(level, fmp_size)   # [M, 4]
+            anchor_boxes = self.get_anchors(level, fmp_size)   # [M, 4]
             anchor_boxes = anchor_boxes.to(cls_feat.device)
 
             # ------------------- Predict -------------------
@@ -185,9 +180,9 @@ class RetinaNetHead(nn.Module):
             ## Adjust mask
             if mask is not None:
                 # [B, H, W]
-                mask_i = torch.nn.functional.interpolate(mask[None], size=[H, W]).bool()[0]
+                mask_i = torch.nn.functional.interpolate(mask[None].float(), size=[H, W]).bool()[0]
                 # [B, H, W] -> [B, M]
-                mask_i = mask_i.flatten(1)
+                mask_i = mask_i.flatten(1)     
                 # [B, HW] -> [B, HW, KA] -> [B, M], M= HW x KA
                 mask_i = mask_i[..., None].repeat(1, 1, self.num_anchors).flatten(1)
                 

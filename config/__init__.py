@@ -1,12 +1,16 @@
 # ----------------------- Model Config -----------------------
+from .retinanet_config import retinanet_cfg
 from .fcos_config import fcos_cfg
 from .pdetr_config import pdetr_cfg
 from .yolof_config import yolof_cfg
 
 
 def build_config(args):
+    # RetinaNet
+    if args.model in retinanet_cfg.keys():
+        return retinanet_cfg[args.model]
     # FCOS
-    if args.model in fcos_cfg.keys():
+    elif args.model in fcos_cfg.keys():
         return fcos_cfg[args.model]
     # Plain-DETR
     elif args.model in pdetr_cfg.keys():
