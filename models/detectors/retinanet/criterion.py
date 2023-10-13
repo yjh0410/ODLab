@@ -40,23 +40,30 @@ class Criterion(nn.Module):
 
         return loss_cls.sum() / num_boxes
 
-    def loss_bboxes(self, pred_reg, tgt_box, anchors, num_boxes):
+    def loss_bboxes(self, pred_reg, tgt_box, anchors, num_boxes, use_giou=False):
         """
             pred_reg: (Tensor) [Nq, 4]
             tgt_box:  (Tensor) [Nq, 4]
             anchors:  (Tensor) [Nq, 4]
         """
-        # xyxy -> cxcy&bwbh
-        tgt_cxcy = (tgt_box[..., :2] + tgt_box[..., 2:]) * 0.5
-        tgt_bwbh = tgt_box[..., 2:] - tgt_box[..., :2]
+        # GIoU loss
+        if use_giou:
+            # giou
+            pred_giou = generalized_box_iou(pred_reg, tgt_box)  # [N, M]
+            # giou loss
+            loss_reg = 1. - torch.diag(pred_giou)
+        # L1 loss
+        else:
+            # xyxy -> cxcy&bwbh
+            tgt_cxcy = (tgt_box[..., :2] + tgt_box[..., 2:]) * 0.5
+            tgt_bwbh = tgt_box[..., 2:] - tgt_box[..., :2]
 
-        # encode gt box
-        tgt_offsets = (tgt_cxcy - anchors[..., :2]) / anchors[..., 2:]
-        tgt_sizes = torch.log(tgt_bwbh / anchors[..., 2:])
-        tgt_box_encode = torch.cat([tgt_offsets, tgt_sizes], dim=-1)
+            # encode gt box
+            tgt_offsets = (tgt_cxcy - anchors[..., :2]) / anchors[..., 2:]
+            tgt_sizes = torch.log(tgt_bwbh / anchors[..., 2:])
+            tgt_box_encode = torch.cat([tgt_offsets, tgt_sizes], dim=-1)
 
-        # l1 loss
-        loss_reg = F.l1_loss(pred_reg, tgt_box_encode, reduction='none')
+            loss_reg = F.l1_loss(pred_reg, tgt_box_encode, reduction='none')
 
         return loss_reg.sum() / num_boxes
 
@@ -79,10 +86,10 @@ class Criterion(nn.Module):
         # process anchor boxes
         anchor_boxes = torch.cat(outputs['anchors'])
         anchor_boxes = anchor_boxes[None].repeat(B, 1, 1)
-        anchor_boxes = box_cxcywh_to_xyxy(anchor_boxes)
+        anchor_boxes_xyxy = box_cxcywh_to_xyxy(anchor_boxes)
 
         # -------------------- Label Assignment --------------------
-        tgt_classes, tgt_boxes = self.matcher(anchor_boxes, targets)
+        tgt_classes, tgt_boxes = self.matcher(anchor_boxes_xyxy, targets)
         tgt_classes = tgt_classes.flatten()
         tgt_boxes = tgt_boxes.view(-1, 4)
         valid_idxs = (tgt_classes >= 0) & masks
@@ -102,7 +109,7 @@ class Criterion(nn.Module):
         # -------------------- Regression loss --------------------
         reg_preds_pos = reg_preds[foreground_idxs]
         tgt_boxes_pos = tgt_boxes[foreground_idxs].to(reg_preds.device)
-        anchors_pos = torch.cat(outputs['anchors'])[foreground_idxs]
+        anchors_pos = anchor_boxes.view(-1, 4)[foreground_idxs]
         loss_bboxes = self.loss_bboxes(reg_preds_pos, tgt_boxes_pos, anchors_pos, num_foreground)
 
         loss_dict = dict(
