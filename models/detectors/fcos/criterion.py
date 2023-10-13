@@ -8,9 +8,9 @@ from utils.distributed_utils import get_world_size, is_dist_avail_and_initialize
 from .matcher import FcosMatcher
 
 
-class Criterion(nn.Module):
+class Criterion(object):
     def __init__(self, cfg, device, num_classes=90):
-        super().__init__()
+        # super().__init__()
         # ------------- Basic parameters -------------
         self.cfg = cfg
         self.device = device
@@ -78,7 +78,7 @@ class Criterion(nn.Module):
 
         return loss_box.sum() / num_boxes
 
-    def forward(self, outputs, targets):
+    def __call__(self, outputs, targets):
         """
             outputs['pred_cls']: (Tensor) [B, M, C]
             outputs['pred_reg']: (Tensor) [B, M, 4]

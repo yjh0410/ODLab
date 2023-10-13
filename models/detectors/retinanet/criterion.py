@@ -40,38 +40,25 @@ class Criterion(nn.Module):
 
         return loss_cls.sum() / num_boxes
 
-    # def loss_bboxes(self, pred_reg, tgt_box, anchors, num_boxes):
-    #     """
-    #         pred_reg: (Tensor) [Nq, 4]
-    #         tgt_box:  (Tensor) [Nq, 4]
-    #         anchors:  (Tensor) [Nq, 4]
-    #     """
-    #     # xyxy -> cxcy&bwbh
-    #     tgt_cxcy = (tgt_box[..., :2] + tgt_box[..., 2:]) * 0.5
-    #     tgt_bwbh = tgt_box[..., 2:] - tgt_box[..., :2]
-
-    #     # encode gt box
-    #     tgt_offsets = (tgt_cxcy - anchors[..., :2]) / anchors[..., 2:]
-    #     tgt_sizes = torch.log(tgt_bwbh / anchors[..., 2:])
-    #     tgt_box_encode = torch.cat([tgt_offsets, tgt_sizes], dim=-1)
-
-    #     # l1 loss
-    #     loss_reg = F.l1_loss(pred_reg, tgt_box_encode, reduction='none')
-
-    #     return loss_reg.sum() / num_boxes
-
-    def loss_bboxes(self, pred_box, tgt_box, anchors, num_boxes):
+    def loss_bboxes(self, pred_reg, tgt_box, anchors, num_boxes):
         """
-            pred_box: (Tensor) [N, 4]
-            tgt_box:  (Tensor) [N, 4]
+            pred_reg: (Tensor) [Nq, 4]
+            tgt_box:  (Tensor) [Nq, 4]
+            anchors:  (Tensor) [Nq, 4]
         """
-        # giou
-        pred_giou = generalized_box_iou(pred_box, tgt_box)  # [N, M]
-        # giou loss
-        loss_reg = 1. - torch.diag(pred_giou)
+        # xyxy -> cxcy&bwbh
+        tgt_cxcy = (tgt_box[..., :2] + tgt_box[..., 2:]) * 0.5
+        tgt_bwbh = tgt_box[..., 2:] - tgt_box[..., :2]
+
+        # encode gt box
+        tgt_offsets = (tgt_cxcy - anchors[..., :2]) / anchors[..., 2:]
+        tgt_sizes = torch.log(tgt_bwbh / anchors[..., 2:])
+        tgt_box_encode = torch.cat([tgt_offsets, tgt_sizes], dim=-1)
+
+        # l1 loss
+        loss_reg = F.l1_loss(pred_reg, tgt_box_encode, reduction='none')
 
         return loss_reg.sum() / num_boxes
-
 
     def forward(self, outputs, targets):
         """
