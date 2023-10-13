@@ -10,7 +10,7 @@ from .matcher import FcosMatcher
 
 class Criterion(object):
     def __init__(self, cfg, device, num_classes=90):
-        # super().__init__()
+        super().__init__()
         # ------------- Basic parameters -------------
         self.cfg = cfg
         self.device = device
@@ -78,7 +78,7 @@ class Criterion(object):
 
         return loss_box.sum() / num_boxes
 
-    def __call__(self, outputs, targets):
+    def forward(self, outputs, targets):
         """
             outputs['pred_cls']: (Tensor) [B, M, C]
             outputs['pred_reg']: (Tensor) [B, M, 4]
