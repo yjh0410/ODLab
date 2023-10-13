@@ -57,7 +57,7 @@ yolof_cfg = {
         'backbone_lr_ratio': 1.0 / 3.0,
         'momentum': 0.9,
         'weight_decay': 1e-4,
-        'clip_max_norm': -1.0,
+        'clip_max_norm': 4.0,
         ## LR Scheduler
         'lr_scheduler': 'step',
         'warmup': 'linear',
