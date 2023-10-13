@@ -40,7 +40,7 @@ class Criterion(nn.Module):
 
         return loss_cls.sum() / num_boxes
 
-    def loss_bboxes(self, pred_reg, tgt_box, anchors, num_boxes, use_giou=False):
+    def loss_bboxes(self, pred_reg=None, pred_box=None, tgt_box=None, anchors=None, num_boxes=1, use_giou=False):
         """
             pred_reg: (Tensor) [Nq, 4]
             tgt_box:  (Tensor) [Nq, 4]
@@ -49,7 +49,7 @@ class Criterion(nn.Module):
         # GIoU loss
         if use_giou:
             # giou
-            pred_giou = generalized_box_iou(pred_reg, tgt_box)  # [N, M]
+            pred_giou = generalized_box_iou(pred_box, tgt_box)  # [N, M]
             # giou loss
             loss_reg = 1. - torch.diag(pred_giou)
         # L1 loss
@@ -80,6 +80,7 @@ class Criterion(nn.Module):
         # -------------------- Pre-process --------------------
         cls_preds = torch.cat(outputs['pred_cls'], dim=1).view(-1, self.num_classes)
         reg_preds = torch.cat(outputs['pred_reg'], dim=1).view(-1, 4)
+        box_preds = torch.cat(outputs['pred_box'], dim=1).view(-1, 4)
         masks = ~torch.cat(outputs['mask'], dim=1).view(-1)
         B = len(targets)
        
@@ -108,10 +109,15 @@ class Criterion(nn.Module):
             cls_preds[valid_idxs], gt_cls_target[valid_idxs], num_foreground)
 
         # -------------------- Regression loss --------------------
-        reg_preds_pos = reg_preds[foreground_idxs]
-        tgt_boxes_pos = tgt_boxes[foreground_idxs].to(reg_preds.device)
-        anchors_pos = anchor_boxes.view(-1, 4)[foreground_idxs]
-        loss_bboxes = self.loss_bboxes(reg_preds_pos, tgt_boxes_pos, anchors_pos, num_foreground, use_giou=self.cfg['use_giou_loss'])
+        if self.cfg['use_giou_loss']:
+            box_preds_pos = box_preds[foreground_idxs]
+            tgt_boxes_pos = tgt_boxes[foreground_idxs].to(reg_preds.device)
+            loss_bboxes = self.loss_bboxes(pred_box=box_preds_pos, tgt_box=tgt_boxes_pos, num_boxes=num_foreground, use_giou=self.cfg['use_giou_loss'])
+        else:
+            reg_preds_pos = reg_preds[foreground_idxs]
+            tgt_boxes_pos = tgt_boxes[foreground_idxs].to(reg_preds.device)
+            anchors_pos = anchor_boxes.view(-1, 4)[foreground_idxs]
+            loss_bboxes = self.loss_bboxes(reg_preds_pos=reg_preds_pos, tgt_box=tgt_boxes_pos, anchors=anchors_pos, num_boxes=num_foreground, use_giou=self.cfg['use_giou_loss'])
 
         loss_dict = dict(
                 loss_cls = loss_labels,
