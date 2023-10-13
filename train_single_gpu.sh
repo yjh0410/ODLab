@@ -1,1 +1,1 @@
-python main.py --cuda -d coco --root /data/datasets/COCO/ -m retinanet_r18_1x --batch_size 2 --eval_epoch 2
+python main.py --cuda -d coco --root /data/datasets/COCO/ -m retinanet_r18_1x --batch_size 16 --eval_epoch 2
