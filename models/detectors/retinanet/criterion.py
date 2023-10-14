@@ -91,10 +91,10 @@ class Criterion(nn.Module):
         tgt_classes, tgt_boxes = self.matcher(anchor_boxes_xyxy, targets)
         tgt_classes = tgt_classes.flatten()
         tgt_boxes = tgt_boxes.view(-1, 4)
-        valid_idxs = (tgt_classes >= 0) & masks
         del anchor_boxes_xyxy
 
         foreground_idxs = (tgt_classes >= 0) & (tgt_classes != self.num_classes)
+        valid_idxs = (tgt_classes >= 0) & masks
         num_foreground = foreground_idxs.sum()
         if is_dist_avail_and_initialized():
             torch.distributed.all_reduce(num_foreground)
