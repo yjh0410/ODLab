@@ -411,9 +411,9 @@ yolof_cfg = {
     },
 
 
-    # ImageNet1k-V1 pretrained
+    # ImageNet1k-V2 pretrained
     ## --------------- C5 level ---------------
-    'yolof_r50_c5_1x':{
+    'yolof_r50v2_c5_1x':{
         # ----------------- Model-----------------
         ## Backbone
         'backbone': 'resnet50',
@@ -494,7 +494,7 @@ yolof_cfg = {
         'normalize_coords': False,
     },
 
-    'yolof_r101_c5_1x':{
+    'yolof_r101v2_c5_1x':{
         # ----------------- Model-----------------
         ## Backbone
         'backbone': 'resnet101',
@@ -576,7 +576,7 @@ yolof_cfg = {
     },
 
     ## --------------- Dilated C5 level ---------------
-    'yolof_r50_dc5_1x':{
+    'yolof_r50v2_dc5_1x':{
         # ----------------- Model-----------------
         ## Backbone
         'backbone': 'resnet50',
@@ -657,7 +657,7 @@ yolof_cfg = {
         'normalize_coords': False,
     },
 
-    'yolof_r101_dc5_1x':{
+    'yolof_r101v2_dc5_1x':{
         # ----------------- Model-----------------
         ## Backbone
         'backbone': 'resnet101',
