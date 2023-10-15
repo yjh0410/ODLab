@@ -4,7 +4,7 @@
 
 | Model                |  scale     |  FPS  | AP<sup>val<br>0.5:0.95 | AP<sup>val<br>0.5 | Weight | Logs  |
 | -------------------- | ---------- | ----- | ---------------------- |  ---------------  | ------ | ----- |
-| RetinaNet_R18_1x     |  800,1333  |       |                        |                   |  |  |
+| RetinaNet_R18_1x     |  800,1333  |       |          30.5          |        48.1       | [ckpt](https://github.com/yjh0410/ODLab/releases/download/detection_weights/retinanet_r18_1x_coco.pth) | [log](https://github.com/yjh0410/ODLab/releases/download/detection_weights/RetinaNet-R18-1x.txt) |
 | RetinaNet_R50_1x     |  800,1333  |       |                        |                   |  |  |
 | RetinaNet_R101_1x    |  800,1333  |       |                        |                   |  |  |
 | RetinaNet_R18_3x     |  800,1333  |       |                        |                   |  |  |
