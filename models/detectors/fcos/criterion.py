@@ -8,7 +8,7 @@ from utils.distributed_utils import get_world_size, is_dist_avail_and_initialize
 from .matcher import FcosMatcher
 
 
-class Criterion(object):
+class Criterion(nn.Module):
     def __init__(self, cfg, device, num_classes=90):
         super().__init__()
         # ------------- Basic parameters -------------
