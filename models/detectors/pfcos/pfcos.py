@@ -56,6 +56,14 @@ class PlainFCOS(nn.Module):
 
         return topk_bboxes, topk_scores, topk_labels
 
+    @torch.jit.unused
+    def set_aux_loss(self, outputs_class, outputs_coord):
+        # this is a workaround to make torchscript happy, as torchscript
+        # doesn't support dictionary with non-homogeneous values, such
+        # as a dict having both a Tensor and a list.
+        return [{'pred_logits': a, 'pred_boxes': b}
+                for a, b in zip(outputs_class[:-1], outputs_coord[:-1])]
+
     @torch.no_grad()
     def inference_single_image(self, x):
         # ---------------- Backbone ----------------
@@ -89,6 +97,10 @@ class PlainFCOS(nn.Module):
             feat = self.neck(pyramid_feats[-1])
 
             # ---------------- Heads ----------------
-            outputs = self.head(feat, mask)
+            output_classes, output_coords = self.head(feat, mask)
 
-            return outputs 
+            outputs = {'pred_logits': output_classes[-1], 'pred_boxes': output_coords[-1]}
+            if self.aux_loss:
+                outputs['aux_outputs'] = self.set_aux_loss(output_classes, output_coords)
+            
+            return outputs
