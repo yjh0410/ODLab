@@ -9,12 +9,13 @@ from utils.distributed_utils import is_dist_avail_and_initialized, get_world_siz
 
 
 class Criterion(nn.Module):
-    def __init__(self, cfg, num_classes=80):
+    def __init__(self, cfg, num_classes=80, aux_loss=False):
         super().__init__()
         # ------------ Basic parameters ------------
         self.cfg = cfg
         self.num_classes = num_classes
-        self.losses = ['labels', 'boxes']
+        self.aux_loss = aux_loss
+        self.loss_types = ['labels', 'boxes']
         # ------------- Focal loss -------------
         self.alpha = cfg['focal_loss_alpha']
         self.gamma = cfg['focal_loss_gamma']
@@ -26,6 +27,11 @@ class Criterion(nn.Module):
         self.weight_dict = {'loss_cls':  cfg['loss_cls_weight'],
                             'loss_box':  cfg['loss_box_weight'],
                             'loss_giou': cfg['loss_giou_weight']}
+        if aux_loss:
+            aux_weight_dict = {}
+            for i in range(cfg['num_decoder'] - 1):
+                aux_weight_dict.update({k + f'_{i}': v for k, v in self.weight_dict.items()})
+            self.weight_dict.update(aux_weight_dict)
 
     def _get_src_permutation_idx(self, indices):
         # permute predictions following indices
@@ -55,8 +61,8 @@ class Criterion(nn.Module):
         # compute class losses
         loss_cls = sigmoid_focal_loss(src_logits, target_classes_onehot, self.alpha, self.gamma)
         loss_cls = loss_cls.sum() / num_boxes
-
-        return loss_cls
+        
+        return {'loss_cls': loss_cls}
 
     def loss_boxes(self, outputs, targets, indices, num_boxes):
         # prepare bbox targets
@@ -71,11 +77,21 @@ class Criterion(nn.Module):
         loss_giou = 1 - torch.diag(bbox_giou)
         loss_giou = loss_giou.sum() / num_boxes
 
-        return loss_bbox, loss_giou
+        return {'loss_box': loss_bbox, 'loss_giou': loss_giou}
+
+    def get_loss(self, loss, outputs, targets, indices, num_boxes, **kwargs):
+        loss_map = {
+            'labels': self.loss_labels,
+            'boxes': self.loss_boxes,
+        }
+        assert loss in loss_map, f'do you really want to compute {loss} loss?'
+        return loss_map[loss](outputs, targets, indices, num_boxes, **kwargs)
 
     def forward(self, outputs, targets):
+        outputs_without_aux = {k: v for k, v in outputs.items() if k != 'aux_outputs'}
+
         # ---------------- Label assignment ----------------
-        indices = self.matcher(outputs, targets)
+        indices = self.matcher(outputs_without_aux, targets)
 
         # ---------------- Number of foregrounds ----------------
         num_boxes = sum(len(t["labels"]) for t in targets)
@@ -84,24 +100,27 @@ class Criterion(nn.Module):
             torch.distributed.all_reduce(num_boxes)
         num_boxes = torch.clamp(num_boxes / get_world_size(), min=1).item()
 
-        # ---------------- Classification loss ----------------
-        loss_cls = self.loss_labels(outputs, targets, indices, num_boxes)
+        # ---------------- Compute main losses ----------------
+        loss_dict = {}
+        for loss in self.loss_types:
+            loss_dict.update(self.get_loss(loss, outputs, targets, indices, num_boxes))
 
-        # ---------------- Regression loss ----------------
-        loss_box, loss_giou = self.loss_boxes(outputs, targets, indices, num_boxes)
-
-        loss_dict = dict(
-            loss_cls = loss_cls,
-            loss_box = loss_box,
-            loss_giou = loss_giou
-        )
+        # ---------------- Compute Aux losses ----------------
+        if 'aux_outputs' in outputs and self.aux_loss:
+            for i, aux_outputs in enumerate(outputs['aux_outputs']):
+                indices = self.matcher(aux_outputs, targets)
+                for loss in self.loss_types:
+                    kwargs = {}
+                    l_dict = self.get_loss(loss, aux_outputs, targets, indices, num_boxes, **kwargs)
+                    l_dict = {k + f'_{i}': v for k, v in l_dict.items()}
+                    loss_dict.update(l_dict)
 
         return loss_dict
 
 
 # build criterion
-def build_criterion(cfg, num_classes):
-    criterion = Criterion(cfg, num_classes)
+def build_criterion(cfg, num_classes, aux_loss=False):
+    criterion = Criterion(cfg, num_classes, aux_loss)
 
     return criterion
     
