@@ -16,15 +16,14 @@ pfcos_cfg = {
         ## Neck
         'neck': 'dilated_encoder',
         'neck_dilations': [2, 4, 6, 8],
-        'neck_expand_ratio': 0.5,
+        'neck_expand_ratio': 0.25,
         'neck_act': 'relu',
         'neck_norm': 'BN',
         ## Head
         'head': 'pfcos_head',
-        'head_dim': 256,
-        'num_head': 6,
+        'head_dim': 512,
         'num_cls_head': 2,
-        'num_reg_head': 2,
+        'num_reg_head': 4,
         'head_act': 'relu',
         'head_norm': 'BN',
         'num_queries': 300,
@@ -51,7 +50,7 @@ pfcos_cfg = {
         'backbone_lr_ratio': 1.0 / 3.0,
         'momentum': 0.9,
         'weight_decay': 1e-4,
-        'clip_max_norm': -1.0,
+        'clip_max_norm': 10.0,
         ## LR Scheduler
         'lr_scheduler': 'step',
         'warmup': 'linear',
