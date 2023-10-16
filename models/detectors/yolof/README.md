@@ -6,7 +6,7 @@
 | ----------------- | ---------- | ----- | ---------------------- |  ---------------  | ------ | ----- |
 | YOLOF_R18_C5_1x   |  800,1333  |       |          32.8          |       51.2        | [ckpt](https://github.com/yjh0410/ODLab/releases/download/detection_weights/yolof_r18_c5_1x_coco.pth) | [log](https://github.com/yjh0410/ODLab/releases/download/detection_weights/YOLOF-R18-C5-1x.txt) |
 | YOLOF_R50_C5_1x   |  800,1333  |       |          38.0          |       57.7        | [ckpt](https://github.com/yjh0410/ODLab/releases/download/detection_weights/yolof_r50_c5_1x_coco.pth) | [log](https://github.com/yjh0410/ODLab/releases/download/detection_weights/YOLOF-R50-C5-1x.txt) |
-| YOLOF_R50_DC5_1x  |  800,1333  |       |                        |                   |  |  |
+| YOLOF_R50_DC5_1x  |  800,1333  |       |          40.0          |       59.6        | [ckpt](https://github.com/yjh0410/ODLab/releases/download/detection_weights/yolof_r101_c5_1x_coco.pth) | [log](https://github.com/yjh0410/ODLab/releases/download/detection_weights/YOLOF-R101-C5-1x.txt) |
 | YOLOF_R101_C5_1x  |  800,1333  |       |                        |                   |  |  |
 | YOLOF_R101_DC5_1x |  800,1333  |       |                        |                   |  |  |
 
