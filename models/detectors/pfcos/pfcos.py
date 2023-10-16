@@ -75,11 +75,11 @@ class PlainFCOS(nn.Module):
         feat = self.neck(pyramid_feats[-1])
 
         # ---------------- Heads ----------------
-        output_classes, output_coords, _, _ = self.head(feat)
+        outputs = self.head(feat)
 
         # ---------------- PostProcess ----------------
-        cls_pred = output_classes[-1]
-        box_pred = output_coords[-1]
+        cls_pred = outputs["pred_cls"]
+        box_pred = outputs["pred_box"]
         bboxes, scores, labels = self.post_process(cls_pred, box_pred)
         # normalize bbox
         bboxes[..., 0::2] /= x.shape[-1]
@@ -99,21 +99,6 @@ class PlainFCOS(nn.Module):
             feat = self.neck(pyramid_feats[-1])
 
             # ---------------- Heads ----------------
-            output_classes, output_coords, output_deltas, ref_points = self.head(feat, mask)
-            outputs = {'pred_logits': output_classes[-1],
-                       'pred_deltas': output_deltas[-1],
-                       'pred_boxes': output_coords[-1],
-                       'ref_points': ref_points[-1]}
-            if self.aux_loss:
-                outputs['aux_outputs'] = self.set_aux_loss(output_classes, output_deltas, output_coords, ref_points)
-            
-            # Reshape mask
-            if mask is not None:
-                B, _, H, W = feat.size()
-                # [B, H, W]
-                mask = torch.nn.functional.interpolate(mask[None].float(), size=[H, W]).bool()[0]
-                # [B, H, W] -> [B, M]
-                mask = mask.flatten(1)
-            outputs['masks'] = mask
+            outputs = self.head(feat, mask)
 
-            return outputs
+            return outputs 

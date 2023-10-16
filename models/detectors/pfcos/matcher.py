@@ -13,10 +13,10 @@ class HungarianMatcher(nn.Module):
 
     @torch.no_grad()
     def forward(self, outputs, targets):
-        bs, num_queries = outputs["pred_logits"].shape[:2]
+        bs, num_queries = outputs["pred_cls"].shape[:2]
         # [B, Nq, C] -> [BNq, C]
-        out_prob = outputs["pred_logits"].flatten(0, 1).sigmoid()
-        out_bbox = outputs["pred_boxes"].flatten(0, 1)
+        out_prob = outputs["pred_cls"].flatten(0, 1).sigmoid()
+        out_bbox = outputs["pred_box"].flatten(0, 1)
 
         # List[B, M, C] -> [BM, C]
         tgt_ids = torch.cat([v["labels"] for v in targets])
@@ -31,9 +31,9 @@ class HungarianMatcher(nn.Module):
 
         # -------------------- Regression cost --------------------
         ## L1 cost: [Nq, M]
-        cost_bbox = torch.cdist(out_bbox, box_xyxy_to_cxcywh(tgt_bbox).to(out_bbox.device), p=1)
+        cost_bbox = torch.cdist(box_xyxy_to_cxcywh(out_bbox), box_xyxy_to_cxcywh(tgt_bbox).to(out_bbox.device), p=1)
         ## GIoU cost: Nq, M]
-        cost_giou = -generalized_box_iou(box_cxcywh_to_xyxy(out_bbox), tgt_bbox.to(out_bbox.device))
+        cost_giou = -generalized_box_iou(out_bbox, tgt_bbox.to(out_bbox.device))
 
         # Final cost: [B, Nq, M]
         C = self.cost_bbox * cost_bbox + self.cost_class * cost_class + self.cost_giou * cost_giou

@@ -47,7 +47,7 @@ class Criterion(nn.Module):
 
     def loss_labels(self, outputs, targets, indices, num_boxes, masks):
         """Classification loss (NLL)"""
-        src_logits = outputs['pred_logits']
+        src_logits = outputs['pred_cls']
         # prepare class targets
         idx = self._get_src_permutation_idx(indices)
         target_classes_o = torch.cat([t["labels"][J] for t, (_, J) in zip(targets, indices)]).to(src_logits.device)
@@ -69,23 +69,24 @@ class Criterion(nn.Module):
     def loss_boxes(self, outputs, targets, indices, num_boxes, masks):
         # prepare pred bboxes & reference points
         idx = self._get_src_permutation_idx(indices)
-        src_deltas = outputs['pred_deltas'][idx]
-        src_boxes = outputs['pred_boxes'][idx]
-        src_ref_points = outputs['ref_points'][idx]
+        stride = outputs['stride']
+        anchors = outputs['anchors'][idx]
+        src_boxes = outputs['pred_box'][idx]
+        src_deltas = outputs['pred_reg'][idx]
         # prepare bbox targets
         target_boxes = torch.cat([t['boxes'][i] for t, (_, i) in zip(targets, indices)], dim=0).to(src_boxes.device)
 
         # ------------------ Compute L1 loss ------------------
         target_boxes_xywh = box_xyxy_to_cxcywh(target_boxes)
         # encode gt box
-        target_offsets = (target_boxes_xywh[..., :2] - src_ref_points[..., :2]) / src_ref_points[..., 2:]
-        target_sizes = torch.log(target_boxes_xywh[..., 2:] / src_ref_points[..., 2:])
+        target_offsets = (target_boxes_xywh[..., :2] - anchors) / stride
+        target_sizes = torch.log(target_boxes_xywh[..., 2:] / stride)
         target_boxes_encode = torch.cat([target_offsets, target_sizes], dim=-1)
         loss_bbox = F.l1_loss(src_deltas, target_boxes_encode, reduction='none')
         loss_bbox = loss_bbox.sum() / num_boxes
         
         # ------------------ Compute GIoU loss ------------------
-        bbox_giou = generalized_box_iou(box_cxcywh_to_xyxy(src_boxes), target_boxes)
+        bbox_giou = generalized_box_iou(src_boxes, target_boxes)
         loss_giou = 1 - torch.diag(bbox_giou)
         loss_giou = loss_giou.sum() / num_boxes
 
@@ -100,11 +101,10 @@ class Criterion(nn.Module):
         return loss_map[loss](outputs, targets, indices, num_boxes, masks, **kwargs)
 
     def forward(self, outputs, targets):
-        outputs_without_aux = {k: v for k, v in outputs.items() if k != 'aux_outputs'}
-        masks = ~outputs['masks'].view(-1)
+        masks = ~outputs['mask'].view(-1)
 
         # ---------------- Label assignment ----------------
-        indices = self.matcher(outputs_without_aux, targets)
+        indices = self.matcher(outputs, targets)
 
         # ---------------- Number of foregrounds ----------------
         num_boxes = sum(len(t["labels"]) for t in targets)
@@ -117,16 +117,6 @@ class Criterion(nn.Module):
         loss_dict = {}
         for loss in self.loss_types:
             loss_dict.update(self.get_loss(loss, outputs, targets, indices, num_boxes, masks))
-
-        # ---------------- Compute Aux losses ----------------
-        if 'aux_outputs' in outputs and self.aux_loss:
-            for i, aux_outputs in enumerate(outputs['aux_outputs']):
-                indices = self.matcher(aux_outputs, targets)
-                for loss in self.loss_types:
-                    kwargs = {}
-                    l_dict = self.get_loss(loss, aux_outputs, targets, indices, num_boxes, masks, **kwargs)
-                    l_dict = {k + f'_{i}': v for k, v in l_dict.items()}
-                    loss_dict.update(l_dict)
 
         return loss_dict
 
