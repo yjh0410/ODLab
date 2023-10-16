@@ -1,11 +1,12 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .matcher import AlignedSimOTA
+
 from utils.box_ops import get_ious
 from utils.misc import sigmoid_focal_loss
 from utils.distributed_utils import get_world_size, is_dist_avail_and_initialized
 
+from .matcher import AlignedSimOTA
 
 
 class Criterion(nn.Module):
@@ -49,7 +50,7 @@ class Criterion(nn.Module):
     def loss_delta(self, pred_reg, gt_box, anchors, stride, num_boxes=1.0):
         # xyxy -> cxcy&bwbh
         gt_cxcy = (gt_box[..., :2] + gt_box[..., 2:]) * 0.5
-        gt_bwbh = gt_box[..., 2:] - gt_box[..., :2] + 1e-7
+        gt_bwbh = torch.clamp(gt_box[..., 2:] - gt_box[..., :2], min=1e-7)
         # encode gt box
         gt_cxcy_encode = (gt_cxcy - anchors) / stride
         gt_bwbh_encode = torch.log(gt_bwbh / stride)
@@ -118,7 +119,7 @@ class Criterion(nn.Module):
         loss_giou = self.loss_giou(box_preds_pos, box_targets_pos, num_fgs)
         ## L1 loss
         reg_preds_pos = outputs['pred_reg'].view(-1, 4)[pos_inds]
-        anchors_pos = outputs['anchors'].repeat(bs, 1, 1).view(-1, 2)[pos_inds]
+        anchors_pos = outputs['anchors'].repeat(bs, 1)[pos_inds]
         loss_box = self.loss_delta(reg_preds_pos, box_targets_pos, anchors_pos, stride, num_fgs)
 
         loss_dict = dict(
