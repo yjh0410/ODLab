@@ -20,7 +20,7 @@ pfcos_cfg = {
         'neck_act': 'relu',
         'neck_norm': 'BN',
         ## Head
-        'head': 'yolof_head',
+        'head': 'pfcos_head',
         'head_dim': 512,
         'num_cls_head': 2,
         'num_reg_head': 4,
@@ -45,6 +45,7 @@ pfcos_cfg = {
         'focal_loss_gamma': 2.0,
         'loss_cls_weight': 1.0,
         'loss_reg_weight': 1.0,
+        'loss_box_weight': 1.0,
         # ----------------- Training -----------------
         ## Training scheduler
         'scheduler': '1x',

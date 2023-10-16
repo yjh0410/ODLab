@@ -20,7 +20,8 @@ class Criterion(nn.Module):
         self.gamma = cfg['focal_loss_gamma']
         # ------------- Loss weight -------------
         self.weight_dict = {'loss_cls': cfg['loss_cls_weight'],
-                            'loss_reg': cfg['loss_reg_weight']}
+                            'loss_reg': cfg['loss_reg_weight'],
+                            'loss_box': cfg['loss_box_weight']}
         # ------------- Matcher -------------
         self.matcher_cfg = cfg['matcher_hpy']
         self.matcher = AlignedSimOTA(num_classes=num_classes,
@@ -46,13 +47,13 @@ class Criterion(nn.Module):
 
         return loss_box.sum() / num_boxes
 
-    def loss_delta(self, pred_reg, gt_box, anchors, stride, num_boxes=1.0):
+    def loss_delta(self, pred_reg, gt_box, anchors, num_boxes=1.0):
         # xyxy -> cxcy&bwbh
         gt_cxcy = (gt_box[..., :2] + gt_box[..., 2:]) * 0.5
-        gt_bwbh = torch.clamp((gt_box[..., 2:] - gt_box[..., :2]) / stride, min=1e-7)
+        gt_bwbh = gt_box[..., 2:] - gt_box[..., :2]
         # encode gt box
-        gt_cxcy_encode = (gt_cxcy - anchors) / stride
-        gt_bwbh_encode = torch.log(gt_bwbh)
+        gt_cxcy_encode = (gt_cxcy - anchors[..., :2]) / anchors[..., 2:]
+        gt_bwbh_encode = torch.log(gt_bwbh / anchors[..., 2:])
         gt_box_encode = torch.cat([gt_cxcy_encode, gt_bwbh_encode], dim=-1)
         # l1 loss
         loss_box_aux = F.l1_loss(pred_reg, gt_box_encode, reduction='none')
@@ -115,14 +116,15 @@ class Criterion(nn.Module):
         box_preds_pos = box_preds.view(-1, 4)[pos_inds]
         box_targets_pos = box_targets[pos_inds]
         loss_reg = self.loss_giou(box_preds_pos, box_targets_pos, num_fgs)
-        # ## L1 loss
-        # reg_preds_pos = outputs['pred_reg'].view(-1, 4)[pos_inds]
-        # anchors_pos = outputs['anchors'].repeat(bs, 1)[pos_inds]
-        # loss_box = self.loss_delta(reg_preds_pos, box_targets_pos, anchors_pos, stride, num_fgs)
+        ## L1 loss
+        reg_preds_pos = outputs['pred_reg'].view(-1, 4)[pos_inds]
+        anchors_pos = outputs['anchors'].repeat(bs, 1)[pos_inds]
+        loss_box = self.loss_delta(reg_preds_pos, box_targets_pos, anchors_pos, num_fgs)
 
         loss_dict = dict(
                 loss_cls = loss_cls,
                 loss_reg = loss_reg,
+                loss_box = loss_box
         )
 
         return loss_dict

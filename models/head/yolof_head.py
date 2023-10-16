@@ -118,7 +118,7 @@ class YOLOFHead(nn.Module):
         # x = x_anchor + dx * w_anchor
         # y = y_anchor + dy * h_anchor
         pred_ctr_offset = pred_reg[..., :2] * anchor_boxes[..., 2:]
-        pred_ctr_offset = torch.clamp(pred_ctr_offset, max=self.ctr_clamp, min=-self.ctr_clamp)
+        pred_ctr_offset = torch.clamp(pred_ctr_offset, min=-self.ctr_clamp, max=self.ctr_clamp)
         pred_ctr_xy = anchor_boxes[..., :2] + pred_ctr_offset
 
         # w = w_anchor * exp(tw)

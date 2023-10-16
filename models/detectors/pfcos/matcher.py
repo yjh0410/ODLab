@@ -1,7 +1,6 @@
 import torch
 import torch.nn.functional as F
 from utils.box_ops import box_iou
-from utils.misc import sigmoid_focal_loss
 
 
 # RTMDet's Assigner
