@@ -50,7 +50,7 @@ class Criterion(nn.Module):
     def loss_delta(self, pred_reg, gt_box, anchors, num_boxes=1.0):
         # xyxy -> cxcy&bwbh
         gt_cxcy = (gt_box[..., :2] + gt_box[..., 2:]) * 0.5
-        gt_bwbh = gt_box[..., 2:] - gt_box[..., :2]
+        gt_bwbh = torch.clamp(gt_box[..., 2:] - gt_box[..., :2], min=1e-7)
         # encode gt box
         gt_cxcy_encode = (gt_cxcy - anchors[..., :2]) / anchors[..., 2:]
         gt_bwbh_encode = torch.log(gt_bwbh / anchors[..., 2:])
