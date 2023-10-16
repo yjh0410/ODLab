@@ -108,8 +108,9 @@ class Criterion(nn.Module):
         # ---------------------------- Classification loss ----------------------------
         valid_inds = mask & (cls_targets >= 0)
         cls_preds = cls_preds.view(-1, self.num_classes)
+        gt_cls_one_hot = F.one_hot(cls_targets, num_classes=self.num_classes+1).float()
         cls_targets_one_hot = torch.zeros_like(cls_preds)
-        cls_targets_one_hot[pos_inds, cls_targets[pos_inds]] = 1
+        cls_targets_one_hot[pos_inds] = gt_cls_one_hot[pos_inds, :-1]
         loss_cls = self.loss_label(cls_preds[valid_inds], cls_targets_one_hot[valid_inds], num_fgs)
 
         # ---------------------------- Regression loss ----------------------------
