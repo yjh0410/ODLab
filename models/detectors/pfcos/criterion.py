@@ -110,7 +110,7 @@ class Criterion(nn.Module):
         cls_preds = cls_preds.view(-1, self.num_classes)
         cls_targets_one_hot = torch.zeros_like(cls_preds)
         cls_targets_one_hot[pos_inds, cls_targets[pos_inds]] = 1
-        loss_cls = self.loss_label(cls_preds, cls_targets_one_hot, num_fgs)
+        loss_cls = self.loss_label(cls_preds[valid_inds], cls_targets_one_hot[valid_inds], num_fgs)
 
         # ---------------------------- Regression loss ----------------------------
         ## GIoU loss
