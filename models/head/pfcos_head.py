@@ -9,6 +9,7 @@ class PlainFCOSHead(nn.Module):
     def __init__(self, cfg, in_dim, out_dim, num_classes, num_cls_head=1, num_reg_head=1, act_type='relu', norm_type='BN'):
         super().__init__()
         self.fmp_size = None
+        self.DEFAULT_SCALE_CLAMP = math.log(1000.0 / 16)
         # ------------------ Basic parameters -------------------
         self.cfg = cfg
         self.in_dim = in_dim
@@ -96,7 +97,7 @@ class PlainFCOSHead(nn.Module):
             pred_reg: (List[Tensor]) [B, M, 4] or [M, 4] (l, t, r, b)
         """
         pred_cxcy = anchors + pred_deltas[..., :2] * self.stride
-        pred_bwbh = pred_deltas[..., 2:].exp() * self.stride
+        pred_bwbh = torch.clamp(pred_deltas[..., 2:], max=self.DEFAULT_SCALE_CLAMP).exp() * self.stride
 
         # convert [x, y, w, h] -> [x1, y1, x2, y2]
         pred_x1y1 = pred_cxcy - 0.5 * pred_bwbh

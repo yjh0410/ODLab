@@ -79,7 +79,7 @@ class Criterion(nn.Module):
         cls_preds = outputs['pred_cls']
         box_preds = outputs['pred_box']
 
-        # --------------- label assignment ---------------
+        # ---------------------------- label assignment ----------------------------
         cls_targets = []
         box_targets = []
         for batch_idx in range(bs):
