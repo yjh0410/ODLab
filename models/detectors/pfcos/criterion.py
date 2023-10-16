@@ -59,7 +59,7 @@ class Criterion(nn.Module):
 
         return loss_box_aux.sum() / num_boxes
 
-    def __call__(self, outputs, targets):        
+    def get_losses(self, outputs, targets):        
         """
             outputs['pred_cls']: (Tensor) [B, M, C]
             outputs['pred_reg']: (Tensor) [B, M, 4]
@@ -116,19 +116,23 @@ class Criterion(nn.Module):
         box_preds_pos = box_preds.view(-1, 4)[pos_inds]
         box_targets_pos = box_targets[pos_inds]
         loss_giou = self.loss_bboxes(box_preds_pos, box_targets_pos, num_fgs)
-        ## L1 loss
-        reg_preds_pos = outputs['pred_reg'].view(-1, 4)[pos_inds]
-        anchors_pos = outputs['anchors'].repeat(bs, 1, 1).view(-1, 2)[pos_inds]
-        loss_box = self.loss_bboxes_deltas(reg_preds_pos, box_targets_pos, anchors_pos, stride, num_fgs)
+        # ## L1 loss
+        # reg_preds_pos = outputs['pred_reg'].view(-1, 4)[pos_inds]
+        # anchors_pos = outputs['anchors'].repeat(bs, 1, 1).view(-1, 2)[pos_inds]
+        # loss_box = self.loss_bboxes_deltas(reg_preds_pos, box_targets_pos, anchors_pos, stride, num_fgs)
 
         loss_dict = dict(
                 loss_cls = loss_cls,
-                loss_box = loss_box,
+                # loss_box = loss_box,
                 loss_giou = loss_giou
         )
 
         return loss_dict
     
+    def __call__(self, outputs, targets):
+        return self.get_losses(outputs, targets)
+               
+
 
 def build_criterion(cfg, num_classes, aux_loss=False):
     criterion = Criterion(cfg, num_classes, aux_loss)
