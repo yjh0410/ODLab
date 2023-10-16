@@ -50,7 +50,7 @@ pfcos_cfg = {
         ## Optimizer
         'optimizer': 'adamw',
         'base_lr': 0.0001 / 16,
-        'backbone_lr_ratio': 1.0,
+        'backbone_lr_ratio': 0.1,
         'momentum': None,
         'weight_decay': 1e-4,
         'clip_max_norm': -1.0,
