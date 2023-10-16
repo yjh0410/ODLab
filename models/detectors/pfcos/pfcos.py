@@ -14,13 +14,15 @@ class PlainFCOS(nn.Module):
                  device, 
                  num_classes :int   = 80, 
                  topk        :int   = 1000,
-                 trainable   :bool  = False):
+                 trainable   :bool  = False,
+                 aux_loss    :bool  = False):
         super(PlainFCOS, self).__init__()
         # ---------------------- Basic Parameters ----------------------
         self.cfg = cfg
         self.device = device
+        self.num_topk = topk
         self.trainable = trainable
-        self.topk = topk
+        self.aux_loss = aux_loss
         self.num_classes = num_classes
 
         # ---------------------- Network Parameters ----------------------
@@ -43,9 +45,9 @@ class PlainFCOS(nn.Module):
                 topk_scores: (Tensor) [Topk,]
                 topk_labels: (Tensor) [Topk,]
         """
-        ## Top-k select
         cls_pred = cls_pred[0].flatten().sigmoid_()
         box_pred = box_pred[0]
+        ## Top-k select
         predicted_prob, topk_idxs = cls_pred.sort(descending=True)
         topk_idxs = topk_idxs[:self.num_topk]
         topk_box_idxs = torch.div(topk_idxs, self.num_classes, rounding_mode='floor')
@@ -57,12 +59,12 @@ class PlainFCOS(nn.Module):
         return topk_bboxes, topk_scores, topk_labels
 
     @torch.jit.unused
-    def set_aux_loss(self, outputs_class, outputs_coord):
+    def set_aux_loss(self, outputs_class, output_delta, outputs_coord, ref_points):
         # this is a workaround to make torchscript happy, as torchscript
         # doesn't support dictionary with non-homogeneous values, such
         # as a dict having both a Tensor and a list.
-        return [{'pred_logits': a, 'pred_boxes': b}
-                for a, b in zip(outputs_class[:-1], outputs_coord[:-1])]
+        return [{'pred_logits': a, 'pred_deltas': b, 'pred_boxes': c, 'ref_points': d}
+                for a, b, c, d in zip(outputs_class[:-1], output_delta[:-1], outputs_coord[:-1], ref_points[:-1])]
 
     @torch.no_grad()
     def inference_single_image(self, x):
@@ -73,11 +75,11 @@ class PlainFCOS(nn.Module):
         feat = self.neck(pyramid_feats[-1])
 
         # ---------------- Heads ----------------
-        outputs = self.head(feat)
+        output_classes, output_coords, _, _ = self.head(feat)
 
         # ---------------- PostProcess ----------------
-        cls_pred = outputs["pred_cls"]
-        box_pred = outputs["pred_box"]
+        cls_pred = output_classes[-1]
+        box_pred = output_coords[-1]
         bboxes, scores, labels = self.post_process(cls_pred, box_pred)
         # normalize bbox
         bboxes[..., 0::2] /= x.shape[-1]
@@ -97,10 +99,21 @@ class PlainFCOS(nn.Module):
             feat = self.neck(pyramid_feats[-1])
 
             # ---------------- Heads ----------------
-            output_classes, output_coords = self.head(feat, mask)
-
-            outputs = {'pred_logits': output_classes[-1], 'pred_boxes': output_coords[-1]}
+            output_classes, output_coords, output_deltas, ref_points = self.head(feat, mask)
+            outputs = {'pred_logits': output_classes[-1],
+                       'pred_deltas': output_deltas[-1],
+                       'pred_boxes': output_coords[-1],
+                       'ref_points': ref_points[-1]}
             if self.aux_loss:
-                outputs['aux_outputs'] = self.set_aux_loss(output_classes, output_coords)
+                outputs['aux_outputs'] = self.set_aux_loss(output_classes, output_deltas, output_coords, ref_points)
             
+            # Reshape mask
+            if mask is not None:
+                B, _, H, W = feat.size()
+                # [B, H, W]
+                mask = torch.nn.functional.interpolate(mask[None].float(), size=[H, W]).bool()[0]
+                # [B, H, W] -> [B, M]
+                mask = mask.flatten(1)
+            outputs['masks'] = mask
+
             return outputs

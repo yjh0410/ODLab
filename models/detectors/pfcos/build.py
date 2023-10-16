@@ -12,12 +12,13 @@ def build_pfcos(cfg, device, num_classes=80, trainable=False):
                       device      = device,
                       num_classes = num_classes,
                       topk        = cfg['train_topk'] if trainable else cfg['test_topk'],
-                      trainable   = trainable)
-            
+                      trainable   = trainable,
+                      aux_loss    = trainable)
+
     # -------------- Build Criterion --------------
     criterion = None
     if trainable:
         # build criterion for training
-        criterion = build_criterion(cfg, num_classes)
+        criterion = build_criterion(cfg, num_classes, aux_loss=trainable)
 
     return model, criterion

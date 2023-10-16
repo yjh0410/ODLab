@@ -29,7 +29,7 @@ class Criterion(nn.Module):
                             'loss_giou': cfg['loss_giou_weight']}
         if aux_loss:
             aux_weight_dict = {}
-            for i in range(cfg['num_decoder'] - 1):
+            for i in range(cfg['num_head'] - 1):
                 aux_weight_dict.update({k + f'_{i}': v for k, v in self.weight_dict.items()})
             self.weight_dict.update(aux_weight_dict)
 
@@ -45,7 +45,7 @@ class Criterion(nn.Module):
         tgt_idx = torch.cat([tgt for (_, tgt) in indices])
         return batch_idx, tgt_idx
 
-    def loss_labels(self, outputs, targets, indices, num_boxes):
+    def loss_labels(self, outputs, targets, indices, num_boxes, masks):
         """Classification loss (NLL)"""
         src_logits = outputs['pred_logits']
         # prepare class targets
@@ -59,36 +59,49 @@ class Criterion(nn.Module):
         target_classes_onehot.scatter_(2, target_classes.unsqueeze(-1), 1)
         target_classes_onehot = target_classes_onehot[:, :, :-1]
         # compute class losses
-        loss_cls = sigmoid_focal_loss(src_logits, target_classes_onehot, self.alpha, self.gamma)
+        valid_src_logits = src_logits.view(-1, self.num_classes)[masks]
+        valid_target_classes_onehot = target_classes_onehot.view(-1, self.num_classes)[masks]
+        loss_cls = sigmoid_focal_loss(valid_src_logits, valid_target_classes_onehot, self.alpha, self.gamma)
         loss_cls = loss_cls.sum() / num_boxes
         
         return {'loss_cls': loss_cls}
 
-    def loss_boxes(self, outputs, targets, indices, num_boxes):
-        # prepare bbox targets
+    def loss_boxes(self, outputs, targets, indices, num_boxes, masks):
+        # prepare pred bboxes & reference points
         idx = self._get_src_permutation_idx(indices)
+        src_deltas = outputs['pred_deltas'][idx]
         src_boxes = outputs['pred_boxes'][idx]
+        src_ref_points = outputs['ref_points'][idx]
+        # prepare bbox targets
         target_boxes = torch.cat([t['boxes'][i] for t, (_, i) in zip(targets, indices)], dim=0).to(src_boxes.device)
-        # compute L1 loss
-        loss_bbox = F.l1_loss(src_boxes, box_xyxy_to_cxcywh(target_boxes), reduction='none')
+
+        # ------------------ Compute L1 loss ------------------
+        target_boxes_xywh = box_xyxy_to_cxcywh(target_boxes)
+        # encode gt box
+        target_offsets = (target_boxes_xywh[..., :2] - src_ref_points[..., :2]) / src_ref_points[..., 2:]
+        target_sizes = torch.log(target_boxes_xywh[..., 2:] / src_ref_points[..., 2:])
+        target_boxes_encode = torch.cat([target_offsets, target_sizes], dim=-1)
+        loss_bbox = F.l1_loss(src_deltas, target_boxes_encode, reduction='none')
         loss_bbox = loss_bbox.sum() / num_boxes
-        # compute GIoU loss
+        
+        # ------------------ Compute GIoU loss ------------------
         bbox_giou = generalized_box_iou(box_cxcywh_to_xyxy(src_boxes), target_boxes)
         loss_giou = 1 - torch.diag(bbox_giou)
         loss_giou = loss_giou.sum() / num_boxes
 
         return {'loss_box': loss_bbox, 'loss_giou': loss_giou}
 
-    def get_loss(self, loss, outputs, targets, indices, num_boxes, **kwargs):
+    def get_loss(self, loss, outputs, targets, indices, num_boxes, masks, **kwargs):
         loss_map = {
             'labels': self.loss_labels,
             'boxes': self.loss_boxes,
         }
         assert loss in loss_map, f'do you really want to compute {loss} loss?'
-        return loss_map[loss](outputs, targets, indices, num_boxes, **kwargs)
+        return loss_map[loss](outputs, targets, indices, num_boxes, masks, **kwargs)
 
     def forward(self, outputs, targets):
         outputs_without_aux = {k: v for k, v in outputs.items() if k != 'aux_outputs'}
+        masks = ~outputs['masks'].view(-1)
 
         # ---------------- Label assignment ----------------
         indices = self.matcher(outputs_without_aux, targets)
@@ -103,7 +116,7 @@ class Criterion(nn.Module):
         # ---------------- Compute main losses ----------------
         loss_dict = {}
         for loss in self.loss_types:
-            loss_dict.update(self.get_loss(loss, outputs, targets, indices, num_boxes))
+            loss_dict.update(self.get_loss(loss, outputs, targets, indices, num_boxes, masks))
 
         # ---------------- Compute Aux losses ----------------
         if 'aux_outputs' in outputs and self.aux_loss:
@@ -111,7 +124,7 @@ class Criterion(nn.Module):
                 indices = self.matcher(aux_outputs, targets)
                 for loss in self.loss_types:
                     kwargs = {}
-                    l_dict = self.get_loss(loss, aux_outputs, targets, indices, num_boxes, **kwargs)
+                    l_dict = self.get_loss(loss, aux_outputs, targets, indices, num_boxes, masks, **kwargs)
                     l_dict = {k + f'_{i}': v for k, v in l_dict.items()}
                     loss_dict.update(l_dict)
 

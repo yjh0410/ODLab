@@ -16,14 +16,15 @@ pfcos_cfg = {
         ## Neck
         'neck': 'dilated_encoder',
         'neck_dilations': [2, 4, 6, 8],
-        'neck_expand_ratio': 0.25,
+        'neck_expand_ratio': 0.5,
         'neck_act': 'relu',
         'neck_norm': 'BN',
         ## Head
         'head': 'pfcos_head',
         'head_dim': 256,
-        'num_cls_head': 4,
-        'num_reg_head': 4,
+        'num_head': 6,
+        'num_cls_head': 2,
+        'num_reg_head': 2,
         'head_act': 'relu',
         'head_norm': 'BN',
         'num_queries': 300,
@@ -32,16 +33,16 @@ pfcos_cfg = {
         'test_topk': 100,
         # ----------------- Label Assignment -----------------
         'matcher': 'HungarianMatcher',
-        'matcher_hpy':{'cost_cls_weight': 2.0,
-                       'cost_box_weight': 5.0,
+        'matcher_hpy':{'cost_cls_weight':  2.0,
+                       'cost_box_weight':  5.0,
                        'cost_giou_weight': 2.0,
                        },
         # ----------------- Loss weight -----------------
         ## Loss hyper-parameters
         'focal_loss_alpha': 0.25,
         'focal_loss_gamma': 2.0,
-        'loss_cls_weight': 2.0,
-        'loss_box_weight': 5.0,
+        'loss_cls_weight':  2.0,
+        'loss_box_weight':  5.0,
         'loss_giou_weight': 2.0,
         # ----------------- Training -----------------
         ## Training scheduler
@@ -56,7 +57,7 @@ pfcos_cfg = {
         ## LR Scheduler
         'lr_scheduler': 'step',
         'warmup': 'linear',
-        'warmup_iters': 1500,
+        'warmup_iters': 500,
         'warmup_factor': 0.00066667,
         ## Epoch
         'max_epoch': 12,      # 1x
