@@ -140,7 +140,7 @@ class PlainFCOSHead(nn.Module):
             Output:
                 pred_box: (Tensor) -> [B, M, 4] or [M, 4]
         """
-        pred_cxcy = ref_points[..., :2] + pred_deltas[..., :2]
+        pred_cxcy = ref_points[..., :2] + pred_deltas[..., :2] * self.stride
         pred_bwbh = ref_points[..., 2:] * pred_deltas[..., 2:].exp()
         pred_box = torch.cat([pred_cxcy, pred_bwbh], dim=-1)
 
