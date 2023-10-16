@@ -50,10 +50,10 @@ class Criterion(nn.Module):
     def loss_delta(self, pred_reg, gt_box, anchors, stride, num_boxes=1.0):
         # xyxy -> cxcy&bwbh
         gt_cxcy = (gt_box[..., :2] + gt_box[..., 2:]) * 0.5
-        gt_bwbh = torch.clamp(gt_box[..., 2:] - gt_box[..., :2], min=1e-7)
+        gt_bwbh = torch.clamp((gt_box[..., 2:] - gt_box[..., :2]) / stride, min=1e-7)
         # encode gt box
         gt_cxcy_encode = (gt_cxcy - anchors) / stride
-        gt_bwbh_encode = torch.log(gt_bwbh / stride)
+        gt_bwbh_encode = torch.log(gt_bwbh)
         gt_box_encode = torch.cat([gt_cxcy_encode, gt_bwbh_encode], dim=-1)
         # l1 loss
         loss_box_aux = F.l1_loss(pred_reg, gt_box_encode, reduction='none')
@@ -100,6 +100,8 @@ class Criterion(nn.Module):
         # FG cat_id: [0, num_classes -1], BG cat_id: num_classes
         pos_inds = (cls_targets >= 0) & (cls_targets != self.num_classes)
         num_fgs = pos_inds.sum()
+        if num_fgs == 0:
+            print('No labels !!!!')
 
         if is_dist_avail_and_initialized():
             torch.distributed.all_reduce(num_fgs)
