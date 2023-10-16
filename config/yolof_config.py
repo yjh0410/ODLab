@@ -39,7 +39,7 @@ yolof_cfg = {
         'nms_class_agnostic': True,  # We prefer to use class-agnostic NMS in the demo.
         # ----------------- Label Assignment -----------------
         'matcher': 'yolof_matcher',
-        'matcher_hpy': {'topk_candidates': 1,
+        'matcher_hpy': {'topk_candidates': 4,
                         'iou_thresh': 0.15,
                         'ignore_thresh': 0.7,
                         },
