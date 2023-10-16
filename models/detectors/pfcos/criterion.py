@@ -97,7 +97,7 @@ class Criterion(nn.Module):
         box_targets = torch.cat(box_targets, dim=0)
         
         # FG cat_id: [0, num_classes -1], BG cat_id: num_classes
-        pos_inds = mask & (cls_targets >= 0) & (cls_targets != self.num_classes)
+        pos_inds = (cls_targets >= 0) & (cls_targets != self.num_classes)
         num_fgs = pos_inds.sum()
 
         if is_dist_avail_and_initialized():
@@ -105,10 +105,11 @@ class Criterion(nn.Module):
         num_fgs = (num_fgs / get_world_size()).clamp(1.0).item()
         
         # ---------------------------- Classification loss ----------------------------
+        valid_inds = mask & (cls_targets >= 0)
         cls_preds = cls_preds.view(-1, self.num_classes)
-        gt_classes_target = torch.zeros_like(cls_preds)
-        gt_classes_target[pos_inds, cls_targets[pos_inds]] = 1
-        loss_cls = self.loss_labels(cls_preds, gt_classes_target, num_fgs)
+        cls_targets_one_hot = torch.zeros_like(cls_preds)
+        cls_targets_one_hot[pos_inds, cls_targets[pos_inds]] = 1
+        loss_cls = self.loss_labels(cls_preds[valid_inds], cls_targets_one_hot[valid_inds], num_fgs)
 
         # ---------------------------- Regression loss ----------------------------
         ## GIoU loss
