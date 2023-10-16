@@ -61,19 +61,19 @@ class Criterion(nn.Module):
 
     def __call__(self, outputs, targets):        
         """
-            outputs['pred_cls']: List(Tensor) [B, M, C]
-            outputs['pred_box']: List(Tensor) [B, M, 4]
-            outputs['pred_box']: List(Tensor) [B, M, 4]
-            outputs['strides']: List(Int) [8, 16, 32] output stride
+            outputs['pred_cls']: (Tensor) [B, M, C]
+            outputs['pred_reg']: (Tensor) [B, M, 4]
+            outputs['pred_box']: (Tensor) [B, M, 4]
+            outputs['stride']: (Int) output stride
             targets: (List) [dict{'boxes': [...], 
                                  'labels': [...], 
-                                 'orig_size': ...}, ...]
+                                 ...]
         """
         bs = outputs['pred_cls'].shape[0]
-        device = outputs['pred_cls'].device
-        anchors = outputs['anchors']
         stride = outputs['stride']
+        anchors = outputs['anchors']
         mask = ~outputs['mask'].flatten()
+        device = anchors.device
         # preds: [B, M, C]
         cls_preds = outputs['pred_cls']
         box_preds = outputs['pred_box']
