@@ -20,12 +20,11 @@ class Criterion(nn.Module):
         self.gamma = cfg['focal_loss_gamma']
         # ------------- Loss weight -------------
         self.weight_dict = {'loss_cls': cfg['loss_cls_weight'],
-                            'loss_box': cfg['loss_box_weight'],
-                            'loss_giou': cfg['loss_giou_weight']}
+                            'loss_reg': cfg['loss_reg_weight']}
         # ------------- Matcher -------------
         self.matcher_cfg = cfg['matcher_hpy']
         self.matcher = AlignedSimOTA(num_classes=num_classes,
-                                     topk_candidate=int(self.matcher_cfg['topk_candicate']),
+                                     topk_candidate=int(self.matcher_cfg['topk_candidate']),
                                      alpha=self.alpha,
                                      gamma=self.gamma
                                      )
@@ -71,7 +70,6 @@ class Criterion(nn.Module):
                                  ...]
         """
         bs = outputs['pred_cls'].shape[0]
-        stride = outputs['stride']
         anchors = outputs['anchors']
         mask = ~outputs['mask'].flatten()
         device = anchors.device
@@ -79,14 +77,14 @@ class Criterion(nn.Module):
         cls_preds = outputs['pred_cls']
         box_preds = outputs['pred_box']
 
-        # ---------------------------- label assignment ----------------------------
+        # --------------- label assignment ---------------
         cls_targets = []
         box_targets = []
         for batch_idx in range(bs):
             tgt_labels = targets[batch_idx]["labels"].to(device)  # [N,]
             tgt_bboxes = targets[batch_idx]["boxes"].to(device)   # [N, 4]
             # label assignment
-            assigned_result = self.matcher(anchors=anchors,
+            assigned_result = self.matcher(anchors=anchors[..., :2],
                                            pred_cls=cls_preds[batch_idx].detach(),
                                            pred_box=box_preds[batch_idx].detach(),
                                            gt_labels=tgt_labels,
@@ -108,25 +106,23 @@ class Criterion(nn.Module):
         # ---------------------------- Classification loss ----------------------------
         valid_inds = mask & (cls_targets >= 0)
         cls_preds = cls_preds.view(-1, self.num_classes)
-        gt_cls_one_hot = F.one_hot(cls_targets, num_classes=self.num_classes+1).float()
         cls_targets_one_hot = torch.zeros_like(cls_preds)
-        cls_targets_one_hot[pos_inds] = gt_cls_one_hot[pos_inds, :-1]
+        cls_targets_one_hot[pos_inds, cls_targets[pos_inds]] = 1
         loss_cls = self.loss_label(cls_preds[valid_inds], cls_targets_one_hot[valid_inds], num_fgs)
 
         # ---------------------------- Regression loss ----------------------------
         ## GIoU loss
         box_preds_pos = box_preds.view(-1, 4)[pos_inds]
         box_targets_pos = box_targets[pos_inds]
-        loss_giou = self.loss_giou(box_preds_pos, box_targets_pos, num_fgs)
-        ## L1 loss
-        reg_preds_pos = outputs['pred_reg'].view(-1, 4)[pos_inds]
-        anchors_pos = outputs['anchors'].repeat(bs, 1)[pos_inds]
-        loss_box = self.loss_delta(reg_preds_pos, box_targets_pos, anchors_pos, stride, num_fgs)
+        loss_reg = self.loss_giou(box_preds_pos, box_targets_pos, num_fgs)
+        # ## L1 loss
+        # reg_preds_pos = outputs['pred_reg'].view(-1, 4)[pos_inds]
+        # anchors_pos = outputs['anchors'].repeat(bs, 1)[pos_inds]
+        # loss_box = self.loss_delta(reg_preds_pos, box_targets_pos, anchors_pos, stride, num_fgs)
 
         loss_dict = dict(
                 loss_cls = loss_cls,
-                loss_box = loss_box,
-                loss_giou = loss_giou
+                loss_reg = loss_reg,
         )
 
         return loss_dict

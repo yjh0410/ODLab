@@ -6,24 +6,29 @@ from ...backbone import build_backbone
 from ...neck import build_neck
 from ...head import build_head
 
+# --------------- External components ---------------
+from utils.misc import multiclass_nms
+
 
 # ------------------------ Plain FCOS ------------------------
 class PlainFCOS(nn.Module):
     def __init__(self, 
                  cfg,
-                 device, 
                  num_classes :int   = 80, 
+                 conf_thresh :float = 0.05,
+                 nms_thresh  :float = 0.6,
                  topk        :int   = 1000,
                  trainable   :bool  = False,
-                 aux_loss    :bool  = False):
+                 ca_nms      :bool  = False):
         super(PlainFCOS, self).__init__()
         # ---------------------- Basic Parameters ----------------------
         self.cfg = cfg
-        self.device = device
-        self.num_topk = topk
         self.trainable = trainable
-        self.aux_loss = aux_loss
+        self.topk = topk
         self.num_classes = num_classes
+        self.conf_thresh = conf_thresh
+        self.nms_thresh = nms_thresh
+        self.ca_nms = ca_nms
 
         # ---------------------- Network Parameters ----------------------
         ## Backbone
@@ -37,34 +42,46 @@ class PlainFCOS(nn.Module):
 
     def post_process(self, cls_pred, box_pred):
         """
-            Inputs:
-                cls_pred: (Tensor) [B, Nq, Nc], where B should be 1.
-                box_pred: (Tensor) [B, Nq, 4], where B should be 1.
-            Outputs:
-                topk_bboxes: (Tensor) [Topk, 4]
-                topk_scores: (Tensor) [Topk,]
-                topk_labels: (Tensor) [Topk,]
+        Input:
+            cls_pred: (Tensor) [[H x W x KA, C]
+            box_pred: (Tensor)  [H x W x KA, 4]
         """
-        cls_pred = cls_pred[0].flatten().sigmoid_()
+        cls_pred = cls_pred[0]
         box_pred = box_pred[0]
-        ## Top-k select
-        predicted_prob, topk_idxs = cls_pred.sort(descending=True)
-        topk_idxs = topk_idxs[:self.num_topk]
-        topk_box_idxs = torch.div(topk_idxs, self.num_classes, rounding_mode='floor')
-        ## Top-k results
-        topk_scores = predicted_prob[:self.num_topk]
-        topk_labels = topk_idxs % self.num_classes
-        topk_bboxes = box_pred[topk_box_idxs]
+        
+        # (H x W x KA x C,)
+        scores_i = cls_pred.sigmoid().flatten()
 
-        return topk_bboxes, topk_scores, topk_labels
+        # Keep top k top scoring indices only.
+        num_topk = min(self.topk, box_pred.size(0))
 
-    @torch.jit.unused
-    def set_aux_loss(self, outputs_class, output_delta, outputs_coord, ref_points):
-        # this is a workaround to make torchscript happy, as torchscript
-        # doesn't support dictionary with non-homogeneous values, such
-        # as a dict having both a Tensor and a list.
-        return [{'pred_logits': a, 'pred_deltas': b, 'pred_boxes': c, 'ref_points': d}
-                for a, b, c, d in zip(outputs_class[:-1], output_delta[:-1], outputs_coord[:-1], ref_points[:-1])]
+        # torch.sort is actually faster than .topk (at least on GPUs)
+        predicted_prob, topk_idxs = scores_i.sort(descending=True)
+        topk_scores = predicted_prob[:num_topk]
+        topk_idxs = topk_idxs[:num_topk]
+
+        # filter out the proposals with low confidence score
+        keep_idxs = topk_scores > self.conf_thresh
+        topk_idxs = topk_idxs[keep_idxs]
+
+        # final scores
+        scores = topk_scores[keep_idxs]
+        # final labels
+        labels = topk_idxs % self.num_classes
+        # final bboxes
+        anchor_idxs = torch.div(topk_idxs, self.num_classes, rounding_mode='floor')
+        bboxes = box_pred[anchor_idxs]
+
+        # to cpu & numpy
+        scores = scores.cpu().numpy()
+        labels = labels.cpu().numpy()
+        bboxes = bboxes.cpu().numpy()
+
+        # nms
+        scores, labels, bboxes = multiclass_nms(
+            scores, labels, bboxes, self.nms_thresh, self.num_classes, self.ca_nms)
+
+        return bboxes, scores, labels
 
     @torch.no_grad()
     def inference_single_image(self, x):

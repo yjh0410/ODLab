@@ -20,27 +20,31 @@ pfcos_cfg = {
         'neck_act': 'relu',
         'neck_norm': 'BN',
         ## Head
-        'head': 'pfcos_head',
+        'head': 'yolof_head',
         'head_dim': 512,
         'num_cls_head': 2,
         'num_reg_head': 4,
         'head_act': 'relu',
         'head_norm': 'BN',
-        'num_queries': 300,
+        'center_clamp': 512,         
+        'anchor_size': [[32, 32], [64, 64], [128, 128], [256, 256], [512, 512]],
         ## Post-process
-        'train_topk': 100,
+        'train_topk': 1000,
+        'train_conf_thresh': 0.05,
+        'train_nms_thresh': 0.6,
         'test_topk': 100,
+        'test_conf_thresh': 0.1,
+        'test_nms_thresh': 0.45,
+        'nms_class_agnostic': True,  # We prefer to use class-agnostic NMS in the demo.
         # ----------------- Label Assignment -----------------
-        'matcher': 'SimOTA',
-        'matcher_hpy':{'topk_candicate': 1,
-                       },
+        'matcher': 'yolof_matcher',
+        'matcher_hpy': {'topk_candidate': 4},
         # ----------------- Loss weight -----------------
         ## Loss hyper-parameters
         'focal_loss_alpha': 0.25,
         'focal_loss_gamma': 2.0,
-        'loss_cls_weight':  1.0,
-        'loss_box_weight':  1.0,
-        'loss_giou_weight': 1.0,
+        'loss_cls_weight': 1.0,
+        'loss_reg_weight': 1.0,
         # ----------------- Training -----------------
         ## Training scheduler
         'scheduler': '1x',
@@ -54,7 +58,7 @@ pfcos_cfg = {
         ## LR Scheduler
         'lr_scheduler': 'step',
         'warmup': 'linear',
-        'warmup_iters': 500,
+        'warmup_iters': 1500,
         'warmup_factor': 0.00066667,
         ## Epoch
         'max_epoch': 12,      # 1x
@@ -72,7 +76,9 @@ pfcos_cfg = {
         'trans_config': [
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
+            {'name': 'RandomShift', 'max_shift': 32},
         ],
         'normalize_coords': False,
     },
+
 }
