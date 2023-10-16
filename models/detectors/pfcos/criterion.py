@@ -29,7 +29,7 @@ class Criterion(nn.Module):
                                      gamma=self.gamma
                                      )
     
-    def loss_labels(self, pred_cls, tgt_cls, num_boxes=1.0):
+    def loss_label(self, pred_cls, tgt_cls, num_boxes=1.0):
         """
             pred_cls: (Tensor) [N, C]
             tgt_cls:  (Tensor) [N, C]
@@ -39,17 +39,17 @@ class Criterion(nn.Module):
 
         return loss_cls.sum() / num_boxes
 
-    def loss_bboxes(self, pred_box, gt_box, num_boxes=1.0):
+    def loss_giou(self, pred_box, gt_box, num_boxes=1.0):
         # regression loss
         ious = get_ious(pred_box, gt_box, "xyxy", 'giou')
         loss_box = 1.0 - ious
 
         return loss_box.sum() / num_boxes
 
-    def loss_bboxes_deltas(self, pred_reg, gt_box, anchors, stride, num_boxes=1.0):
+    def loss_delta(self, pred_reg, gt_box, anchors, stride, num_boxes=1.0):
         # xyxy -> cxcy&bwbh
         gt_cxcy = (gt_box[..., :2] + gt_box[..., 2:]) * 0.5
-        gt_bwbh = gt_box[..., 2:] - gt_box[..., :2]
+        gt_bwbh = gt_box[..., 2:] - gt_box[..., :2] + 1e-7
         # encode gt box
         gt_cxcy_encode = (gt_cxcy - anchors) / stride
         gt_bwbh_encode = torch.log(gt_bwbh / stride)
@@ -109,21 +109,21 @@ class Criterion(nn.Module):
         cls_preds = cls_preds.view(-1, self.num_classes)
         cls_targets_one_hot = torch.zeros_like(cls_preds)
         cls_targets_one_hot[pos_inds, cls_targets[pos_inds]] = 1
-        loss_cls = self.loss_labels(cls_preds[valid_inds], cls_targets_one_hot[valid_inds], num_fgs)
+        loss_cls = self.loss_label(cls_preds[valid_inds], cls_targets_one_hot[valid_inds], num_fgs)
 
         # ---------------------------- Regression loss ----------------------------
         ## GIoU loss
         box_preds_pos = box_preds.view(-1, 4)[pos_inds]
         box_targets_pos = box_targets[pos_inds]
-        loss_giou = self.loss_bboxes(box_preds_pos, box_targets_pos, num_fgs)
-        # ## L1 loss
-        # reg_preds_pos = outputs['pred_reg'].view(-1, 4)[pos_inds]
-        # anchors_pos = outputs['anchors'].repeat(bs, 1, 1).view(-1, 2)[pos_inds]
-        # loss_box = self.loss_bboxes_deltas(reg_preds_pos, box_targets_pos, anchors_pos, stride, num_fgs)
+        loss_giou = self.loss_giou(box_preds_pos, box_targets_pos, num_fgs)
+        ## L1 loss
+        reg_preds_pos = outputs['pred_reg'].view(-1, 4)[pos_inds]
+        anchors_pos = outputs['anchors'].repeat(bs, 1, 1).view(-1, 2)[pos_inds]
+        loss_box = self.loss_delta(reg_preds_pos, box_targets_pos, anchors_pos, stride, num_fgs)
 
         loss_dict = dict(
                 loss_cls = loss_cls,
-                # loss_box = loss_box,
+                loss_box = loss_box,
                 loss_giou = loss_giou
         )
 
