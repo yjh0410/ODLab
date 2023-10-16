@@ -1,129 +1,139 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-from .matcher import HungarianMatcher
+from .matcher import AlignedSimOTA
+from utils.box_ops import get_ious
 from utils.misc import sigmoid_focal_loss
-from utils.box_ops import box_cxcywh_to_xyxy, box_xyxy_to_cxcywh, generalized_box_iou
-from utils.distributed_utils import is_dist_avail_and_initialized, get_world_size
+from utils.distributed_utils import get_world_size, is_dist_avail_and_initialized
+
 
 
 class Criterion(nn.Module):
     def __init__(self, cfg, num_classes=80, aux_loss=False):
         super().__init__()
-        # ------------ Basic parameters ------------
+        # ------------- Basic parameters -------------
         self.cfg = cfg
         self.num_classes = num_classes
-        self.aux_loss = aux_loss
-        self.loss_types = ['labels', 'boxes']
         # ------------- Focal loss -------------
         self.alpha = cfg['focal_loss_alpha']
         self.gamma = cfg['focal_loss_gamma']
-        # ------------ Matcher ------------
-        self.matcher = HungarianMatcher(cost_class = cfg['matcher_hpy']['cost_cls_weight'],
-                                        cost_bbox  = cfg['matcher_hpy']['cost_box_weight'],
-                                        cost_giou  = cfg['matcher_hpy']['cost_giou_weight'])
         # ------------- Loss weight -------------
-        self.weight_dict = {'loss_cls':  cfg['loss_cls_weight'],
-                            'loss_box':  cfg['loss_box_weight'],
+        self.weight_dict = {'loss_cls': cfg['loss_cls_weight'],
+                            'loss_box': cfg['loss_box_weight'],
                             'loss_giou': cfg['loss_giou_weight']}
-        if aux_loss:
-            aux_weight_dict = {}
-            for i in range(cfg['num_head'] - 1):
-                aux_weight_dict.update({k + f'_{i}': v for k, v in self.weight_dict.items()})
-            self.weight_dict.update(aux_weight_dict)
+        # ------------- Matcher -------------
+        self.matcher_cfg = cfg['matcher_hpy']
+        self.matcher = AlignedSimOTA(num_classes=num_classes,
+                                     topk_candidate=int(self.matcher_cfg['topk_candicate']),
+                                     alpha=self.alpha,
+                                     gamma=self.gamma
+                                     )
+    
+    def loss_labels(self, pred_cls, tgt_cls, num_boxes=1.0):
+        """
+            pred_cls: (Tensor) [N, C]
+            tgt_cls:  (Tensor) [N, C]
+        """
+        # cls loss: [V, C]
+        loss_cls = sigmoid_focal_loss(pred_cls, tgt_cls, self.alpha, self.gamma)
 
-    def _get_src_permutation_idx(self, indices):
-        # permute predictions following indices
-        batch_idx = torch.cat([torch.full_like(src, i) for i, (src, _) in enumerate(indices)])
-        src_idx = torch.cat([src for (src, _) in indices])
-        return batch_idx, src_idx
+        return loss_cls.sum() / num_boxes
 
-    def _get_tgt_permutation_idx(self, indices):
-        # permute targets following indices
-        batch_idx = torch.cat([torch.full_like(tgt, i) for i, (_, tgt) in enumerate(indices)])
-        tgt_idx = torch.cat([tgt for (_, tgt) in indices])
-        return batch_idx, tgt_idx
+    def loss_bboxes(self, pred_box, gt_box, num_boxes=1.0):
+        # regression loss
+        ious = get_ious(pred_box, gt_box, "xyxy", 'giou')
+        loss_box = 1.0 - ious
 
-    def loss_labels(self, outputs, targets, indices, num_boxes, masks):
-        """Classification loss (NLL)"""
-        src_logits = outputs['pred_cls']
-        # prepare class targets
-        idx = self._get_src_permutation_idx(indices)
-        target_classes_o = torch.cat([t["labels"][J] for t, (_, J) in zip(targets, indices)]).to(src_logits.device)
-        target_classes = torch.full(src_logits.shape[:2], self.num_classes, dtype=torch.int64,).to(src_logits.device)
-        target_classes[idx] = target_classes_o
-        # get one-hot class labels
-        target_classes_onehot = torch.zeros([src_logits.shape[0], src_logits.shape[1], src_logits.shape[2] + 1],
-                                            dtype=src_logits.dtype, layout=src_logits.layout, device=src_logits.device)
-        target_classes_onehot.scatter_(2, target_classes.unsqueeze(-1), 1)
-        target_classes_onehot = target_classes_onehot[:, :, :-1]
-        # compute class losses
-        valid_src_logits = src_logits.view(-1, self.num_classes)[masks]
-        valid_target_classes_onehot = target_classes_onehot.view(-1, self.num_classes)[masks]
-        loss_cls = sigmoid_focal_loss(valid_src_logits, valid_target_classes_onehot, self.alpha, self.gamma)
-        loss_cls = loss_cls.sum() / num_boxes
-        
-        return {'loss_cls': loss_cls}
+        return loss_box.sum() / num_boxes
 
-    def loss_boxes(self, outputs, targets, indices, num_boxes, masks):
-        # prepare pred bboxes & reference points
-        idx = self._get_src_permutation_idx(indices)
-        stride = outputs['stride']
-        anchors = outputs['anchors'][idx]
-        src_boxes = outputs['pred_box'][idx]
-        src_deltas = outputs['pred_reg'][idx]
-        # prepare bbox targets
-        target_boxes = torch.cat([t['boxes'][i] for t, (_, i) in zip(targets, indices)], dim=0).to(src_boxes.device)
-
-        # ------------------ Compute L1 loss ------------------
-        target_boxes_xywh = box_xyxy_to_cxcywh(target_boxes)
+    def loss_bboxes_deltas(self, pred_reg, gt_box, anchors, stride, num_boxes=1.0):
+        # xyxy -> cxcy&bwbh
+        gt_cxcy = (gt_box[..., :2] + gt_box[..., 2:]) * 0.5
+        gt_bwbh = gt_box[..., 2:] - gt_box[..., :2]
         # encode gt box
-        target_offsets = (target_boxes_xywh[..., :2] - anchors) / stride
-        target_sizes = torch.log(target_boxes_xywh[..., 2:] / stride)
-        target_boxes_encode = torch.cat([target_offsets, target_sizes], dim=-1)
-        loss_bbox = F.l1_loss(src_deltas, target_boxes_encode, reduction='none')
-        loss_bbox = loss_bbox.sum() / num_boxes
+        gt_cxcy_encode = (gt_cxcy - anchors) / stride
+        gt_bwbh_encode = torch.log(gt_bwbh / stride)
+        gt_box_encode = torch.cat([gt_cxcy_encode, gt_bwbh_encode], dim=-1)
+        # l1 loss
+        loss_box_aux = F.l1_loss(pred_reg, gt_box_encode, reduction='none')
+
+        return loss_box_aux.sum() / num_boxes
+
+    def __call__(self, outputs, targets):        
+        """
+            outputs['pred_cls']: List(Tensor) [B, M, C]
+            outputs['pred_box']: List(Tensor) [B, M, 4]
+            outputs['pred_box']: List(Tensor) [B, M, 4]
+            outputs['strides']: List(Int) [8, 16, 32] output stride
+            targets: (List) [dict{'boxes': [...], 
+                                 'labels': [...], 
+                                 'orig_size': ...}, ...]
+        """
+        bs = outputs['pred_cls'].shape[0]
+        device = outputs['pred_cls'].device
+        anchors = outputs['anchors']
+        stride = outputs['stride']
+        mask = ~outputs['mask'].flatten()
+        # preds: [B, M, C]
+        cls_preds = outputs['pred_cls']
+        box_preds = outputs['pred_box']
+
+        # --------------- label assignment ---------------
+        cls_targets = []
+        box_targets = []
+        for batch_idx in range(bs):
+            tgt_labels = targets[batch_idx]["labels"].to(device)  # [N,]
+            tgt_bboxes = targets[batch_idx]["boxes"].to(device)   # [N, 4]
+            # label assignment
+            assigned_result = self.matcher(anchors=anchors,
+                                           pred_cls=cls_preds[batch_idx].detach(),
+                                           pred_box=box_preds[batch_idx].detach(),
+                                           gt_labels=tgt_labels,
+                                           gt_bboxes=tgt_bboxes
+                                           )
+            cls_targets.append(assigned_result['assigned_labels'])
+            box_targets.append(assigned_result['assigned_bboxes'])
+        cls_targets = torch.cat(cls_targets, dim=0)
+        box_targets = torch.cat(box_targets, dim=0)
         
-        # ------------------ Compute GIoU loss ------------------
-        bbox_giou = generalized_box_iou(src_boxes, target_boxes)
-        loss_giou = 1 - torch.diag(bbox_giou)
-        loss_giou = loss_giou.sum() / num_boxes
+        # FG cat_id: [0, num_classes -1], BG cat_id: num_classes
+        pos_inds = mask & (cls_targets >= 0) & (cls_targets != self.num_classes)
+        num_fgs = pos_inds.sum()
 
-        return {'loss_box': loss_bbox, 'loss_giou': loss_giou}
-
-    def get_loss(self, loss, outputs, targets, indices, num_boxes, masks, **kwargs):
-        loss_map = {
-            'labels': self.loss_labels,
-            'boxes': self.loss_boxes,
-        }
-        assert loss in loss_map, f'do you really want to compute {loss} loss?'
-        return loss_map[loss](outputs, targets, indices, num_boxes, masks, **kwargs)
-
-    def forward(self, outputs, targets):
-        masks = ~outputs['mask'].view(-1)
-
-        # ---------------- Label assignment ----------------
-        indices = self.matcher(outputs, targets)
-
-        # ---------------- Number of foregrounds ----------------
-        num_boxes = sum(len(t["labels"]) for t in targets)
-        num_boxes = torch.as_tensor([num_boxes], dtype=torch.float, device=next(iter(outputs.values())).device)
         if is_dist_avail_and_initialized():
-            torch.distributed.all_reduce(num_boxes)
-        num_boxes = torch.clamp(num_boxes / get_world_size(), min=1).item()
+            torch.distributed.all_reduce(num_fgs)
+        num_fgs = (num_fgs / get_world_size()).clamp(1.0).item()
+        
+        # ---------------------------- Classification loss ----------------------------
+        cls_preds = cls_preds.view(-1, self.num_classes)
+        gt_classes_target = torch.zeros_like(cls_preds)
+        gt_classes_target[pos_inds, cls_targets[pos_inds]] = 1
+        loss_cls = self.loss_labels(cls_preds, gt_classes_target, num_fgs)
 
-        # ---------------- Compute main losses ----------------
-        loss_dict = {}
-        for loss in self.loss_types:
-            loss_dict.update(self.get_loss(loss, outputs, targets, indices, num_boxes, masks))
+        # ---------------------------- Regression loss ----------------------------
+        ## GIoU loss
+        box_preds_pos = box_preds.view(-1, 4)[pos_inds]
+        box_targets_pos = box_targets[pos_inds]
+        loss_giou = self.loss_bboxes(box_preds_pos, box_targets_pos, num_fgs)
+        ## L1 loss
+        reg_preds_pos = outputs['pred_reg'].view(-1, 4)[pos_inds]
+        anchors_pos = outputs['anchors'].repeat(bs, 1, 1).view(-1, 2)[pos_inds]
+        loss_box = self.loss_bboxes_deltas(reg_preds_pos, box_targets_pos, anchors_pos, stride, num_fgs)
+
+        loss_dict = dict(
+                loss_cls = loss_cls,
+                loss_box = loss_box,
+                loss_giou = loss_giou
+        )
 
         return loss_dict
+    
 
-
-# build criterion
 def build_criterion(cfg, num_classes, aux_loss=False):
     criterion = Criterion(cfg, num_classes, aux_loss)
 
     return criterion
-    
+
+
+if __name__ == "__main__":
+    pass

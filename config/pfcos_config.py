@@ -32,26 +32,24 @@ pfcos_cfg = {
         'train_topk': 100,
         'test_topk': 100,
         # ----------------- Label Assignment -----------------
-        'matcher': 'HungarianMatcher',
-        'matcher_hpy':{'cost_cls_weight':  2.0,
-                       'cost_box_weight':  5.0,
-                       'cost_giou_weight': 2.0,
+        'matcher': 'SimOTA',
+        'matcher_hpy':{'topk_candicate': 1,
                        },
         # ----------------- Loss weight -----------------
         ## Loss hyper-parameters
         'focal_loss_alpha': 0.25,
         'focal_loss_gamma': 2.0,
-        'loss_cls_weight':  2.0,
-        'loss_box_weight':  5.0,
-        'loss_giou_weight': 2.0,
+        'loss_cls_weight':  1.0,
+        'loss_box_weight':  1.0,
+        'loss_giou_weight': 1.0,
         # ----------------- Training -----------------
         ## Training scheduler
         'scheduler': '1x',
         ## Optimizer
-        'optimizer': 'adamw',
-        'base_lr': 0.0001 / 16,
+        'optimizer': 'sgd',
+        'base_lr': 0.01 / 16,
         'backbone_lr_ratio': 1.0,
-        'momentum': None,
+        'momentum': 0.9,
         'weight_decay': 1e-4,
         'clip_max_norm': -1.0,
         ## LR Scheduler

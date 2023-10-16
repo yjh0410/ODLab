@@ -114,7 +114,7 @@ class PlainFCOSHead(nn.Module):
         B, _, H, W = cls_feat.size()
         fmp_size = [H, W]
         anchors = self.get_anchors(fmp_size)   # [M, 2]
-        anchors = anchors[None].repeat(B, 1, 1).to(feat.device)
+        anchors = anchors.to(feat.device)
 
         # ------------------- Predict -------------------
         cls_pred = self.cls_pred(cls_feat)
@@ -125,7 +125,7 @@ class PlainFCOSHead(nn.Module):
         cls_pred = cls_pred.permute(0, 2, 3, 1).contiguous().view(B, -1, self.num_classes)
         reg_pred = reg_pred.permute(0, 2, 3, 1).contiguous().view(B, -1, 4)
         ## Decode bbox
-        box_pred = self.decode_boxes(reg_pred, anchors)
+        box_pred = self.decode_boxes(reg_pred, anchors[None])
         ## Adjust mask
         if mask is not None:
             # [B, H, W]
