@@ -120,7 +120,7 @@ class OTACriterion(nn.Module):
         return loss_dict
 
 
-class Criterion(nn.Module):
+class SimOTACriterion(nn.Module):
     def __init__(self, cfg, device, num_classes=80):
         super().__init__()
         # ------------- Basic parameters -------------
@@ -235,7 +235,10 @@ class Criterion(nn.Module):
 
 # build criterion
 def build_criterion(cfg, device, num_classes=80):
-    criterion = Criterion(cfg=cfg, device=device, num_classes=num_classes)
+    if cfg['matcher'] == 'ota':
+        criterion = OTACriterion(cfg=cfg, device=device, num_classes=num_classes)
+    elif cfg['matcher'] == 'simota':
+        criterion = SimOTACriterion(cfg=cfg, device=device, num_classes=num_classes)
     return criterion
 
 
