@@ -91,7 +91,7 @@ class HungarianCriterion(nn.Module):
         
         # ------------------- L1 loss -------------------
         tgt_boxes_cxcy = (target_boxes[..., :2] + target_boxes[..., 2:]) * 0.5
-        tgt_boxes_bwbh = target_boxes[..., 2:] - target_boxes[..., :2]
+        tgt_boxes_bwbh = torch.clamp(target_boxes[..., 2:] - target_boxes[..., :2], min=1e-7)
         tgt_boxes_cxcy_e = (tgt_boxes_cxcy - anchors[..., :2]) / anchors[..., 2:]
         tgt_boxes_bwbh_e = torch.log(tgt_boxes_bwbh / anchors[..., 2:])
         target_boxes_e = torch.cat([tgt_boxes_cxcy_e, tgt_boxes_bwbh_e], dim=-1)
