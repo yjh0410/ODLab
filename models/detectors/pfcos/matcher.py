@@ -171,6 +171,7 @@ class AlignedOTA(object):
     def __call__(self, anchors, pred_cls, pred_box, gt_labels, gt_bboxes):
         num_gt = len(gt_labels)
         num_anchors = pred_box.shape[0]
+        device = pred_box.device
 
         # check gt
         if num_gt == 0 or gt_bboxes.max().item() == 0.:
@@ -232,17 +233,15 @@ class AlignedOTA(object):
         # [M,]
         cls_target = gt_labels.new_ones(num_anchors) * self.num_classes
         cls_target[fg_mask] = gt_labels[matched_gt_inds[fg_mask]]
-        print(cls_target.device, fg_mask.device, matched_gt_inds.device)
 
         # [M, 4]
         box_target = gt_bboxes.new_zeros((num_anchors, 4))
         gt_bboxes_ = gt_bboxes.unsqueeze(1).repeat(1, num_anchors, 1)
-        print(matched_gt_inds.device, fg_mask.device, box_target.device, gt_bboxes_.device)
-        box_target[fg_mask] = gt_bboxes_[matched_gt_inds[fg_mask], torch.arange(num_anchors)[fg_mask]]
+        box_target[fg_mask] = gt_bboxes_[matched_gt_inds[fg_mask], torch.arange(num_anchors, device=device)[fg_mask]]
 
         # [M,]
         iou_target = pair_wise_ious.new_zeros((num_anchors, 1))
-        iou_target[fg_mask] = pair_wise_ious[matched_gt_inds[fg_mask], torch.arange(num_anchors)[fg_mask]].unsqueeze(1)
+        iou_target[fg_mask] = pair_wise_ious[matched_gt_inds[fg_mask], torch.arange(num_anchors, device=device)[fg_mask]].unsqueeze(1)
         
         return cls_target, box_target, iou_target
 
