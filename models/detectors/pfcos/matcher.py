@@ -236,7 +236,7 @@ class AlignedOTA(object):
         # [M, 4]
         box_target = gt_bboxes.new_zeros((num_anchors, 4))
         gt_bboxes_ = gt_bboxes.unsqueeze(1).repeat(1, num_anchors, 1)
-        print(matched_gt_inds.device, fg_mask.device, box_target.device)
+        print(matched_gt_inds.device, fg_mask.device, box_target.device, gt_bboxes_.device)
         box_target[fg_mask] = gt_bboxes_[matched_gt_inds[fg_mask], torch.arange(num_anchors)[fg_mask]]
 
         # [M,]
