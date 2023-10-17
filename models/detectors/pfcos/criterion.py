@@ -72,15 +72,15 @@ class OTACriterion(nn.Module):
             tgt_labels = targets[batch_idx]["labels"].to(device)  # [N,]
             tgt_bboxes = targets[batch_idx]["boxes"].to(device)   # [N, 4]
             # label assignment
-            cls_target, box_target, iou_target = self.matcher(anchors=anchors[..., :2],
+            assign_results = self.matcher(anchors=anchors[..., :2],
                                            pred_cls=cls_preds[batch_idx].detach(),
                                            pred_box=box_preds[batch_idx].detach(),
                                            gt_labels=tgt_labels,
                                            gt_bboxes=tgt_bboxes
                                            )
-            cls_targets.append(cls_target)
-            box_targets.append(box_target)
-            iou_targets.append(iou_target)
+            cls_targets.append(assign_results['cls_target'])
+            box_targets.append(assign_results['box_target'])
+            iou_targets.append(assign_results['iou_target'])
         cls_targets = torch.cat(cls_targets, dim=0)
         box_targets = torch.cat(box_targets, dim=0)
         iou_targets = torch.cat(iou_targets, dim=0)

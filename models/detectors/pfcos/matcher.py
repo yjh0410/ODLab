@@ -176,11 +176,9 @@ class AlignedOTA(object):
         # check gt
         if num_gt == 0 or gt_bboxes.max().item() == 0.:
             return {
-                'assigned_labels': gt_labels.new_full(pred_cls[..., 0].shape,
-                                                      self.num_classes,
-                                                      dtype=torch.long),
-                'assigned_bboxes': gt_bboxes.new_full(pred_box.shape, 0),
-                'assign_metrics': gt_bboxes.new_full(pred_cls[..., 0].shape, 0)
+                'cls_target': gt_labels.new_full(pred_cls[..., 0].shape, self.num_classes, dtype=torch.long),
+                'box_target': gt_bboxes.new_full(pred_box.shape, 0),
+                'iou_target': gt_bboxes.new_full(pred_cls[..., 0].shape, 0)
             }
         
         # [N, M, 4], N is the number of targets, M is the number of all anchors
@@ -243,7 +241,10 @@ class AlignedOTA(object):
         iou_target = pair_wise_ious.new_zeros((num_anchors, 1))
         iou_target[fg_mask] = pair_wise_ious[matched_gt_inds[fg_mask], torch.arange(num_anchors, device=device)[fg_mask]].unsqueeze(1)
         
-        return cls_target, box_target, iou_target
+        return {'cls_target': cls_target,
+                'box_target': box_target,
+                'iou_target': iou_target
+                }
 
     def find_inside_points(self, gt_bboxes, anchors):
         """
