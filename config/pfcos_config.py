@@ -26,7 +26,6 @@ pfcos_cfg = {
         'num_reg_head': 4,
         'head_act': 'relu',
         'head_norm': 'BN',
-        'use_aux_head': False,
         'center_clamp': 512,         
         'anchor_size': [[32, 32], [64, 64], [128, 128], [256, 256], [512, 512]],
         ## Post-process
@@ -36,7 +35,7 @@ pfcos_cfg = {
         'test_topk': 100,
         'test_conf_thresh': 0.1,
         'test_nms_thresh': 0.45,
-        'use_nms': False,
+        'use_nms': True,
         'nms_class_agnostic': True,  # We prefer to use class-agnostic NMS in the demo.
         # ----------------- Label Assignment -----------------
         # 'matcher': 'aligned_simota',
@@ -57,7 +56,8 @@ pfcos_cfg = {
         'focal_loss_alpha': 0.25,
         'focal_loss_gamma': 2.0,
         'loss_cls_weight': 1.0,
-        'loss_reg_weight': 2.0,
+        'loss_reg_weight': 5.0,
+        'loss_box_weight': 2.0,
         # ----------------- Training -----------------
         ## Training scheduler
         'scheduler': '1x',

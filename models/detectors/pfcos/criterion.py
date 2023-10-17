@@ -36,7 +36,8 @@ class HungarianCriterion(nn.Module):
                                         gamma      = self.gamma)
         # ------------- Loss weight -------------
         self.weight_dict = {'loss_cls': cfg['loss_cls_weight'],
-                            'loss_reg': cfg['loss_reg_weight']}
+                            'loss_reg': cfg['loss_reg_weight'],
+                            'loss_box': cfg['loss_box_weight'],}
 
     def _get_src_permutation_idx(self, indices):
         # permute predictions following indices
@@ -71,7 +72,7 @@ class HungarianCriterion(nn.Module):
 
         return loss_cls.sum() / num_boxes
 
-    def loss_boxes(self, pred_box, targets, indices, num_boxes):
+    def loss_boxes(self, pred_reg, pred_box, targets, indices, anchors, num_boxes):
         """Compute the losses related to the bounding boxes, the L1 regression loss and the GIoU loss
            targets dicts must contain the key "boxes" containing a tensor of dim [nb_target_boxes, 4]
            The target boxes are expected in format (center_x, center_y, w, h), normalized by the image size.
@@ -79,16 +80,31 @@ class HungarianCriterion(nn.Module):
         # prepare assignment indexs # bbox targets
         idx = self._get_src_permutation_idx(indices)
         pred_box = pred_box[idx]
+        pred_reg = pred_reg[idx]
+        anchors = anchors[idx]
         target_boxes = torch.cat([t['boxes'][i] for t, (_, i) in zip(targets, indices)], dim=0).to(pred_box.device)
-        # comput giou loss
+        
+        # ------------------- GIoU loss -------------------
         bbox_giou = generalized_box_iou(pred_box, target_boxes)
         loss_giou = 1 - torch.diag(bbox_giou)
+        loss_box = loss_giou.sum() / num_boxes
         
-        return loss_giou.sum() / num_boxes
+        # ------------------- L1 loss -------------------
+        tgt_boxes_cxcy = (target_boxes[..., :2] + target_boxes[..., 2:]) * 0.5
+        tgt_boxes_bwbh = target_boxes[..., 2:] - target_boxes[..., :2]
+        tgt_boxes_cxcy_e = (tgt_boxes_cxcy - anchors[..., :2]) / anchors[..., 2:]
+        tgt_boxes_bwbh_e = torch.log(tgt_boxes_bwbh / anchors[..., 2:])
+        target_boxes_e = torch.cat([tgt_boxes_cxcy_e, tgt_boxes_bwbh_e], dim=-1)
+        loss_reg = F.l1_loss(pred_reg, target_boxes_e, reduction='none')
+        loss_reg = loss_reg.sum() / num_boxes
+
+        return loss_box, loss_reg
 
     def forward(self, outputs, targets):
         pred_cls = outputs['pred_cls']
         pred_box = outputs['pred_box']
+        pred_reg = outputs['pred_reg']
+        anchors = outputs['anchors'][None].repeat(pred_reg.shape[0], 1, 1)
         mask = ~outputs['mask']
 
         # -------------------- Label assignment --------------------
@@ -104,9 +120,9 @@ class HungarianCriterion(nn.Module):
         loss_cls = self.loss_labels(pred_cls, targets, indices, mask, num_boxes)
 
         # -------------------- Regression loss --------------------
-        loss_reg = self.loss_boxes(pred_box, targets, indices, num_boxes)
+        loss_box, loss_reg = self.loss_boxes(pred_reg, pred_box, targets, indices, anchors, num_boxes)
         
-        loss_dict = {'loss_cls': loss_cls, 'loss_reg': loss_reg}
+        loss_dict = {'loss_cls': loss_cls, 'loss_reg': loss_reg, 'loss_box': loss_box}
 
         return loss_dict
 
