@@ -160,7 +160,7 @@ class HungarianMatcher(nn.Module):
     @torch.no_grad()
     def forward(self, pred_cls, pred_box, targets):
         bs, num_queries = pred_cls.shape[:2]
-        # [B, Nq, C] -> [BNq, C]
+        # [B, N, C] -> [BN, C]
         out_prob = pred_cls.flatten(0, 1).sigmoid()
         out_bbox = pred_box.flatten(0, 1)
 
@@ -172,16 +172,14 @@ class HungarianMatcher(nn.Module):
         neg_cost_cls_weight = (1 - self.alpha) * (out_prob ** self.gamma) * (-(1 - out_prob + 1e-8).log())
         pos_cost_cls_weight = self.alpha * ((1 - out_prob) ** self.gamma) * (-(out_prob + 1e-8).log())
         cost_cls = pos_cost_cls_weight[:, tgt_ids] - neg_cost_cls_weight[:, tgt_ids]
-
+        # [N, M]
+        cost_cls = -out_prob[:, tgt_ids]
+        
         # -------------------- Regression cost --------------------
         cost_reg = -generalized_box_iou(out_bbox, tgt_bbox.to(out_bbox.device))
 
-        # Final cost: [B, Nq, M]
+        # Final cost: [B, N, M]
         C = self.cost_cls_weight * cost_cls + self.cost_reg_weight * cost_reg
-        if not torch.isfinite(C.sum()):
-            print(C.sum())
-            exit()
-
         C = C.view(bs, num_queries, -1).cpu()
 
         # Label assignment
