@@ -5,6 +5,7 @@ from .retinanet.build import build_retinanet
 from .fcos.build import build_fcos
 from .yolof.build import build_yolof
 from .pdetr.build import build_pdetr
+from .pfcos.build import build_pfcos
 
 
 # build object detector
@@ -12,6 +13,9 @@ def build_model(args, cfg, device, num_classes=80, trainable=False):
     # RetinaNet    
     if 'retinanet' in args.model:
         model, criterion = build_retinanet(cfg, device, num_classes, trainable)
+    # PlainFCOS    
+    elif 'pfcos' in args.model:
+        model, criterion = build_pfcos(cfg, device, num_classes, trainable)
     # FCOS    
     elif 'fcos' in args.model:
         model, criterion = build_fcos(cfg, device, num_classes, trainable)

@@ -6,7 +6,7 @@ from .fpn import BasicFPN, PaFPN
 def build_neck(cfg, in_dim, out_dim):
     print('==============================')
     print('Neck: {}'.format(cfg['neck']))
-    
+
     if cfg['neck'] == 'dilated_encoder':
         model = DilatedEncoder(in_dim       = in_dim,
                                out_dim      = out_dim,

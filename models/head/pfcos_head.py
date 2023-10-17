@@ -8,21 +8,16 @@ class PlainFCOSHead(nn.Module):
     def __init__(self, cfg, in_dim, out_dim, num_classes, num_cls_head=1, num_reg_head=1, act_type='relu', norm_type='BN'):
         super().__init__()
         self.fmp_size = None
-        self.ctr_clamp = cfg['center_clamp']
-        self.DEFAULT_EXP_CLAMP = math.log(1e8)
         self.DEFAULT_SCALE_CLAMP = math.log(1000.0 / 16)
         # ------------------ Basic parameters -------------------
         self.cfg = cfg
         self.in_dim = in_dim
         self.num_classes = num_classes
-        self.num_cls_head=num_cls_head
-        self.num_reg_head=num_reg_head
-        self.act_type=act_type
-        self.norm_type=norm_type
+        self.num_cls_head = num_cls_head
+        self.num_reg_head = num_reg_head
+        self.act_type = act_type
+        self.norm_type = norm_type
         self.stride = cfg['out_stride']
-        # Anchor config
-        self.anchor_size = torch.as_tensor(cfg['anchor_size'])
-        self.num_anchors = len(cfg['anchor_size'])
 
         # ------------------ Network parameters -------------------
         ## cls head
@@ -60,125 +55,91 @@ class PlainFCOSHead(nn.Module):
         self.cls_heads = nn.Sequential(*cls_heads)
         self.reg_heads = nn.Sequential(*reg_heads)
 
-        # pred layer
-        self.obj_pred = nn.Conv2d(self.reg_head_dim, 1 * self.num_anchors, kernel_size=3, padding=1)
-        self.cls_pred = nn.Conv2d(self.cls_head_dim, num_classes * self.num_anchors, kernel_size=3, padding=1)
-        self.reg_pred = nn.Conv2d(self.reg_head_dim, 4 * self.num_anchors, kernel_size=3, padding=1)
-
+        ## pred layers
+        self.cls_pred = nn.Conv2d(self.cls_head_dim, num_classes, kernel_size=3, padding=1)
+        self.reg_pred = nn.Conv2d(self.reg_head_dim, 4, kernel_size=3, padding=1)
+        self.iou_pred = nn.Conv2d(self.reg_head_dim, 1, kernel_size=3, padding=1)
+                
         # init bias
-        self._init_pred_layers()
+        self._init_layers()
 
-    def _init_pred_layers(self):  
-        # init cls pred
-        nn.init.normal_(self.cls_pred.weight, mean=0, std=0.01)
+    def _init_layers(self):
+        for module in [self.cls_heads, self.reg_heads, self.cls_pred, self.reg_pred, self.iou_pred]:
+            for layer in module.modules():
+                if isinstance(layer, nn.Conv2d):
+                    torch.nn.init.normal_(layer.weight, mean=0, std=0.01)
+                    torch.nn.init.constant_(layer.bias, 0)
+                if isinstance(layer, nn.GroupNorm):
+                    torch.nn.init.constant_(layer.weight, 1)
+                    torch.nn.init.constant_(layer.bias, 0)
+        # init the bias of cls pred
         init_prob = 0.01
         bias_value = -torch.log(torch.tensor((1. - init_prob) / init_prob))
-        nn.init.constant_(self.cls_pred.bias, bias_value)
-        # init reg pred
-        nn.init.normal_(self.reg_pred.weight, mean=0, std=0.01)
-        nn.init.constant_(self.reg_pred.bias, 0.0)
-        # init obj pred
-        nn.init.normal_(self.obj_pred.weight, mean=0, std=0.01)
-        nn.init.constant_(self.obj_pred.bias, 0.0)
-
-    def get_anchors(self, fmp_size):
-        """fmp_size: list -> [H, W] \n
-           stride: int -> output stride
-        """
-        # check anchor boxes
-        if self.fmp_size is not None and self.fmp_size == fmp_size:
-            return self.anchor_boxes
-        else:
-            # generate grid cells
-            fmp_h, fmp_w = fmp_size
-            anchor_y, anchor_x = torch.meshgrid([torch.arange(fmp_h), torch.arange(fmp_w)])
-            # [H, W, 2] -> [HW, 2]
-            anchor_xy = torch.stack([anchor_x, anchor_y], dim=-1).float().view(-1, 2) + 0.5
-            # [HW, 2] -> [HW, 1, 2] -> [HW, KA, 2] 
-            anchor_xy = anchor_xy[:, None, :].repeat(1, self.num_anchors, 1)
-            anchor_xy *= self.stride
-
-            # [KA, 2] -> [1, KA, 2] -> [HW, KA, 2]
-            anchor_wh = self.anchor_size[None, :, :].repeat(fmp_h*fmp_w, 1, 1)
-
-            # [HW, KA, 4] -> [M, 4]
-            anchor_boxes = torch.cat([anchor_xy, anchor_wh], dim=-1)
-            anchor_boxes = anchor_boxes.view(-1, 4)
-
-            self.anchor_boxes = anchor_boxes
-            self.fmp_size = fmp_size
-
-            return anchor_boxes
+        torch.nn.init.constant_(self.cls_pred.bias, bias_value)
         
-    def decode_boxes(self, anchor_boxes, pred_reg):
+    def get_anchors(self, fmp_size):
         """
-            anchor_boxes: (List[tensor]) [1, M, 4]
-            pred_reg: (List[tensor]) [B, M, 4]
+            fmp_size: (List) [H, W]
         """
-        # x = x_anchor + dx * w_anchor
-        # y = y_anchor + dy * h_anchor
-        pred_ctr_offset = pred_reg[..., :2] * anchor_boxes[..., 2:]
-        pred_ctr_offset = torch.clamp(pred_ctr_offset, min=-self.ctr_clamp, max=self.ctr_clamp)
-        pred_ctr_xy = anchor_boxes[..., :2] + pred_ctr_offset
+        # generate grid cells
+        fmp_h, fmp_w = fmp_size
+        anchor_y, anchor_x = torch.meshgrid([torch.arange(fmp_h), torch.arange(fmp_w)])
+        # [H, W, 2] -> [HW, 2]
+        anchors = torch.stack([anchor_x, anchor_y], dim=-1).float().view(-1, 2) + 0.5
+        anchors *= self.stride
 
-        # w = w_anchor * exp(tw)
-        # h = h_anchor * exp(th)
-        pred_dwdh = pred_reg[..., 2:]
-        pred_dwdh = torch.clamp(pred_dwdh, max=self.DEFAULT_SCALE_CLAMP)
-        pred_wh = anchor_boxes[..., 2:] * pred_dwdh.exp()
+        return anchors
+        
+    def decode_boxes(self, pred_reg, anchors):
+        """
+            anchors:  (List[Tensor]) [1, M, 2] or [M, 2]
+            pred_reg: (List[Tensor]) [B, M, 4] or [M, 4]
+        """
+        pred_cxcy = anchors + pred_reg[..., :2] * self.stride
+        pred_bwbh = torch.exp(pred_reg[..., 2:].clamp(max=self.DEFAULT_SCALE_CLAMP)) * self.stride
 
-        # convert [x, y, w, h] -> [x1, y1, x2, y2]
-        pred_x1y1 = pred_ctr_xy - 0.5 * pred_wh
-        pred_x2y2 = pred_ctr_xy + 0.5 * pred_wh
+        pred_x1y1 = pred_cxcy - pred_bwbh * 0.5
+        pred_x2y2 = pred_cxcy + pred_bwbh * 0.5
         pred_box = torch.cat([pred_x1y1, pred_x2y2], dim=-1)
 
         return pred_box
-
-    def forward(self, x, mask=None):
+    
+    def forward(self, feat, mask=None):
         # ------------------- Decoupled head -------------------
-        cls_feats = self.cls_heads(x)
-        reg_feats = self.reg_heads(x)
+        cls_feat = self.cls_heads(feat)
+        reg_feat = self.reg_heads(feat)
 
         # ------------------- Generate anchor box -------------------
-        fmp_size = cls_feats.shape[2:]
-        anchor_boxes = self.get_anchors(fmp_size)   # [M, 4]
-        anchor_boxes = anchor_boxes.to(cls_feats.device)
+        B, _, H, W = cls_feat.size()
+        fmp_size = [H, W]
+        anchors = self.get_anchors(fmp_size)   # [M, 4]
+        anchors = anchors.to(cls_feat.device)
 
         # ------------------- Predict -------------------
-        obj_pred = self.obj_pred(reg_feats)
-        cls_pred = self.cls_pred(cls_feats)
-        reg_pred = self.reg_pred(reg_feats)
+        cls_pred = self.cls_pred(cls_feat)
+        reg_pred = self.reg_pred(reg_feat)
+        iou_pred = self.iou_pred(reg_feat)
 
-        # ------------------- Precoess preds -------------------
-        ## implicit objectness
-        B, _, H, W = obj_pred.size()
-        obj_pred = obj_pred.view(B, -1, 1, H, W)
-        cls_pred = cls_pred.view(B, -1, self.num_classes, H, W)
-        normalized_cls_pred = cls_pred + obj_pred - torch.log(
-                1. + 
-                torch.clamp(cls_pred, max=self.DEFAULT_EXP_CLAMP).exp() + 
-                torch.clamp(obj_pred, max=self.DEFAULT_EXP_CLAMP).exp())
-        # [B, KA, C, H, W] -> [B, H, W, KA, C] -> [B, M, C], M = HxWxKA
-        normalized_cls_pred = normalized_cls_pred.permute(0, 3, 4, 1, 2).contiguous()
-        normalized_cls_pred = normalized_cls_pred.view(B, -1, self.num_classes)
-        # [B, KA*4, H, W] -> [B, KA, 4, H, W] -> [B, H, W, KA, 4] -> [B, M, 4]
-        reg_pred = reg_pred.view(B, -1, 4, H, W).permute(0, 3, 4, 1, 2).contiguous()
-        reg_pred = reg_pred.view(B, -1, 4)
-        ## Decode bbox
-        box_pred = self.decode_boxes(anchor_boxes[None], reg_pred)  # [B, M, 4]
-        ## adjust mask
+        # ------------------- Process preds -------------------
+        ## [B, C, H, W] -> [B, H, W, C] -> [B, M, C]
+        cls_pred = cls_pred.permute(0, 2, 3, 1).contiguous().view(B, -1, self.num_classes)
+        iou_pred = iou_pred.permute(0, 2, 3, 1).contiguous().view(B, -1, 1)
+        reg_pred = reg_pred.permute(0, 2, 3, 1).contiguous().view(B, -1, 4)
+        box_pred = self.decode_boxes(reg_pred, anchors)
+        ## Adjust mask
         if mask is not None:
             # [B, H, W]
-            mask = torch.nn.functional.interpolate(mask[None].float(), size=fmp_size).bool()[0]
-            # [B, H, W] -> [B, HW]
-            mask = mask.flatten(1)
-            # [B, HW] -> [B, HW, KA] -> [BM,], M= HW x KA
-            mask = mask[..., None].repeat(1, 1, self.num_anchors).flatten()
+            mask = torch.nn.functional.interpolate(mask[None].float(), size=[H, W]).bool()[0]
+            # [B, H, W] -> [B, M]
+            mask = mask.flatten(1)     
+            
 
-        outputs = {"pred_cls": normalized_cls_pred,
-                   "pred_reg": reg_pred,
-                   "pred_box": box_pred,
-                   "anchors": anchor_boxes,
-                   "mask": mask}
+        outputs = {"pred_cls": cls_pred,   # List [B, M, C]
+                   "pred_reg": reg_pred,   # List [B, M, 4]
+                   "pred_box": box_pred,   # List [B, M, 4]
+                   "pred_iou": iou_pred,   # List [B, M, 1]
+                   "anchors": anchors,     # List [B, M, 2]
+                   "strides": self.stride,
+                   "mask": mask}           # List [B, M,]
 
         return outputs 
