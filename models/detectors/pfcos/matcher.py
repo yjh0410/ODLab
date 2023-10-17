@@ -178,7 +178,7 @@ class HungarianMatcher(nn.Module):
 
         # Final cost: [B, Nq, M]
         C = self.cost_cls_weight * cost_cls + self.cost_reg_weight * cost_reg
-        if torch.isfinite(C.sum()):
+        if not torch.isfinite(C.sum()):
             print(C.sum())
             exit()
 
