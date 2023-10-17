@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from utils.box_ops import box_iou, box_cxcywh_to_xyxy, box_xyxy_to_cxcywh, generalized_box_iou
-from scipy.optimize import linear_sum_assignment
+from utils.box_ops import box_iou
+from utils.misc import sigmoid_focal_loss
 
 
 # Aligned Simple OTA Assigner
@@ -146,44 +146,174 @@ class AlignedSimOTA(object):
 
         return matched_pred_ious, matched_gt_inds, fg_mask_inboxes
 
-# HungarianMatcher
-class HungarianMatcher(nn.Module):
-    def __init__(self, cost_class = 1, cost_bbox = 1, cost_giou = 1, alpha=0.25, gamma=2.0):
-        super().__init__()
-        self.cost_class = cost_class
-        self.cost_bbox = cost_bbox
-        self.cost_giou = cost_giou
+
+class AlignedOTA(object):
+    """
+        This code referenced to https://github.com/open-mmlab/mmyolo/models/task_modules/assigners/batch_dsl_assigner.py
+    """
+    def __init__(self, num_classes=80, topk_candidate=1, alpha=0.25, gamma=2.0):
+        self.num_classes = num_classes
+        self.topk_candidate = topk_candidate
         self.alpha = alpha
         self.gamma = gamma
+        self.sinkhorn = SinkhornDistance(eps=0.1, max_iter=50)
+
+    def get_deltas(self, anchors, bboxes):
+        assert isinstance(anchors, torch.Tensor), type(anchors)
+        assert isinstance(anchors, torch.Tensor), type(anchors)
+
+        deltas = torch.cat((anchors - bboxes[..., :2], bboxes[..., 2:] - anchors), dim=-1)
+
+        return deltas
+
 
     @torch.no_grad()
-    def forward(self, pred_cls, pred_box, targets):
-        bs, num_queries = pred_cls.shape[:2]
-        # [B, Nq, C] -> [BNq, C]
-        out_prob = pred_cls.flatten(0, 1).sigmoid()
-        out_bbox = pred_box.flatten(0, 1)
+    def __call__(self, anchors, pred_cls, pred_box, gt_labels, gt_bboxes):
+        num_gt = len(gt_labels)
+        num_anchors = pred_box.shape[0]
 
-        # List[B, M, C] -> [BM, C]
-        tgt_ids = torch.cat([v["labels"] for v in targets])
-        tgt_bbox = torch.cat([v["boxes"] for v in targets])
+        # check gt
+        if num_gt == 0 or gt_bboxes.max().item() == 0.:
+            return {
+                'assigned_labels': gt_labels.new_full(pred_cls[..., 0].shape,
+                                                      self.num_classes,
+                                                      dtype=torch.long),
+                'assigned_bboxes': gt_bboxes.new_full(pred_box.shape, 0),
+                'assign_metrics': gt_bboxes.new_full(pred_cls[..., 0].shape, 0)
+            }
+        
+        # [N, M, 4], N is the number of targets, M is the number of all anchors
+        deltas = self.get_deltas(anchors, gt_bboxes.unsqueeze(1))
+        # [N, M]
+        is_in_bboxes = deltas.min(dim=-1).values > 0.01
 
-        # -------------------- Classification cost --------------------
-        neg_cost_class = (1 - self.alpha) * (out_prob ** self.gamma) * (-(1 - out_prob + 1e-8).log())
-        pos_cost_class = self.alpha * ((1 - out_prob) ** self.gamma) * (-(out_prob + 1e-8).log())
-        cost_class = pos_cost_class[:, tgt_ids] - neg_cost_class[:, tgt_ids]
+        # ----------------------------------- Classification cost -----------------------------------
+        gt_labels_one_hot = F.one_hot(gt_labels, self.num_classes).float()
+        pair_wise_cls_loss = sigmoid_focal_loss(
+            pred_cls.unsqueeze(0).repeat(num_gt, 1, 1),                # [N, M, C]
+            gt_labels_one_hot.unsqueeze(1).repeat(1, num_anchors, 1),  # [N, M, C]
+            self.alpha,
+            self.gamma
+            ).sum(dim=-1) # [N, M]
+        pair_wise_cls_loss_bg = sigmoid_focal_loss(
+            pred_cls,
+            torch.zeros_like(pred_cls),
+        ).sum(dim=-1) # [M, C] -> [M]
 
-        # -------------------- Regression cost --------------------
-        ## L1 cost: [Nq, M]
-        cost_bbox = torch.cdist(out_bbox, tgt_bbox.to(out_bbox.device), p=1)
-        ## GIoU cost: Nq, M]
-        cost_giou = -generalized_box_iou(out_bbox, tgt_bbox.to(out_bbox.device))
+        # ----------------------------------- Regression cost -----------------------------------
+        pair_wise_ious, _ = box_iou(gt_bboxes, pred_box)  # [N, M]
+        pair_wise_ious_loss = -torch.log(pair_wise_ious + 1e-8)
 
-        # Final cost: [B, Nq, M]
-        C = self.cost_bbox * cost_bbox + self.cost_class * cost_class + self.cost_giou * cost_giou
-        C = C.view(bs, num_queries, -1).cpu()
+        ## foreground cost matrix
+        cost_matrix = pair_wise_cls_loss + 3.0 * pair_wise_ious_loss + 1e9 * (1 - is_in_bboxes.float())
 
-        # Label assignment
-        sizes = [len(v["boxes"]) for v in targets]
-        indices = [linear_sum_assignment(c[i]) for i, c in enumerate(C.split(sizes, -1))]
+        # ----------------------------------- Dynamic label assignment -----------------------------------
+        # Performing Dynamic k Estimation, top_candidates = 20
+        topk_ious, _ = torch.topk(pair_wise_ious * is_in_bboxes.float(), self.topk_candidate, dim=1)
+        mu = pair_wise_ious.new_ones(num_gt + 1)
+        mu[:-1] = torch.clamp(topk_ious.sum(1).int(), min=1).float()
+        mu[-1] = num_anchors - mu[:-1].sum()
+        nu = pair_wise_ious.new_ones(num_anchors)
+        cost_matrix = torch.cat([cost_matrix, pair_wise_cls_loss_bg.unsqueeze(0)], dim=0)
 
-        return [(torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64)) for i, j in indices]
+        # Solving Optimal-Transportation-Plan pi via Sinkhorn-Iteration.
+        _, pi = self.sinkhorn(mu, nu, cost_matrix)
+
+        # Rescale pi so that the max pi for each gt equals to 1.
+        rescale_factor, _ = pi.max(dim=1)
+        pi = pi / rescale_factor.unsqueeze(1)
+
+        # matched_gt_inds: [M,]
+        _, matched_gt_inds = torch.max(pi, dim=0)
+
+        # fg_mask: [M,]
+        fg_mask = matched_gt_inds != num_gt
+
+        # [M,]
+        cls_target = pred_cls.new_ones(num_anchors) * self.num_classes
+        cls_target[fg_mask] = gt_labels[matched_gt_inds[fg_mask]]
+
+        # [M, 4]
+        box_target = pred_box.new_zeros((num_anchors, 4))
+        gt_bboxes_ = gt_bboxes.unsqueeze(1).repeat(1, num_anchors, 1)
+        box_target[fg_mask] = gt_bboxes_[matched_gt_inds[fg_mask], torch.arange(num_anchors)[fg_mask]]
+
+        # [M,]
+        iou_target = pair_wise_ious.new_zeros((num_anchors, 1))
+        iou_target[fg_mask] = pair_wise_ious[matched_gt_inds[fg_mask], torch.arange(num_anchors)[fg_mask]].unsqueeze(1)
+        
+        return cls_target, box_target, iou_target
+
+    def find_inside_points(self, gt_bboxes, anchors):
+        """
+            gt_bboxes: Tensor -> [N, 2]
+            anchors:   Tensor -> [M, 2]
+        """
+        num_anchors = anchors.shape[0]
+        num_gt = gt_bboxes.shape[0]
+
+        anchors_expand = anchors.unsqueeze(0).repeat(num_gt, 1, 1)           # [N, M, 2]
+        gt_bboxes_expand = gt_bboxes.unsqueeze(1).repeat(1, num_anchors, 1)  # [N, M, 4]
+
+        # offset
+        lt = anchors_expand - gt_bboxes_expand[..., :2]
+        rb = gt_bboxes_expand[..., 2:] - anchors_expand
+        bbox_deltas = torch.cat([lt, rb], dim=-1)
+
+        is_in_gts = bbox_deltas.min(dim=-1).values > 0
+
+        return is_in_gts
+    
+
+class SinkhornDistance(torch.nn.Module):
+    r"""
+        Given two empirical measures each with :math:`P_1` locations
+        :math:`x\in\mathbb{R}^{D_1}` and :math:`P_2` locations :math:`y\in\mathbb{R}^{D_2}`,
+        outputs an approximation of the regularized OT cost for point clouds.
+        Args:
+        eps (float): regularization coefficient
+        max_iter (int): maximum number of Sinkhorn iterations
+        reduction (string, optional): Specifies the reduction to apply to the output:
+        'none' | 'mean' | 'sum'. 'none': no reduction will be applied,
+        'mean': the sum of the output will be divided by the number of
+        elements in the output, 'sum': the output will be summed. Default: 'none'
+        Shape:
+            - Input: :math:`(N, P_1, D_1)`, :math:`(N, P_2, D_2)`
+            - Output: :math:`(N)` or :math:`()`, depending on `reduction`
+    """
+
+    def __init__(self, eps=1e-3, max_iter=100, reduction='none'):
+        super(SinkhornDistance, self).__init__()
+        self.eps = eps
+        self.max_iter = max_iter
+        self.reduction = reduction
+
+    def forward(self, mu, nu, C):
+        u = torch.ones_like(mu)
+        v = torch.ones_like(nu)
+
+        # Sinkhorn iterations
+        for i in range(self.max_iter):
+            v = self.eps * \
+                (torch.log(
+                    nu + 1e-8) - torch.logsumexp(self.M(C, u, v).transpose(-2, -1), dim=-1)) + v
+            u = self.eps * \
+                (torch.log(
+                    mu + 1e-8) - torch.logsumexp(self.M(C, u, v), dim=-1)) + u
+
+        U, V = u, v
+        # Transport plan pi = diag(a)*K*diag(b)
+        pi = torch.exp(
+            self.M(C, U, V)).detach()
+        # Sinkhorn distance
+        cost = torch.sum(
+            pi * C, dim=(-2, -1))
+        return cost, pi
+
+    def M(self, C, u, v):
+        '''
+        "Modified cost for logarithmic updates"
+        "$M_{ij} = (-c_{ij} + u_i + v_j) / epsilon$"
+        '''
+        return (-C + u.unsqueeze(-1) + v.unsqueeze(-2)) / self.eps
+    
