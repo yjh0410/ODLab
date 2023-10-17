@@ -232,6 +232,7 @@ class AlignedOTA(object):
         # [M,]
         cls_target = gt_labels.new_ones(num_anchors) * self.num_classes
         cls_target[fg_mask] = gt_labels[matched_gt_inds[fg_mask]]
+        print(cls_target.device, fg_mask.device, matched_gt_inds.device)
 
         # [M, 4]
         box_target = gt_bboxes.new_zeros((num_anchors, 4))
