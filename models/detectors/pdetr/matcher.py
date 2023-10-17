@@ -5,11 +5,13 @@ from utils.box_ops import box_cxcywh_to_xyxy, box_xyxy_to_cxcywh, generalized_bo
 
 
 class HungarianMatcher(nn.Module):
-    def __init__(self, cost_class: float = 1, cost_bbox: float = 1, cost_giou: float = 1):
+    def __init__(self, cost_class, cost_bbox, cost_giou, alpha, gamma):
         super().__init__()
         self.cost_class = cost_class
         self.cost_bbox = cost_bbox
         self.cost_giou = cost_giou
+        self.alpha = alpha
+        self.gamma = gamma
 
     @torch.no_grad()
     def forward(self, outputs, targets):
@@ -23,10 +25,8 @@ class HungarianMatcher(nn.Module):
         tgt_bbox = torch.cat([v["boxes"] for v in targets])
 
         # -------------------- Classification cost --------------------
-        alpha = 0.25
-        gamma = 2.0
-        neg_cost_class = (1 - alpha) * (out_prob ** gamma) * (-(1 - out_prob + 1e-8).log())
-        pos_cost_class = alpha * ((1 - out_prob) ** gamma) * (-(out_prob + 1e-8).log())
+        neg_cost_class = (1 - self.alpha) * (out_prob ** self.gamma) * (-(1 - out_prob + 1e-8).log())
+        pos_cost_class = self.alpha * ((1 - out_prob) ** self.gamma) * (-(out_prob + 1e-8).log())
         cost_class = pos_cost_class[:, tgt_ids] - neg_cost_class[:, tgt_ids]
 
         # -------------------- Regression cost --------------------

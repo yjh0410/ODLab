@@ -381,4 +381,8 @@ class PlainDETRTransformer(nn.Module):
             output_classes.append(output_class)
             output_coords.append(output_coord)
 
-        return torch.stack(output_classes), torch.stack(output_coords)
+        # [L, Nq, B, Nc] -> [L, B, Nq, Nc]
+        output_classes = torch.stack(output_classes).permute(0, 2, 1, 3)
+        output_coords  = torch.stack(output_coords).permute(0, 2, 1, 3)
+
+        return output_classes, output_coords

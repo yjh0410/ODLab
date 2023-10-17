@@ -14,15 +14,7 @@ class Criterion(nn.Module):
         1) we compute hungarian assignment between ground truth boxes and the outputs of the model
         2) we supervise each pair of matched ground-truth / prediction (supervise class and box)
     """
-    def __init__(self, cfg, num_classes=90, aux_loss=False):
-        """ Create the criterion.
-        Parameters:
-            num_classes: number of object categories, omitting the special no-object category
-            matcher: module able to compute a matching between targets and proposals
-            weight_dict: dict containing as key the names of the losses and as values their relative weight.
-            eos_coef: relative classification weight applied to the no-object category
-            losses: list of all the losses to be applied. See get_loss for list of available losses.
-        """
+    def __init__(self, cfg, num_classes=80, aux_loss=False):
         super().__init__()
         # ------------ Basic parameters ------------
         self.cfg = cfg
@@ -35,7 +27,9 @@ class Criterion(nn.Module):
         # ------------ Matcher ------------
         self.matcher = HungarianMatcher(cost_class = cfg['matcher_hpy']['cost_cls_weight'],
                                         cost_bbox  = cfg['matcher_hpy']['cost_box_weight'],
-                                        cost_giou  = cfg['matcher_hpy']['cost_giou_weight'])
+                                        cost_giou  = cfg['matcher_hpy']['cost_giou_weight'],
+                                        alpha      = self.alpha,
+                                        gamma      = self.gamma)
         # ------------- Loss weight -------------
         self.weight_dict = {'loss_cls':  cfg['loss_cls_weight'],
                             'loss_box':  cfg['loss_box_weight'],
@@ -64,18 +58,20 @@ class Criterion(nn.Module):
         """
         assert 'pred_logits' in outputs
         src_logits = outputs['pred_logits']
-
+        # prepare class targets
         idx = self._get_src_permutation_idx(indices)
         target_classes_o = torch.cat([t["labels"][J] for t, (_, J) in zip(targets, indices)]).to(src_logits.device)
-        target_classes = torch.full(src_logits.shape[:2], self.num_classes,
-                                    dtype=torch.int64, device=src_logits.device)
+        target_classes = torch.full(src_logits.shape[:2], self.num_classes, dtype=torch.int64)
+        target_classes = target_classes.to(src_logits.device)
         target_classes[idx] = target_classes_o
 
-        target_classes_onehot = torch.zeros([src_logits.shape[0], src_logits.shape[1], src_logits.shape[2] + 1],
-                                            dtype=src_logits.dtype, layout=src_logits.layout, device=src_logits.device)
+        # to one-hot labels
+        target_classes_onehot = torch.zeros([*src_logits.shape[:2], self.num_classes + 1], dtype=src_logits.dtype, layout=src_logits.layout)
+        target_classes_onehot = target_classes_onehot.to(src_logits.device)
         target_classes_onehot.scatter_(2, target_classes.unsqueeze(-1), 1)
+        target_classes_onehot = target_classes_onehot[..., :-1]
 
-        target_classes_onehot = target_classes_onehot[:, :, :-1]
+        # focal loss
         loss_cls = sigmoid_focal_loss(src_logits, target_classes_onehot, self.alpha, self.gamma)
 
         losses = {}
@@ -89,13 +85,15 @@ class Criterion(nn.Module):
            The target boxes are expected in format (center_x, center_y, w, h), normalized by the image size.
         """
         assert 'pred_boxes' in outputs
+        # prepare bbox targets
         idx = self._get_src_permutation_idx(indices)
         src_boxes = outputs['pred_boxes'][idx]
-        target_boxes = torch.cat([t['boxes'][i]
-                                  for t, (_, i) in zip(targets, indices)], dim=0).to(src_boxes.device)
-        # L1 loss
+        target_boxes = torch.cat([t['boxes'][i] for t, (_, i) in zip(targets, indices)], dim=0).to(src_boxes.device)
+        
+        # compute L1 loss
         loss_bbox = F.l1_loss(src_boxes, box_xyxy_to_cxcywh(target_boxes), reduction='none')
-        # GIoU loss
+
+        # compute GIoU loss
         bbox_giou = generalized_box_iou(box_cxcywh_to_xyxy(src_boxes), target_boxes)
         loss_giou = 1 - torch.diag(bbox_giou)
         
@@ -128,6 +126,7 @@ class Criterion(nn.Module):
         # Compute the average number of target boxes accross all nodes, for normalization purposes
         num_boxes = sum(len(t["labels"]) for t in targets)
         num_boxes = torch.as_tensor([num_boxes], dtype=torch.float, device=next(iter(outputs.values())).device)
+
         if is_dist_avail_and_initialized():
             torch.distributed.all_reduce(num_boxes)
         num_boxes = torch.clamp(num_boxes / get_world_size(), min=1).item()

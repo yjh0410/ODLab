@@ -33,16 +33,16 @@ pdetr_cfg = {
         'test_topk': 100,
         # ----------------- Label Assignment -----------------
         'matcher': 'HungarianMatcher',
-        'matcher_hpy':{'cost_cls_weight': 2.0,
-                       'cost_box_weight': 5.0,
+        'matcher_hpy':{'cost_cls_weight':  2.0,
+                       'cost_box_weight':  5.0,
                        'cost_giou_weight': 2.0,
                        },
         # ----------------- Loss weight -----------------
         ## Loss hyper-parameters
         'focal_loss_alpha': 0.25,
         'focal_loss_gamma': 2.0,
-        'loss_cls_weight': 2.0,
-        'loss_box_weight': 5.0,
+        'loss_cls_weight':  1.0,
+        'loss_box_weight':  5.0,
         'loss_giou_weight': 2.0,
         # ----------------- Training -----------------
         ## Training scheduler
@@ -61,7 +61,7 @@ pdetr_cfg = {
         'warmup_factor': 0.00066667,
         ## Epoch
         'max_epoch': 12,      # 1x
-        'lr_epoch': [10],     # 1x
+        'lr_epoch': [11],     # 1x
         # ----------------- Input -----------------
         ## Transforms
         'train_min_size': [800],   # short edge of image
