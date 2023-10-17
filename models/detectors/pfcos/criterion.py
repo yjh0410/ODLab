@@ -80,8 +80,8 @@ class HungarianCriterion(nn.Module):
         pred_box = pred_box[idx]
         target_boxes = torch.cat([t['boxes'][i] for t, (_, i) in zip(targets, indices)], dim=0).to(pred_box.device)
         # comput giou loss
-        bbox_giou = get_ious(pred_box, target_boxes, 'xyxy', 'giou')
-        loss_giou = 1 - bbox_giou
+        bbox_giou = generalized_box_iou(pred_box, target_boxes)
+        loss_giou = 1 - torch.diag(bbox_giou)
         
         return loss_giou.sum() / num_boxes
 

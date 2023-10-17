@@ -64,8 +64,8 @@ pfcos_cfg = {
         'scheduler': '1x',
         ## Optimizer
         'optimizer': 'sgd',
-        'base_lr': 0.01 / 16,
-        'backbone_lr_ratio': 1.0 / 1.0,
+        'base_lr': 0.12 / 64,
+        'backbone_lr_ratio': 1.0 / 3.0,
         'momentum': 0.9,
         'weight_decay': 1e-4,
         'clip_max_norm': 10.0,
