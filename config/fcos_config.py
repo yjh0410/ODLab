@@ -73,6 +73,7 @@ fcos_cfg = {
         'pixel_mean': [0.485, 0.456, 0.406],
         'pixel_std':  [0.229, 0.224, 0.225],
         ## Transforms
+        'detr_style': False,
         'trans_config': [
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
@@ -150,6 +151,7 @@ fcos_cfg = {
         'pixel_mean': [0.485, 0.456, 0.406],
         'pixel_std':  [0.229, 0.224, 0.225],
         ## Transforms
+        'detr_style': False,
         'trans_config': [
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
@@ -227,6 +229,7 @@ fcos_cfg = {
         'pixel_mean': [0.485, 0.456, 0.406],
         'pixel_std':  [0.229, 0.224, 0.225],
         ## Transforms
+        'detr_style': False,
         'trans_config': [
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
@@ -304,6 +307,7 @@ fcos_cfg = {
         'pixel_mean': [0.485, 0.456, 0.406],
         'pixel_std':  [0.229, 0.224, 0.225],
         ## Transforms
+        'detr_style': False,
         'trans_config': [
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
@@ -381,6 +385,7 @@ fcos_cfg = {
         'pixel_mean': [0.485, 0.456, 0.406],
         'pixel_std':  [0.229, 0.224, 0.225],
         ## Transforms
+        'detr_style': False,
         'trans_config': [
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
@@ -458,6 +463,7 @@ fcos_cfg = {
         'pixel_mean': [0.485, 0.456, 0.406],
         'pixel_std':  [0.229, 0.224, 0.225],
         ## Transforms
+        'detr_style': False,
         'trans_config': [
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
@@ -535,6 +541,7 @@ fcos_cfg = {
         'pixel_mean': [0.485, 0.456, 0.406],
         'pixel_std':  [0.229, 0.224, 0.225],
         ## Transforms
+        'detr_style': False,
         'trans_config': [
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
@@ -612,6 +619,7 @@ fcos_cfg = {
         'pixel_mean': [0.485, 0.456, 0.406],
         'pixel_std':  [0.229, 0.224, 0.225],
         ## Transforms
+        'detr_style': False,
         'trans_config': [
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
@@ -689,6 +697,7 @@ fcos_cfg = {
         'pixel_mean': [0.485, 0.456, 0.406],
         'pixel_std':  [0.229, 0.224, 0.225],
         ## Transforms
+        'detr_style': False,
         'trans_config': [
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
@@ -767,6 +776,7 @@ fcos_cfg = {
         'pixel_mean': [0.485, 0.456, 0.406],
         'pixel_std':  [0.229, 0.224, 0.225],
         ## Transforms
+        'detr_style': False,
         'trans_config': [
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
@@ -844,6 +854,7 @@ fcos_cfg = {
         'pixel_mean': [0.485, 0.456, 0.406],
         'pixel_std':  [0.229, 0.224, 0.225],
         ## Transforms
+        'detr_style': False,
         'trans_config': [
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
@@ -921,6 +932,7 @@ fcos_cfg = {
         'pixel_mean': [0.485, 0.456, 0.406],
         'pixel_std':  [0.229, 0.224, 0.225],
         ## Transforms
+        'detr_style': False,
         'trans_config': [
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
@@ -998,6 +1010,7 @@ fcos_cfg = {
         'pixel_mean': [0.485, 0.456, 0.406],
         'pixel_std':  [0.229, 0.224, 0.225],
         ## Transforms
+        'detr_style': False,
         'trans_config': [
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
@@ -1075,6 +1088,7 @@ fcos_cfg = {
         'pixel_mean': [0.485, 0.456, 0.406],
         'pixel_std':  [0.229, 0.224, 0.225],
         ## Transforms
+        'detr_style': False,
         'trans_config': [
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
@@ -1152,6 +1166,7 @@ fcos_cfg = {
         'pixel_mean': [0.485, 0.456, 0.406],
         'pixel_std':  [0.229, 0.224, 0.225],
         ## Transforms
+        'detr_style': False,
         'trans_config': [
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},

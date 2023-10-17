@@ -102,7 +102,7 @@ class OTAMatcher(object):
             gt_labels = target["labels"].to(device)
             gt_bboxes = target["boxes"].to(device)
 
-            # [N, M, 4], N is the number of targets, M is the number of all anchors
+            # [N, M, 4], get inside points
             deltas = self.get_deltas(anchors, gt_bboxes.unsqueeze(1))
             is_in_bboxes = deltas.min(dim=-1).values > 0.01
 
@@ -114,17 +114,16 @@ class OTAMatcher(object):
                 torch.max(centers - radius, gt_bboxes[:, :2]),
                 torch.min(centers + radius, gt_bboxes[:, 2:]),
             ), dim=-1)
-            # [N, Mi, 2]
+            # [N, M, 2]
             center_deltas = self.get_deltas(anchors, center_bboxes.unsqueeze(1))
             is_in_centers.append(center_deltas.min(dim=-1).values > 0)
-            # [N, M], M = M1 + M2 + ... + MF
+            # [N, M], get central neighborhood points
             is_in_centers = torch.cat(is_in_centers, dim=1)
 
             del centers, center_bboxes, deltas, center_deltas
 
             # [N, M]
             is_in_bboxes = (is_in_bboxes & is_in_centers)
-
             num_gt = len(gt_labels)   # N
             num_anchor = anchors.shape[0]         # M
             shape = (num_gt, num_anchor, -1)      # [N, M, -1]
@@ -142,12 +141,9 @@ class OTAMatcher(object):
                 cost_cls_bg = cost_cls_bg.sum(dim=-1) # [M, C] -> [M]
 
                 # -------------------- Regression cost --------------------
-                pair_wise_box_label = gt_bboxes.unsqueeze(1).expand(shape)
                 ## [N, M]
                 pair_wise_ious, _ = box_iou(gt_bboxes, box_pred)  # [N, M]
                 cost_reg = -torch.log(pair_wise_ious + 1e-8)
-                # pair_wise_ious, cost_reg = get_ious_and_iou_loss(
-                #     pair_wise_box_pred, pair_wise_box_label, box_mode='xyxy', loss_type='iou')
 
                 # Fully cost matrix
                 cost = cost_cls + 3.0 * cost_reg + 1e6 * (1 - is_in_bboxes.float())
@@ -183,6 +179,7 @@ class OTAMatcher(object):
 
                 # [M, 4]
                 gt_bboxes_i = gt_bboxes.new_zeros((num_anchor, 4))
+                pair_wise_box_label = gt_bboxes.unsqueeze(1).expand(shape)
                 gt_bboxes_i[fg_mask] = \
                     pair_wise_box_label[matched_gt_inds[fg_mask], torch.arange(num_anchor, device=device)[fg_mask]]
                 box_targets.append(gt_bboxes_i)

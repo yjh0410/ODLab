@@ -20,6 +20,7 @@ class PlainFCOS(nn.Module):
                  nms_thresh  :float = 0.6,
                  topk        :int   = 1000,
                  trainable   :bool  = False,
+                 use_nms     :bool  = False,
                  ca_nms      :bool  = False):
         super(PlainFCOS, self).__init__()
         # ---------------------- Basic Parameters ----------------------
@@ -30,6 +31,7 @@ class PlainFCOS(nn.Module):
         self.num_classes = num_classes
         self.conf_thresh = conf_thresh
         self.nms_thresh = nms_thresh
+        self.use_nms = use_nms
         self.ca_nms = ca_nms
 
         # ---------------------- Network Parameters ----------------------
@@ -80,6 +82,11 @@ class PlainFCOS(nn.Module):
         scores = scores.cpu().numpy()
         labels = labels.cpu().numpy()
         bboxes = bboxes.cpu().numpy()
+
+        # nms
+        if self.use_nms:
+            scores, labels, bboxes = multiclass_nms(
+                scores, labels, bboxes, self.nms_thresh, self.num_classes, self.ca_nms)
 
         return bboxes, scores, labels
 

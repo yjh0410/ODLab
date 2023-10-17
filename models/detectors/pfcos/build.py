@@ -15,6 +15,7 @@ def build_pfcos(cfg, device, num_classes=80, trainable=False):
                       nms_thresh  = cfg['train_nms_thresh']  if trainable else cfg['test_nms_thresh'],
                       topk        = cfg['train_topk']        if trainable else cfg['test_topk'],
                       trainable   = trainable,
+                      use_nms     = cfg['use_nms'],
                       ca_nms      = False if trainable else cfg['nms_class_agnostic'])
             
     # -------------- Build Criterion --------------

@@ -33,6 +33,7 @@ pfcos_cfg = {
         'test_topk': 100,
         'test_conf_thresh': 0.1,
         'test_nms_thresh': 0.45,
+        'use_nms': True,
         'nms_class_agnostic': True,  # We prefer to use class-agnostic NMS in the demo.
         # ----------------- Label Assignment -----------------
         'matcher': 'ota',
