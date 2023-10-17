@@ -186,11 +186,11 @@ class SimOTACriterion(nn.Module):
             tgt_labels = targets[batch_idx]["labels"].to(device)  # [N,]
             tgt_bboxes = targets[batch_idx]["boxes"].to(device)   # [N, 4]
             # label assignment
-            assigned_result = self.matcher(anchors=anchors[..., :2],
-                                           pred_cls=cls_preds[batch_idx].detach(),
-                                           pred_box=box_preds[batch_idx].detach(),
-                                           gt_labels=tgt_labels,
-                                           gt_bboxes=tgt_bboxes
+            assigned_result = self.matcher(anchors   = anchors,
+                                           pred_cls  = cls_preds[batch_idx].detach(),
+                                           pred_box  = box_preds[batch_idx].detach(),
+                                           gt_labels = tgt_labels,
+                                           gt_bboxes = tgt_bboxes
                                            )
             cls_targets.append(assigned_result['assigned_labels'])
             box_targets.append(assigned_result['assigned_bboxes'])

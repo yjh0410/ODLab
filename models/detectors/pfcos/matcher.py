@@ -126,8 +126,8 @@ class OTAMatcher(object):
         iou_targets = torch.stack(iou_targets)
 
         return cls_targets, box_targets, iou_targets
-
-
+    
+    
 class SimOTAMatcher(object):
     def __init__(self, num_classes=80, topk_candidate=1, alpha=0.25, gamma=2.0):
         self.num_classes = num_classes
