@@ -55,7 +55,7 @@ class AlignedSimOTA(object):
             matched_pred_ious,
             matched_gt_inds,
             fg_mask_inboxes
-        ) = self.dynamic_k_matching(
+        ) = self.fixed_k_matching(
             cost_matrix,
             pair_wise_ious,
             num_gt
@@ -128,6 +128,43 @@ class AlignedSimOTA(object):
             matching_matrix[gt_idx, :][topk_ids] = 1
 
         del topk_ious, dynamic_ks, topk_ids
+
+        prior_match_gt_mask = matching_matrix.sum(0) > 1
+        if prior_match_gt_mask.sum() > 0:
+            cost_min, cost_argmin = torch.min(
+                cost_matrix[:, prior_match_gt_mask], dim=0)
+            matching_matrix[:, prior_match_gt_mask] *= 0
+            matching_matrix[cost_argmin, prior_match_gt_mask] = 1
+
+        # get foreground mask inside box and center prior
+        fg_mask_inboxes = matching_matrix.sum(0) > 0
+        matched_pred_ious = (matching_matrix *
+                             pairwise_ious).sum(0)[fg_mask_inboxes]
+        matched_gt_inds = matching_matrix[:, fg_mask_inboxes].argmax(0)
+
+        return matched_pred_ious, matched_gt_inds, fg_mask_inboxes
+
+    def fixed_k_matching(self, cost_matrix, pairwise_ious, num_gt):
+        """Use IoU and matching cost to calculate the dynamic top-k positive
+        targets.
+
+        Args:
+            cost_matrix (Tensor): Cost matrix.
+            pairwise_ious (Tensor): Pairwise iou matrix.
+            num_gt (int): Number of gt.
+            valid_mask (Tensor): Mask for valid bboxes.
+        Returns:
+            tuple: matched ious and gt indexes.
+        """
+        matching_matrix = torch.zeros_like(cost_matrix, dtype=torch.uint8)
+
+        # sorting the batch cost matirx is faster than topk
+        _, sorted_indices = torch.sort(cost_matrix, dim=1)
+        for gt_idx in range(num_gt):
+            topk_ids = sorted_indices[gt_idx, :self.topk_candidate]
+            matching_matrix[gt_idx, :][topk_ids] = 1
+
+        del topk_ids
 
         prior_match_gt_mask = matching_matrix.sum(0) > 1
         if prior_match_gt_mask.sum() > 0:

@@ -20,8 +20,7 @@ class Criterion(nn.Module):
         self.gamma = cfg['focal_loss_gamma']
         # ------------- Loss weight -------------
         self.weight_dict = {'loss_cls': cfg['loss_cls_weight'],
-                            'loss_reg': cfg['loss_reg_weight'],
-                            'loss_box': cfg['loss_box_weight']}
+                            'loss_reg': cfg['loss_reg_weight']}
         # ------------- Matcher -------------
         self.matcher_cfg = cfg['matcher_hpy']
         self.matcher = AlignedSimOTA(num_classes=num_classes,
@@ -116,15 +115,14 @@ class Criterion(nn.Module):
         box_preds_pos = box_preds.view(-1, 4)[pos_inds]
         box_targets_pos = box_targets[pos_inds]
         loss_reg = self.loss_giou(box_preds_pos, box_targets_pos, num_fgs)
-        ## L1 loss
-        reg_preds_pos = outputs['pred_reg'].view(-1, 4)[pos_inds]
-        anchors_pos = outputs['anchors'].repeat(bs, 1)[pos_inds]
-        loss_box = self.loss_delta(reg_preds_pos, box_targets_pos, anchors_pos, num_fgs)
+        # ## L1 loss
+        # reg_preds_pos = outputs['pred_reg'].view(-1, 4)[pos_inds]
+        # anchors_pos = outputs['anchors'].repeat(bs, 1)[pos_inds]
+        # loss_box = self.loss_delta(reg_preds_pos, box_targets_pos, anchors_pos, num_fgs)
 
         loss_dict = dict(
                 loss_cls = loss_cls,
-                loss_reg = loss_reg,
-                loss_box = loss_box
+                loss_reg = loss_reg
         )
 
         return loss_dict
