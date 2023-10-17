@@ -142,7 +142,6 @@ class OTAMatcher(object):
                 cost_cls_bg = cost_cls_bg.sum(dim=-1) # [M, C] -> [M]
 
                 # -------------------- Regression cost --------------------
-                pair_wise_box_pred  = box_pred.unsqueeze(0).expand(shape)
                 pair_wise_box_label = gt_bboxes.unsqueeze(1).expand(shape)
                 ## [N, M]
                 pair_wise_ious, _ = box_iou(gt_bboxes, box_pred)  # [N, M]

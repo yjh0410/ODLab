@@ -36,7 +36,7 @@ pfcos_cfg = {
         'nms_class_agnostic': True,  # We prefer to use class-agnostic NMS in the demo.
         # ----------------- Label Assignment -----------------
         'matcher': 'ota',
-        'matcher_hpy': {'topk_candidate': 1,
+        'matcher_hpy': {'topk_candidate': 4,
                         'center_sampling_radius': 2.5,
                         'sinkhorn_eps': 0.1,
                         'sinkhorn_iter': 50},
