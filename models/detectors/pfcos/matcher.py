@@ -37,17 +37,17 @@ class AlignedSimOTA(object):
 
         # ----------------------------------- Regression cost -----------------------------------
         pair_wise_ious, _ = box_iou(gt_bboxes, pred_box)  # [N, M]
-        pair_wise_ious_loss = -torch.log(pair_wise_ious + 1e-8)
+        pair_wise_reg_cost = -torch.log(pair_wise_ious + 1e-8)
 
         # ----------------------------------- Classification cost -----------------------------------
         pairwise_pred_scores = pred_cls.permute(1, 0)  # [M, C] -> [C, M]
         pairwise_pred_scores = pairwise_pred_scores[gt_labels.long(), :].float()   # [N, M]
-        pair_wise_cls_loss = F.binary_cross_entropy_with_logits(
+        pair_wise_cls_cost = F.binary_cross_entropy_with_logits(
             pairwise_pred_scores, pair_wise_ious, reduction="none") # [N, M]
         del pairwise_pred_scores
 
         ## foreground cost matrix
-        cost_matrix = pair_wise_cls_loss + 3.0 * pair_wise_ious_loss
+        cost_matrix = pair_wise_cls_cost + 3.0 * pair_wise_reg_cost
         max_pad_value = torch.ones_like(cost_matrix) * 1e9
         cost_matrix = torch.where(valid_mask[None].repeat(num_gt, 1),   # [N, M]
                                   cost_matrix, max_pad_value)
@@ -62,7 +62,7 @@ class AlignedSimOTA(object):
             pair_wise_ious,
             num_gt
             )
-        del pair_wise_cls_loss, cost_matrix, pair_wise_ious, pair_wise_ious_loss
+        del pair_wise_cls_cost, cost_matrix, pair_wise_ious, pair_wise_reg_cost
 
         # -----------------------------------process assigned labels -----------------------------------
         assigned_labels = gt_labels.new_full(pred_cls[..., 0].shape,
@@ -188,23 +188,23 @@ class AlignedOTA(object):
 
         # ----------------------------------- Classification cost -----------------------------------
         gt_labels_one_hot = F.one_hot(gt_labels, self.num_classes).float()
-        pair_wise_cls_loss = sigmoid_focal_loss(
+        pair_wise_cls_cost = sigmoid_focal_loss(
             pred_cls.unsqueeze(0).repeat(num_gt, 1, 1),                # [N, M, C]
             gt_labels_one_hot.unsqueeze(1).repeat(1, num_anchors, 1),  # [N, M, C]
             self.alpha,
             self.gamma
             ).sum(dim=-1) # [N, M]
-        pair_wise_cls_loss_bg = sigmoid_focal_loss(
+        pair_wise_cls_cost_bg = sigmoid_focal_loss(
             pred_cls,
             torch.zeros_like(pred_cls),
         ).sum(dim=-1) # [M, C] -> [M]
 
         # ----------------------------------- Regression cost -----------------------------------
         pair_wise_ious, _ = box_iou(gt_bboxes, pred_box)  # [N, M]
-        pair_wise_ious_loss = -torch.log(pair_wise_ious + 1e-8)
+        pair_wise_reg_cost = -torch.log(pair_wise_ious + 1e-8)
 
         ## foreground cost matrix
-        cost_matrix = pair_wise_cls_loss + 3.0 * pair_wise_ious_loss + 1e9 * (1 - is_in_bboxes.float())
+        cost_matrix = pair_wise_cls_cost + 3.0 * pair_wise_reg_cost + 1e9 * (1 - is_in_bboxes.float())
 
         # ----------------------------------- Dynamic label assignment -----------------------------------
         # Performing Dynamic k Estimation, top_candidates = 20
@@ -213,7 +213,7 @@ class AlignedOTA(object):
         mu[:-1] = torch.clamp(topk_ious.sum(1).int(), min=1).float()
         mu[-1] = num_anchors - mu[:-1].sum()
         nu = pair_wise_ious.new_ones(num_anchors)
-        cost_matrix = torch.cat([cost_matrix, pair_wise_cls_loss_bg.unsqueeze(0)], dim=0)
+        cost_matrix = torch.cat([cost_matrix, pair_wise_cls_cost_bg.unsqueeze(0)], dim=0)
 
         # Solving Optimal-Transportation-Plan pi via Sinkhorn-Iteration.
         _, pi = self.sinkhorn(mu, nu, cost_matrix)
@@ -234,12 +234,14 @@ class AlignedOTA(object):
 
         # [M, 4]
         box_target = gt_bboxes.new_zeros((num_anchors, 4))
-        gt_bboxes_ = gt_bboxes.unsqueeze(1).repeat(1, num_anchors, 1)
-        box_target[fg_mask] = gt_bboxes_[matched_gt_inds[fg_mask], torch.arange(num_anchors, device=device)[fg_mask]]
+        gt_bboxes = gt_bboxes.unsqueeze(1).repeat(1, num_anchors, 1)
+        box_target[fg_mask] = gt_bboxes[
+            matched_gt_inds[fg_mask], torch.arange(num_anchors, device=device)[fg_mask]]
 
         # [M,]
         iou_target = pair_wise_ious.new_zeros((num_anchors, 1))
-        iou_target[fg_mask] = pair_wise_ious[matched_gt_inds[fg_mask], torch.arange(num_anchors, device=device)[fg_mask]].unsqueeze(1)
+        iou_target[fg_mask] = pair_wise_ious[
+            matched_gt_inds[fg_mask], torch.arange(num_anchors, device=device)[fg_mask]].unsqueeze(1)
         
         return {'cls_target': cls_target,
                 'box_target': box_target,
