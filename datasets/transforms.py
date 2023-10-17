@@ -270,24 +270,41 @@ class Compose(object):
 
 # build transforms
 def build_transform(cfg=None, is_train=False):
-# ---------------- Transform for Training ----------------
+    # ---------------- Transform for Training ----------------
     if is_train:
         transforms = []
         trans_config = cfg['trans_config']
-        for t in trans_config:
-            if t['name'] == 'RandomHFlip':
-                transforms.append(RandomHorizontalFlip())
-            if t['name'] == 'RandomResize':
-                transforms.append(RandomResize(cfg['train_min_size'], max_size=cfg['train_max_size']))
-            if t['name'] == 'RandomSizeCrop':
-                transforms.append(RandomSizeCrop(t['min_crop_size'], max_size=t['max_crop_size']))
-            if t['name'] == 'RandomShift':
-                transforms.append(RandomShift(max_shift=t['max_shift']))
-        transforms.extend([
-            ToTensor(),
-            Normalize(cfg['pixel_mean'], cfg['pixel_std'], cfg['normalize_coords'])
-        ])
-        return Compose(transforms)
+        # build transform
+        if not cfg['detr_style']:
+            for t in trans_config:
+                if t['name'] == 'RandomHFlip':
+                    transforms.append(RandomHorizontalFlip())
+                if t['name'] == 'RandomResize':
+                    transforms.append(RandomResize(cfg['train_min_size'], max_size=cfg['train_max_size']))
+                if t['name'] == 'RandomSizeCrop':
+                    transforms.append(RandomSizeCrop(t['min_crop_size'], max_size=t['max_crop_size']))
+                if t['name'] == 'RandomShift':
+                    transforms.append(RandomShift(max_shift=t['max_shift']))
+            transforms.extend([
+                ToTensor(),
+                Normalize(cfg['pixel_mean'], cfg['pixel_std'], cfg['normalize_coords'])
+            ])
+        # build transform for DETR-style detector
+        else:
+            transforms = [
+                RandomHorizontalFlip(),
+                RandomSelect(
+                    RandomResize(cfg['train_min_size'], max_size=cfg['train_max_size']),
+                    Compose([
+                        RandomResize(cfg['train_min_size2']),
+                        RandomSizeCrop(*cfg['random_crop_size']),
+                        RandomResize(cfg['train_min_size'], max_size=cfg['train_max_size']),
+                    ])
+                ),
+                ToTensor(),
+                Normalize(cfg['pixel_mean'], cfg['pixel_std'], cfg['normalize_coords'])
+            ]
+
     # ---------------- Transform for Evaluating ----------------
     else:
         transforms = [
