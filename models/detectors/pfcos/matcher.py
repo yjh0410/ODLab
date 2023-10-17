@@ -1,5 +1,6 @@
 import torch
 import torch.nn.functional as F
+from utils.box_ops import box_iou
 from utils.misc import sigmoid_focal_loss, SinkhornDistance
 
 
@@ -144,8 +145,10 @@ class OTAMatcher(object):
                 pair_wise_box_pred  = box_pred.unsqueeze(0).expand(shape)
                 pair_wise_box_label = gt_bboxes.unsqueeze(1).expand(shape)
                 ## [N, M]
-                pair_wise_ious, cost_reg = get_ious_and_iou_loss(
-                    pair_wise_box_pred, pair_wise_box_label, box_mode='xyxy', loss_type='iou')
+                pair_wise_ious, _ = box_iou(gt_bboxes, box_pred)  # [N, M]
+                cost_reg = -torch.log(pair_wise_ious + 1e-8)
+                # pair_wise_ious, cost_reg = get_ious_and_iou_loss(
+                #     pair_wise_box_pred, pair_wise_box_label, box_mode='xyxy', loss_type='iou')
 
                 # Fully cost matrix
                 cost = cost_cls + 3.0 * cost_reg + 1e6 * (1 - is_in_bboxes.float())
