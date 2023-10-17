@@ -241,7 +241,7 @@ class AlignedOTA(object):
         # [M,]
         iou_target = pair_wise_ious.new_zeros((num_anchors, 1))
         iou_target[fg_mask] = pair_wise_ious[
-            matched_gt_inds[fg_mask], torch.arange(num_anchors, device=device)[fg_mask]].unsqueeze(1)
+            matched_gt_inds[fg_mask], torch.arange(num_anchors, device=device)[fg_mask]]
         
         return {'cls_target': cls_target,
                 'box_target': box_target,
