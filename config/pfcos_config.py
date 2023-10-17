@@ -36,7 +36,7 @@ pfcos_cfg = {
         'test_topk': 100,
         'test_conf_thresh': 0.1,
         'test_nms_thresh': 0.45,
-        'use_nms': True,
+        'use_nms': False,
         'nms_class_agnostic': True,  # We prefer to use class-agnostic NMS in the demo.
         # ----------------- Label Assignment -----------------
         # 'matcher': 'aligned_simota',
@@ -57,8 +57,7 @@ pfcos_cfg = {
         'focal_loss_alpha': 0.25,
         'focal_loss_gamma': 2.0,
         'loss_cls_weight': 1.0,
-        'loss_reg_weight': 1.0,
-        'loss_box_weight': 1.0,
+        'loss_reg_weight': 2.0,
         # ----------------- Training -----------------
         ## Training scheduler
         'scheduler': '1x',
