@@ -14,12 +14,14 @@ from utils.misc import multiclass_nms
 class PlainFCOS(nn.Module):
     def __init__(self, 
                  cfg,
-                 num_classes :int   = 80, 
-                 conf_thresh :float = 0.05,
-                 nms_thresh  :float = 0.6,
-                 topk        :int   = 1000,
-                 trainable   :bool  = False,
-                 ca_nms      :bool  = False):
+                 num_classes  :int   = 80, 
+                 conf_thresh  :float = 0.05,
+                 nms_thresh   :float = 0.6,
+                 topk         :int   = 1000,
+                 trainable    :bool  = False,
+                 use_nms      :bool  = False,
+                 ca_nms       :bool  = False,
+                 use_aux_head :bool  = False):
         super(PlainFCOS, self).__init__()
         # ---------------------- Basic Parameters ----------------------
         self.cfg = cfg
@@ -29,6 +31,8 @@ class PlainFCOS(nn.Module):
         self.conf_thresh = conf_thresh
         self.nms_thresh = nms_thresh
         self.ca_nms = ca_nms
+        self.use_nms = use_nms
+        self.use_aux_head = use_aux_head
 
         # ---------------------- Network Parameters ----------------------
         ## Backbone
@@ -39,6 +43,8 @@ class PlainFCOS(nn.Module):
         
         ## Heads
         self.head = build_head(cfg, cfg['head_dim'], cfg['head_dim'], num_classes)
+        if self.use_aux_head and trainable:
+            self.aux_head = build_head(cfg, cfg['head_dim'], cfg['head_dim'], num_classes)
 
     def post_process(self, cls_pred, box_pred):
         """
@@ -78,8 +84,9 @@ class PlainFCOS(nn.Module):
         bboxes = bboxes.cpu().numpy()
 
         # nms
-        scores, labels, bboxes = multiclass_nms(
-            scores, labels, bboxes, self.nms_thresh, self.num_classes, self.ca_nms)
+        if self.use_nms:
+            scores, labels, bboxes = multiclass_nms(
+                scores, labels, bboxes, self.nms_thresh, self.num_classes, self.ca_nms)
 
         return bboxes, scores, labels
 
@@ -117,5 +124,9 @@ class PlainFCOS(nn.Module):
 
             # ---------------- Heads ----------------
             outputs = self.head(feat, mask)
+
+            if self.use_aux_head:
+                aux_head_outputs = self.aux_head(feat, mask)
+                outputs['aux_head_outputs'] = aux_head_outputs
 
             return outputs 

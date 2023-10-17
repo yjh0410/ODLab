@@ -1,9 +1,11 @@
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
-from utils.box_ops import box_iou
+from utils.box_ops import box_iou, box_cxcywh_to_xyxy, box_xyxy_to_cxcywh, generalized_box_iou
+from scipy.optimize import linear_sum_assignment
 
 
-# RTMDet's Assigner
+# Aligned Simple OTA Assigner
 class AlignedSimOTA(object):
     """
         This code referenced to https://github.com/open-mmlab/mmyolo/models/task_modules/assigners/batch_dsl_assigner.py
@@ -143,3 +145,45 @@ class AlignedSimOTA(object):
         matched_gt_inds = matching_matrix[:, fg_mask_inboxes].argmax(0)
 
         return matched_pred_ious, matched_gt_inds, fg_mask_inboxes
+
+# HungarianMatcher
+class HungarianMatcher(nn.Module):
+    def __init__(self, cost_class = 1, cost_bbox = 1, cost_giou = 1, alpha=0.25, gamma=2.0):
+        super().__init__()
+        self.cost_class = cost_class
+        self.cost_bbox = cost_bbox
+        self.cost_giou = cost_giou
+        self.alpha = alpha
+        self.gamma = gamma
+
+    @torch.no_grad()
+    def forward(self, pred_cls, pred_box, targets):
+        bs, num_queries = pred_cls.shape[:2]
+        # [B, Nq, C] -> [BNq, C]
+        out_prob = pred_cls.flatten(0, 1).sigmoid()
+        out_bbox = pred_box.flatten(0, 1)
+
+        # List[B, M, C] -> [BM, C]
+        tgt_ids = torch.cat([v["labels"] for v in targets])
+        tgt_bbox = torch.cat([v["boxes"] for v in targets])
+
+        # -------------------- Classification cost --------------------
+        neg_cost_class = (1 - self.alpha) * (out_prob ** self.gamma) * (-(1 - out_prob + 1e-8).log())
+        pos_cost_class = self.alpha * ((1 - out_prob) ** self.gamma) * (-(out_prob + 1e-8).log())
+        cost_class = pos_cost_class[:, tgt_ids] - neg_cost_class[:, tgt_ids]
+
+        # -------------------- Regression cost --------------------
+        ## L1 cost: [Nq, M]
+        cost_bbox = torch.cdist(out_bbox, tgt_bbox.to(out_bbox.device), p=1)
+        ## GIoU cost: Nq, M]
+        cost_giou = -generalized_box_iou(out_bbox, tgt_bbox.to(out_bbox.device))
+
+        # Final cost: [B, Nq, M]
+        C = self.cost_bbox * cost_bbox + self.cost_class * cost_class + self.cost_giou * cost_giou
+        C = C.view(bs, num_queries, -1).cpu()
+
+        # Label assignment
+        sizes = [len(v["boxes"]) for v in targets]
+        indices = [linear_sum_assignment(c[i]) for i, c in enumerate(C.split(sizes, -1))]
+
+        return [(torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64)) for i, j in indices]
