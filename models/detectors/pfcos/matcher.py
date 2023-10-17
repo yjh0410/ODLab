@@ -178,6 +178,10 @@ class HungarianMatcher(nn.Module):
 
         # Final cost: [B, Nq, M]
         C = self.cost_cls_weight * cost_cls + self.cost_reg_weight * cost_reg
+        if torch.isfinite(C):
+            print(C.sum())
+            exit()
+            
         C = C.view(bs, num_queries, -1).cpu()
 
         # Label assignment
