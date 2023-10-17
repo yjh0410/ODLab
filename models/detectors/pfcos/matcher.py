@@ -188,7 +188,7 @@ class OTAMatcher(object):
                 # [M,]
                 gt_ious_i = pair_wise_ious.new_zeros((num_anchor, 1))
                 gt_ious_i[fg_mask] = \
-                    pair_wise_ious[matched_gt_inds[fg_mask], torch.arange(num_anchor)[fg_mask]].unsqueeze(1)
+                    pair_wise_ious[matched_gt_inds[fg_mask], torch.arange(num_anchor,  device=device)[fg_mask]].unsqueeze(1)
                 iou_targets.append(gt_ious_i)
 
         # [B, M, C]
