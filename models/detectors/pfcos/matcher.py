@@ -239,7 +239,7 @@ class AlignedOTA(object):
             matched_gt_inds[fg_mask], torch.arange(num_anchors, device=device)[fg_mask]]
 
         # [M,]
-        iou_target = pair_wise_ious.new_zeros((num_anchors, 1))
+        iou_target = pair_wise_ious.new_zeros((num_anchors,))
         iou_target[fg_mask] = pair_wise_ious[
             matched_gt_inds[fg_mask], torch.arange(num_anchors, device=device)[fg_mask]]
         
