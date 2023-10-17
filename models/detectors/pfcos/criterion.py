@@ -6,7 +6,7 @@ from utils.box_ops import get_ious, generalized_box_iou
 from utils.misc import sigmoid_focal_loss
 from utils.distributed_utils import get_world_size, is_dist_avail_and_initialized
 
-from .matcher import AlignedSimOTA, HungarianMatcher
+from .matcher import SimOTAMatcher, HungarianMatcher
 
 
 class HungarianCriterion(nn.Module):
@@ -29,9 +29,8 @@ class HungarianCriterion(nn.Module):
         self.gamma = cfg['focal_loss_gamma']
         # ------------ Matcher ------------
         self.matcher_cfg = cfg['matcher_hpy']
-        self.matcher = HungarianMatcher(cost_class = cfg['matcher_hpy']['cost_cls_weight'],
-                                        cost_bbox  = cfg['matcher_hpy']['cost_box_weight'],
-                                        cost_giou  = cfg['matcher_hpy']['cost_giou_weight'],
+        self.matcher = HungarianMatcher(cost_cls_weight = cfg['matcher_hpy']['cost_cls_weight'],
+                                        cost_reg_weight = cfg['matcher_hpy']['cost_reg_weight'],
                                         alpha      = self.alpha,
                                         gamma      = self.gamma)
         # ------------- Loss weight -------------
@@ -81,8 +80,8 @@ class HungarianCriterion(nn.Module):
         pred_box = pred_box[idx]
         target_boxes = torch.cat([t['boxes'][i] for t, (_, i) in zip(targets, indices)], dim=0).to(pred_box.device)
         # comput giou loss
-        bbox_giou = generalized_box_iou(pred_box, target_boxes)
-        loss_giou = 1 - torch.diag(bbox_giou)
+        bbox_giou = get_ious(pred_box, target_boxes, 'xyxy', 'giou')
+        loss_giou = 1 - bbox_giou
         
         return loss_giou.sum() / num_boxes
 
@@ -124,7 +123,7 @@ class SimOTACriterion(nn.Module):
                             'loss_reg': cfg['loss_reg_weight']}
         # ------------- Matcher -------------
         self.matcher_cfg = cfg['matcher_hpy']
-        self.matcher = AlignedSimOTA(num_classes=num_classes,
+        self.matcher = SimOTAMatcher(num_classes=num_classes,
                                      topk_candidate=int(self.matcher_cfg['topk_candidate']),
                                      alpha=self.alpha,
                                      gamma=self.gamma

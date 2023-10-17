@@ -6,11 +6,13 @@ from scipy.optimize import linear_sum_assignment
 
 
 # Aligned Simple OTA Assigner
-class AlignedSimOTA(object):
+class SimOTAMatcher(object):
     """
         This code referenced to https://github.com/open-mmlab/mmyolo/models/task_modules/assigners/batch_dsl_assigner.py
     """
-    def __init__(self, num_classes=80, topk_candidate=1, alpha=0.25, gamma=2.0):
+    def __init__(self, cost_cls_weight, cost_reg_weight, num_classes=80, topk_candidate=1, alpha=0.25, gamma=2.0):
+        self.cost_cls_weight = cost_cls_weight
+        self.cost_reg_weight = cost_reg_weight
         self.num_classes = num_classes
         self.topk_candidate = topk_candidate
         self.alpha = alpha
@@ -47,7 +49,7 @@ class AlignedSimOTA(object):
         del pairwise_pred_scores
 
         ## foreground cost matrix
-        cost_matrix = pair_wise_cls_loss + 3.0 * pair_wise_ious_loss
+        cost_matrix = self.cost_cls_weight * pair_wise_cls_loss + self.cost_reg_weight * pair_wise_ious_loss
         max_pad_value = torch.ones_like(cost_matrix) * 1e9
         cost_matrix = torch.where(valid_mask[None].repeat(num_gt, 1),   # [N, M]
                                   cost_matrix, max_pad_value)
@@ -169,13 +171,13 @@ class HungarianMatcher(nn.Module):
         # -------------------- Classification cost --------------------
         neg_cost_cls_weight = (1 - self.alpha) * (out_prob ** self.gamma) * (-(1 - out_prob + 1e-8).log())
         pos_cost_cls_weight = self.alpha * ((1 - out_prob) ** self.gamma) * (-(out_prob + 1e-8).log())
-        cost_cls_weight = pos_cost_cls_weight[:, tgt_ids] - neg_cost_cls_weight[:, tgt_ids]
+        cost_cls = pos_cost_cls_weight[:, tgt_ids] - neg_cost_cls_weight[:, tgt_ids]
 
         # -------------------- Regression cost --------------------
         cost_reg = -generalized_box_iou(out_bbox, tgt_bbox.to(out_bbox.device))
 
         # Final cost: [B, Nq, M]
-        C = self.cost_cls_weight * cost_cls_weight + self.cost_reg_weight * cost_reg
+        C = self.cost_cls_weight * cost_cls + self.cost_reg_weight * cost_reg
         C = C.view(bs, num_queries, -1).cpu()
 
         # Label assignment
