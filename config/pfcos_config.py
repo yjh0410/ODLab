@@ -38,7 +38,7 @@ pfcos_cfg = {
         'nms_class_agnostic': True,  # We prefer to use class-agnostic NMS in the demo.
         # ----------------- Label Assignment -----------------
         'matcher': 'yolof_matcher',
-        'matcher_hpy': {'topk_candidate': 4},
+        'matcher_hpy': {'topk_candidate': 1},
         # ----------------- Loss weight -----------------
         ## Loss hyper-parameters
         'focal_loss_alpha': 0.25,
