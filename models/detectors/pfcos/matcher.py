@@ -4,76 +4,6 @@ from utils.box_ops import box_iou
 from utils.misc import sigmoid_focal_loss, SinkhornDistance
 
 
-@torch.no_grad()
-def get_ious_and_iou_loss(inputs,
-                          targets,
-                          weight=None,
-                          box_mode="xyxy",
-                          loss_type="iou",
-                          reduction="none"):
-    """
-    Compute iou loss of type ['iou', 'giou', 'linear_iou']
-
-    Args:
-        inputs (tensor): pred values
-        targets (tensor): target values
-        weight (tensor): loss weight
-        box_mode (str): 'xyxy' or 'ltrb', 'ltrb' is currently supported.
-        loss_type (str): 'giou' or 'iou' or 'linear_iou'
-        reduction (str): reduction manner
-
-    Returns:
-        loss (tensor): computed iou loss.
-    """
-    if box_mode == "ltrb":
-        inputs = torch.cat((-inputs[..., :2], inputs[..., 2:]), dim=-1)
-        targets = torch.cat((-targets[..., :2], targets[..., 2:]), dim=-1)
-    elif box_mode != "xyxy":
-        raise NotImplementedError
-
-    eps = torch.finfo(torch.float32).eps
-
-    inputs_area = (inputs[..., 2] - inputs[..., 0]).clamp_(min=0) \
-        * (inputs[..., 3] - inputs[..., 1]).clamp_(min=0)
-    targets_area = (targets[..., 2] - targets[..., 0]).clamp_(min=0) \
-        * (targets[..., 3] - targets[..., 1]).clamp_(min=0)
-
-    w_intersect = (torch.min(inputs[..., 2], targets[..., 2])
-                   - torch.max(inputs[..., 0], targets[..., 0])).clamp_(min=0)
-    h_intersect = (torch.min(inputs[..., 3], targets[..., 3])
-                   - torch.max(inputs[..., 1], targets[..., 1])).clamp_(min=0)
-
-    area_intersect = w_intersect * h_intersect
-    area_union = targets_area + inputs_area - area_intersect
-    ious = area_intersect / area_union.clamp(min=eps)
-
-    if loss_type == "iou":
-        loss = -ious.clamp(min=eps).log()
-    elif loss_type == "linear_iou":
-        loss = 1 - ious
-    elif loss_type == "giou":
-        g_w_intersect = torch.max(inputs[..., 2], targets[..., 2]) \
-            - torch.min(inputs[..., 0], targets[..., 0])
-        g_h_intersect = torch.max(inputs[..., 3], targets[..., 3]) \
-            - torch.min(inputs[..., 1], targets[..., 1])
-        ac_uion = g_w_intersect * g_h_intersect
-        gious = ious - (ac_uion - area_union) / ac_uion.clamp(min=eps)
-        loss = 1 - gious
-    else:
-        raise NotImplementedError
-    if weight is not None:
-        loss = loss * weight.view(loss.size())
-        if reduction == "mean":
-            loss = loss.sum() / max(weight.sum().item(), eps)
-    else:
-        if reduction == "mean":
-            loss = loss.mean()
-    if reduction == "sum":
-        loss = loss.sum()
-
-    return ious, loss
-
-
 class OTAMatcher(object):
     def __init__(self, num_classes, topk_candidate=4, center_sampling_radius=1.5, sinkhorn_eps=0.1, sinkhorn_iters=50):
         self.num_classes = num_classes
@@ -196,4 +126,164 @@ class OTAMatcher(object):
         iou_targets = torch.stack(iou_targets)
 
         return cls_targets, box_targets, iou_targets
+
+
+class SimOTAMatcher(object):
+    def __init__(self, num_classes=80, center_sampling_radius=1.5, topk_candidate=1, alpha=0.25, gamma=2.0):
+        self.num_classes = num_classes
+        self.topk_candidate = topk_candidate
+        self.center_sampling_radius = center_sampling_radius
+        self.alpha = alpha
+        self.gamma = gamma
+
+
+    @torch.no_grad()
+    def __call__(self, stride, anchors, pred_cls, pred_box, tgt_labels, tgt_bboxes):
+        num_gt = len(tgt_labels)
+        num_anchor = anchors.shape[0]        
+
+        # ----------------------- Find inside points -----------------------
+        fg_mask, is_in_boxes_and_center = self.get_in_boxes_info(
+            tgt_bboxes, anchors, stride, num_anchor, num_gt)
+        cls_preds = pred_cls[fg_mask].float()   # [Mp, C]
+        box_preds = pred_box[fg_mask].float()   # [Mp, 4]
+
+        # ----------------------- Reg cost -----------------------
+        pair_wise_ious, _ = box_iou(tgt_bboxes, box_preds)      # [N, Mp]
+        reg_cost = -torch.log(pair_wise_ious + 1e-8)            # [N, Mp]
+
+        # ----------------------- Cls cost -----------------------
+        # [Mp, C] -> [N, Mp, C]
+        cls_preds_expand = cls_preds.unsqueeze(0).repeat(num_gt, 1, 1)
+        # prepare cls_target
+        cls_targets = F.one_hot(tgt_labels.long(), self.num_classes).float()
+        cls_targets = cls_targets.unsqueeze(1).repeat(1, cls_preds_expand.size(1), 1)
+        cls_targets *= pair_wise_ious.unsqueeze(-1)  # iou-aware
+        # [N, Mp]
+        cls_cost = F.binary_cross_entropy_with_logits(cls_preds_expand, cls_targets, reduction="none").sum(-1)
+        del cls_preds_expand
+
+        #----------------------- Dynamic K-Matching -----------------------
+        cost_matrix = (
+            cls_cost
+            + 3.0 * reg_cost
+            + 100000.0 * (~is_in_boxes_and_center)
+        ) # [N, Mp]
+
+        (
+            assigned_labels,         # [num_fg,]
+            assigned_ious,           # [num_fg,]
+            assigned_indexs,         # [num_fg,]
+        ) = self.dynamic_k_matching(
+            cost_matrix,
+            pair_wise_ious,
+            tgt_labels,
+            num_gt,
+            fg_mask
+            )
+        del cls_cost, cost_matrix, pair_wise_ious, reg_cost
+
+        return fg_mask, assigned_labels, assigned_ious, assigned_indexs
+
+    def get_in_boxes_info(
+        self,
+        gt_bboxes,   # [N, 4]
+        anchors,     # [M, 2]
+        strides,     # [M,]
+        num_anchors, # M
+        num_gt,      # N
+        ):
+        # anchor center
+        x_centers = anchors[:, 0]
+        y_centers = anchors[:, 1]
+
+        # [M,] -> [1, M] -> [N, M]
+        x_centers = x_centers.unsqueeze(0).repeat(num_gt, 1)
+        y_centers = y_centers.unsqueeze(0).repeat(num_gt, 1)
+
+        # [N,] -> [N, 1] -> [N, M]
+        gt_bboxes_l = gt_bboxes[:, 0].unsqueeze(1).repeat(1, num_anchors) # x1
+        gt_bboxes_t = gt_bboxes[:, 1].unsqueeze(1).repeat(1, num_anchors) # y1
+        gt_bboxes_r = gt_bboxes[:, 2].unsqueeze(1).repeat(1, num_anchors) # x2
+        gt_bboxes_b = gt_bboxes[:, 3].unsqueeze(1).repeat(1, num_anchors) # y2
+
+        b_l = x_centers - gt_bboxes_l
+        b_r = gt_bboxes_r - x_centers
+        b_t = y_centers - gt_bboxes_t
+        b_b = gt_bboxes_b - y_centers
+        bbox_deltas = torch.stack([b_l, b_t, b_r, b_b], 2)
+
+        is_in_boxes = bbox_deltas.min(dim=-1).values > 0.0
+        is_in_boxes_all = is_in_boxes.sum(dim=0) > 0
+        # in fixed center
+        center_radius = self.center_sampling_radius
+
+        # [N, 2]
+        gt_centers = (gt_bboxes[:, :2] + gt_bboxes[:, 2:]) * 0.5
+        
+        # [1, M]
+        center_radius_ = center_radius * strides
+
+        gt_bboxes_l = gt_centers[:, 0].unsqueeze(1).repeat(1, num_anchors) - center_radius_ # x1
+        gt_bboxes_t = gt_centers[:, 1].unsqueeze(1).repeat(1, num_anchors) - center_radius_ # y1
+        gt_bboxes_r = gt_centers[:, 0].unsqueeze(1).repeat(1, num_anchors) + center_radius_ # x2
+        gt_bboxes_b = gt_centers[:, 1].unsqueeze(1).repeat(1, num_anchors) + center_radius_ # y2
+
+        c_l = x_centers - gt_bboxes_l
+        c_r = gt_bboxes_r - x_centers
+        c_t = y_centers - gt_bboxes_t
+        c_b = gt_bboxes_b - y_centers
+        center_deltas = torch.stack([c_l, c_t, c_r, c_b], 2)
+        is_in_centers = center_deltas.min(dim=-1).values > 0.0
+        is_in_centers_all = is_in_centers.sum(dim=0) > 0
+
+        # in boxes and in centers
+        is_in_boxes_anchor = is_in_boxes_all | is_in_centers_all
+
+        is_in_boxes_and_center = (
+            is_in_boxes[:, is_in_boxes_anchor] & is_in_centers[:, is_in_boxes_anchor]
+        )
+        return is_in_boxes_anchor, is_in_boxes_and_center
+     
+    def dynamic_k_matching(
+        self, 
+        cost, 
+        pair_wise_ious, 
+        gt_classes, 
+        num_gt, 
+        fg_mask
+        ):
+        # Dynamic K
+        # ---------------------------------------------------------------
+        matching_matrix = torch.zeros_like(cost, dtype=torch.uint8)
+
+        ious_in_boxes_matrix = pair_wise_ious
+        n_candidate_k = min(self.topk_candidate, ious_in_boxes_matrix.size(1))
+        topk_ious, _ = torch.topk(ious_in_boxes_matrix, n_candidate_k, dim=1)
+        dynamic_ks = torch.clamp(topk_ious.sum(1).int(), min=1)
+        dynamic_ks = dynamic_ks.tolist()
+        for gt_idx in range(num_gt):
+            _, pos_idx = torch.topk(
+                cost[gt_idx], k=dynamic_ks[gt_idx], largest=False
+            )
+            matching_matrix[gt_idx][pos_idx] = 1
+
+        del topk_ious, dynamic_ks, pos_idx
+
+        anchor_matching_gt = matching_matrix.sum(0)
+        if (anchor_matching_gt > 1).sum() > 0:
+            _, cost_argmin = torch.min(cost[:, anchor_matching_gt > 1], dim=0)
+            matching_matrix[:, anchor_matching_gt > 1] *= 0
+            matching_matrix[cost_argmin, anchor_matching_gt > 1] = 1
+        fg_mask_inboxes = matching_matrix.sum(0) > 0
+
+        fg_mask[fg_mask.clone()] = fg_mask_inboxes
+
+        assigned_indexs = matching_matrix[:, fg_mask_inboxes].argmax(0)
+        assigned_labels = gt_classes[assigned_indexs]
+
+        assigned_ious = (matching_matrix * pair_wise_ious).sum(0)[
+            fg_mask_inboxes
+        ]
+        return assigned_labels, assigned_ious, assigned_indexs
     

@@ -68,8 +68,8 @@ pfcos_cfg = {
         'lr_epoch': [8, 11],  # 1x
         # ----------------- Input -----------------
         ## Transforms
-        'train_min_size': [800],   # short edge of image
-        'train_max_size': 1333,
+        'train_min_size': [320],   # short edge of image
+        'train_max_size': 320,
         'test_min_size': 800,
         'test_max_size': 1333,
         ## Pixel mean & std

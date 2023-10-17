@@ -2,14 +2,14 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from utils.box_ops import generalized_box_iou
+from utils.box_ops import get_ious, generalized_box_iou
 from utils.misc import sigmoid_focal_loss
 from utils.distributed_utils import get_world_size, is_dist_avail_and_initialized
 
-from .matcher import OTAMatcher
+from .matcher import OTAMatcher, SimOTAMatcher
 
 
-class Criterion(nn.Module):
+class OTACriterion(nn.Module):
     def __init__(self, cfg, device, num_classes=80):
         super().__init__()
         # ------------- Basic parameters -------------
@@ -119,6 +119,153 @@ class Criterion(nn.Module):
 
         return loss_dict
 
+
+class Criterion(nn.Module):
+    def __init__(self, cfg, device, num_classes=80):
+        super().__init__()
+        # ------------- Basic parameters -------------
+        self.cfg = cfg
+        self.num_classes = num_classes
+        # ------------- Focal loss -------------
+        self.alpha = cfg['focal_loss_alpha']
+        self.gamma = cfg['focal_loss_gamma']
+        # ------------- Loss weight -------------
+        self.weight_dict = {'loss_cls': cfg['loss_cls_weight'],
+                            'loss_reg': cfg['loss_reg_weight'],
+                            'loss_iou': cfg['loss_iou_weight']}
+        # ------------- Matcher -------------
+        self.matcher_cfg = cfg['matcher_hpy']
+        self.matcher = SimOTAMatcher(num_classes=num_classes,
+                                     topk_candidate=int(self.matcher_cfg['topk_candidate']),
+                                     center_sampling_radius=self.matcher_cfg['center_sampling_radius'],
+                                     alpha=self.alpha,
+                                     gamma=self.gamma
+                                     )
+    
+    def loss_labels(self, pred_cls, gt_cls, num_boxes=1.0):
+        """
+            pred_cls: (Tensor) [N, C]
+            tgt_cls:  (Tensor) [N, C]
+        """
+        # cls loss: [V, C]
+        loss_cls = sigmoid_focal_loss(pred_cls, gt_cls, self.alpha, self.gamma)
+
+        return loss_cls.sum() / num_boxes
+
+    def loss_bboxes(self, pred_box, gt_box, num_boxes=1.0):
+        # regression loss
+        ious = get_ious(pred_box, gt_box, "xyxy", 'giou')
+        loss_box = 1.0 - ious
+
+        return loss_box.sum() / num_boxes
+
+    def loss_ious(self, pred_iou, gt_iou, num_boxes=1.0):
+        """
+            pred_iou: (Tensor) [Nq, 1]
+            tgt_iou:  (Tensor) [Nq, 1]
+        """
+        # IoU-aware loss
+        loss_iou = F.binary_cross_entropy_with_logits(pred_iou, gt_iou, reduction='none')
+
+        return loss_iou.sum() / num_boxes
+
+    def forward(self, outputs, targets):        
+        mask    = ~outputs['mask']
+        stride  = outputs['strides']
+        anchors = outputs['anchors']
+        device  = mask.device
+        num_anchors = anchors.shape[0]
+        # preds: [B, M, C]
+        cls_preds = outputs['pred_cls']
+        reg_preds = outputs['pred_reg']
+        box_preds = outputs['pred_box']
+        iou_preds = outputs['pred_iou']
+
+        # --------------- label assignment ---------------
+        cls_targets = []
+        box_targets = []
+        iou_targets = []
+        fg_masks = []
+        for batch_idx in range(mask.shape[0]):
+            tgt_labels = targets[batch_idx]["labels"].to(device)
+            tgt_bboxes = targets[batch_idx]["boxes"].to(device)
+
+            # check target
+            if len(tgt_labels) == 0 or tgt_bboxes.max().item() == 0.:
+                # There is no valid gt
+                cls_target = cls_preds.new_zeros((num_anchors, self.num_classes))
+                box_target = cls_preds.new_zeros((0, 4))
+                iou_target = cls_preds.new_zeros((0,))
+                fg_mask = cls_preds.new_zeros(num_anchors).bool()
+            else:
+                (
+                    fg_mask,
+                    assigned_labels,
+                    assigned_ious,
+                    assigned_indexs
+                ) = self.matcher(
+                    stride = stride,
+                    anchors = anchors,
+                    pred_cls = cls_preds[batch_idx], 
+                    pred_box = box_preds[batch_idx],
+                    tgt_labels = tgt_labels,
+                    tgt_bboxes = tgt_bboxes
+                    )
+                # prepare cls targets
+                assigned_labels = F.one_hot(assigned_labels.long(), self.num_classes)
+                cls_target = cls_preds.new_zeros((num_anchors, self.num_classes))
+                cls_target[fg_mask] = assigned_labels.float()
+                # prepare box targets
+                box_target = tgt_bboxes[assigned_indexs]
+                # prepare iou targets
+                iou_target = assigned_ious
+
+            fg_masks.append(fg_mask)
+            cls_targets.append(cls_target)
+            box_targets.append(box_target)
+            iou_targets.append(iou_target)
+
+        # [B, M, C]
+        cls_targets = torch.cat(cls_targets, 0)
+        box_targets = torch.cat(box_targets, 0)
+        iou_targets = torch.cat(iou_targets, 0)
+        fg_masks = torch.cat(fg_masks, 0)
+        num_fgs = fg_masks.sum()
+
+        # average loss normalizer across all the GPUs
+        if is_dist_avail_and_initialized():
+            torch.distributed.all_reduce(num_fgs)
+        num_fgs = (num_fgs / get_world_size()).clamp(1.0)
+        
+        # Reshape: [B, M, C] -> [BM, C]
+        masks = mask.view(-1)
+        cls_preds = cls_preds.view(-1, self.num_classes)
+        reg_preds = reg_preds.view(-1, 4)
+        box_preds = box_preds.view(-1, 4)
+        iou_preds = iou_preds.flatten()
+
+        cls_targets = cls_targets.view(-1, self.num_classes).to(device)
+        box_targets = box_targets.view(-1, 4).to(device)
+        iou_targets = iou_targets.flatten().to(device)
+
+        # ------------------ Classification loss ------------------
+        valid_idxs = masks
+        loss_cls = self.loss_labels(cls_preds[valid_idxs], cls_targets[valid_idxs], num_fgs)
+
+        # ------------------ Regression loss ------------------
+        loss_reg = self.loss_bboxes(box_preds[fg_masks], box_targets, num_fgs)
+
+        # ------------------ IoU-aware loss ------------------
+        loss_iou = self.loss_ious(iou_preds[fg_masks], iou_targets, num_fgs)
+
+        loss_dict = dict(
+                loss_cls = loss_cls,
+                loss_reg = loss_reg,
+                loss_iou = loss_iou
+        )
+
+        return loss_dict
+    
 
 # build criterion
 def build_criterion(cfg, device, num_classes=80):
