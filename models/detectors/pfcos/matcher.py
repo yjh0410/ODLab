@@ -230,11 +230,11 @@ class AlignedOTA(object):
         fg_mask = matched_gt_inds != num_gt
 
         # [M,]
-        cls_target = pred_cls.new_ones(num_anchors) * self.num_classes
+        cls_target = gt_labels.new_ones(num_anchors) * self.num_classes
         cls_target[fg_mask] = gt_labels[matched_gt_inds[fg_mask]]
 
         # [M, 4]
-        box_target = pred_box.new_zeros((num_anchors, 4))
+        box_target = gt_bboxes.new_zeros((num_anchors, 4))
         gt_bboxes_ = gt_bboxes.unsqueeze(1).repeat(1, num_anchors, 1)
         box_target[fg_mask] = gt_bboxes_[matched_gt_inds[fg_mask], torch.arange(num_anchors)[fg_mask]]
 
