@@ -58,7 +58,7 @@ pfcos_cfg = {
         'base_lr': 0.0001 / 16,
         'backbone_lr_ratio': 1.0 / 1.0,
         'momentum': 0.9,
-        'weight_decay': 1e-4,
+        'weight_decay': 0.05,
         'clip_max_norm': 10.0,
         ## LR Scheduler
         'lr_scheduler': 'step',
