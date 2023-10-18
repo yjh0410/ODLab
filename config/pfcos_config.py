@@ -27,7 +27,7 @@ pfcos_cfg = {
         'head_act': 'relu',
         'head_norm': 'BN',
         ## AuxHead
-        'use_aux_head': False,
+        'use_aux_head': True,
         'aux_head': {'head': 'pfcos_head',
                      'head_dim': 512,
                      'num_cls_head': 4,
@@ -41,7 +41,7 @@ pfcos_cfg = {
         'train_topk': 100,
         'test_topk': 100,
         # ----------------- Label Assignment -----------------
-        'matcher': 'ota',
+        'matcher': 'hybrid',
         'matcher_hpy': {'topk_candidate': 1,
                         'sinkhorn_eps': 0.1,
                         'sinkhorn_iter': 50,
