@@ -98,7 +98,7 @@ class PlainFCOSHead(nn.Module):
             anchors:  (Tensor) [1, M, 2] or [M, 2]
         """
         pred_cxcy = anchors + pred_reg[..., :2] * self.stride
-        pred_bwbh = torch.exp(pred_sca * pred_reg[..., 2:].clamp(max=self.DEFAULT_SCALE_CLAMP)) * self.stride
+        pred_bwbh = torch.exp((pred_sca * pred_reg[..., 2:]).clamp(max=self.DEFAULT_SCALE_CLAMP)) * self.stride
 
         pred_x1y1 = pred_cxcy - pred_bwbh * 0.5
         pred_x2y2 = pred_cxcy + pred_bwbh * 0.5
