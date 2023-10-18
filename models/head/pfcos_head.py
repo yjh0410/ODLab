@@ -59,6 +59,7 @@ class PlainFCOSHead(nn.Module):
         self.cls_pred = nn.Conv2d(self.cls_head_dim, num_classes, kernel_size=3, padding=1)
         self.reg_pred = nn.Conv2d(self.reg_head_dim, 4, kernel_size=3, padding=1)
         self.iou_pred = nn.Conv2d(self.reg_head_dim, 1, kernel_size=3, padding=1)
+        self.sca_pred = nn.Conv2d(self.reg_head_dim, 2, kernel_size=3, padding=1)
                 
         # init bias
         self._init_layers()
@@ -90,13 +91,14 @@ class PlainFCOSHead(nn.Module):
 
         return anchors
         
-    def decode_boxes(self, pred_reg, anchors):
+    def decode_boxes(self, pred_reg, pred_sca, anchors):
         """
-            anchors:  (List[Tensor]) [1, M, 2] or [M, 2]
-            pred_reg: (List[Tensor]) [B, M, 4] or [M, 4]
+            pred_reg: (Tensor) [B, M, 4] or [M, 4]
+            pred_sca: (Tensor) [B, M, 2] or [M, 2]
+            anchors:  (Tensor) [1, M, 2] or [M, 2]
         """
         pred_cxcy = anchors + pred_reg[..., :2] * self.stride
-        pred_bwbh = torch.exp(pred_reg[..., 2:].clamp(max=self.DEFAULT_SCALE_CLAMP)) * self.stride
+        pred_bwbh = torch.exp(pred_sca * pred_reg[..., 2:].clamp(max=self.DEFAULT_SCALE_CLAMP)) * self.stride
 
         pred_x1y1 = pred_cxcy - pred_bwbh * 0.5
         pred_x2y2 = pred_cxcy + pred_bwbh * 0.5
@@ -119,13 +121,15 @@ class PlainFCOSHead(nn.Module):
         cls_pred = self.cls_pred(cls_feat)
         reg_pred = self.reg_pred(reg_feat)
         iou_pred = self.iou_pred(reg_feat)
+        sca_pred = self.sca_pred(reg_feat)
 
         # ------------------- Process preds -------------------
         ## [B, C, H, W] -> [B, H, W, C] -> [B, M, C]
         cls_pred = cls_pred.permute(0, 2, 3, 1).contiguous().view(B, -1, self.num_classes)
         iou_pred = iou_pred.permute(0, 2, 3, 1).contiguous().view(B, -1, 1)
         reg_pred = reg_pred.permute(0, 2, 3, 1).contiguous().view(B, -1, 4)
-        box_pred = self.decode_boxes(reg_pred, anchors)
+        sca_pred = sca_pred.permute(0, 2, 3, 1).contiguous().view(B, -1, 2)
+        box_pred = self.decode_boxes(reg_pred, sca_pred, anchors)
         ## Adjust mask
         if mask is not None:
             # [B, H, W]
@@ -133,13 +137,13 @@ class PlainFCOSHead(nn.Module):
             # [B, H, W] -> [B, M]
             mask = mask.flatten(1)     
             
-
-        outputs = {"pred_cls": cls_pred,   # List [B, M, C]
-                   "pred_reg": reg_pred,   # List [B, M, 4]
-                   "pred_box": box_pred,   # List [B, M, 4]
-                   "pred_iou": iou_pred,   # List [B, M, 1]
-                   "anchors": anchors,     # List [B, M, 2]
-                   "strides": self.stride,
-                   "mask": mask}           # List [B, M,]
+        outputs = {"pred_cls": cls_pred,   # [B, M, C]
+                   "pred_reg": reg_pred,   # [B, M, 4]
+                   "pred_box": box_pred,   # [B, M, 4]
+                   "pred_iou": iou_pred,   # [B, M, 1]
+                   "pred_sca": sca_pred,   # [B, N, 2]
+                   "anchors": anchors,     # [M, 2]
+                   "stride": self.stride,
+                   "mask": mask}           # [B, M,]
 
         return outputs 

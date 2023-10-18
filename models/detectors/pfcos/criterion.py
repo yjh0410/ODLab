@@ -52,6 +52,23 @@ class Criterion(nn.Module):
 
         return loss_reg.sum() / num_boxes
 
+    def loss_deltas(self, pred_reg, pred_sca, tgt_box, anchors, stride, num_boxes=1.0):
+        """
+            pred_box: (Tensor) [Nq, 4]
+            pred_sca: (Tensor) [Nq, 4]
+            tgt_box:  (Tensor) [Nq, 4]
+        """
+        tgt_box_cxcy = (tgt_box[..., :2] + tgt_box[..., 2:]) * 0.5
+        tgt_box_bwbh = (tgt_box[..., 2:] - tgt_box[..., :2]) * 0.5
+        tgt_box_cxcy_e = (tgt_box_cxcy - anchors) / stride
+        tgt_box_bwbh_e = torch.log(tgt_box_bwbh / stride)
+        tgt_box_e = torch.cat([tgt_box_cxcy_e, tgt_box_bwbh_e], dim=-1)
+
+        pred_reg[..., 2:] *= pred_sca
+        loss_box = F.l1_loss(pred_reg, tgt_box_bwbh_e, reduction='none')
+
+        return loss_box.sum() / num_boxes
+
     def loss_ious(self, pred_iou, tgt_iou, num_boxes=1.0):
         """
             pred_iou: (Tensor) [Nq, 1]
@@ -69,7 +86,7 @@ class Criterion(nn.Module):
         iou_preds = outputs['pred_iou']
         mask = ~outputs['mask']
         anchors = outputs['anchors']
-        output_stride = outputs['strides']
+        output_stride = outputs['stride']
         device = outputs['pred_cls'].device
 
         # --------------------- Label assignment ---------------------
