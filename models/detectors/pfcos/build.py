@@ -8,11 +8,12 @@ from .pfcos import PlainFCOS
 # build PlainFCOS
 def build_pfcos(cfg, device, num_classes=80, trainable=False):
     # -------------- Build PlainFCOS --------------
-    model = PlainFCOS(cfg         = cfg,
-                      device      = device,
-                      num_classes = num_classes,
-                      topk        = cfg['train_topk'] if trainable else cfg['test_topk'],
-                      trainable   = trainable
+    model = PlainFCOS(cfg          = cfg,
+                      device       = device,
+                      num_classes  = num_classes,
+                      topk         = cfg['train_topk'] if trainable else cfg['test_topk'],
+                      trainable    = trainable,
+                      use_aux_head = cfg['use_aux_head'] & trainable
                       )
             
     # -------------- Build Criterion --------------

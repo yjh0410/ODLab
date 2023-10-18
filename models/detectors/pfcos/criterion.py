@@ -9,7 +9,7 @@ from utils.distributed_utils import get_world_size, is_dist_avail_and_initialize
 from .matcher import OTAMatcher, SimOTAMatcher
 
 
-class Criterion(nn.Module):
+class OTACriterion(nn.Module):
     def __init__(self, cfg, device, num_classes=80):
         super().__init__()
         # ------------- Basic parameters -------------
@@ -125,7 +125,7 @@ class Criterion(nn.Module):
         return loss_dict
 
 
-class AuxCriterion(nn.Module):
+class SimOTACriterion(nn.Module):
     def __init__(self, cfg, device, num_classes=80):
         super().__init__()
         # ------------- Basic parameters -------------
@@ -240,15 +240,41 @@ class AuxCriterion(nn.Module):
         return loss_dict        
 
 
-# class HybridCriterion(nn.Module):
-#     def __init__(self, cfg, device, num_classes=80):
-#         super().__init__()
+class HybridCriterion(nn.Module):
+    def __init__(self, cfg, device, num_classes=80):
+        super().__init__()
+        self.criterion1 = OTACriterion(cfg, device, num_classes)
+        self.criterion2 = SimOTACriterion(cfg, device, num_classes)
+        # ------------- Loss weight -------------
+        self.weight_dict = self.criterion1.weight_dict
+        self.weight_dict.update({k + "_0": v for k, v in self.criterion2.weight_dict.items()})
 
+    def forward(self, outputs, targets):
+        # -------------------- Compute loss without aux --------------------
+        outputs_without_aux = {k: v for k, v in outputs.items() if k != 'aux_outputs'}
+        loss_dict1 = self.criterion1(outputs_without_aux, targets)
+
+        # -------------------- Compute loss with aux --------------------
+        outputs_aux = outputs['aux_outputs']
+        loss_dict2 = self.criterion2(outputs_aux, targets)
+        loss_dict2 = {k + "_0": v for k, v in loss_dict2.items()}
+
+        loss_dict = {}
+        loss_dict.update(loss_dict1)
+        loss_dict.update(loss_dict2)
+
+        return loss_dict
 
 
 # build criterion
 def build_criterion(cfg, device, num_classes=80):
-    criterion = AuxCriterion(cfg=cfg, device=device, num_classes=num_classes)
+    if cfg['matcher'] == 'ota':
+        criterion = OTACriterion(cfg=cfg, device=device, num_classes=num_classes)
+    elif cfg['matcher'] == 'simota':
+        criterion = SimOTACriterion(cfg=cfg, device=device, num_classes=num_classes)
+    elif cfg['matcher'] == 'hybrid':
+        assert cfg['use_aux_head'], "set use_aux_head in config as True, if you want to use hybrid matcher."
+        criterion = HybridCriterion(cfg=cfg, device=device, num_classes=num_classes)
 
     return criterion
 

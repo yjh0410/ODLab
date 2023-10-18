@@ -15,9 +15,10 @@ class PlainFCOS(nn.Module):
     def __init__(self, 
                  cfg,
                  device, 
-                 num_classes :int   = 80, 
-                 topk        :int   = 1000,
-                 trainable   :bool  = False):
+                 num_classes  :int   = 80, 
+                 topk         :int   = 1000,
+                 trainable    :bool  = False,
+                 use_aux_head :bool = False):
         super(PlainFCOS, self).__init__()
         # ---------------------- Basic Parameters ----------------------
         self.cfg = cfg
@@ -25,6 +26,7 @@ class PlainFCOS(nn.Module):
         self.trainable = trainable
         self.topk = topk
         self.num_classes = num_classes
+        self.use_aux_head = use_aux_head
 
         # ---------------------- Network Parameters ----------------------
         ## Backbone
@@ -33,8 +35,13 @@ class PlainFCOS(nn.Module):
         ## Neck
         self.neck = build_neck(cfg, feat_dims[-1], cfg['head_dim'])
         
-        ## Heads
+        ## Head
         self.head = build_head(cfg, cfg['head_dim'], cfg['head_dim'], num_classes)
+
+        ## Aux-Head
+        if use_aux_head:
+            aux_head_cfg = cfg['aux_head']
+            self.aux_head = build_head(aux_head_cfg, aux_head_cfg['head_dim'], aux_head_cfg['head_dim'], num_classes)
 
     def post_process(self, cls_pred, box_pred):
         """
@@ -104,7 +111,11 @@ class PlainFCOS(nn.Module):
             # ---------------- Neck ----------------
             feat = self.neck(pyramid_feats[-1])
 
-            # ---------------- Heads ----------------
+            # ---------------- Head ----------------
             outputs = self.head(feat, mask)
+
+            # ---------------- Aux Head ----------------
+            aux_outputs = self.aux_head(feat, mask)
+            outputs['aux_outputs'] = aux_outputs
 
             return outputs 
