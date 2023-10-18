@@ -33,12 +33,12 @@ pfcos_cfg = {
         'test_topk': 100,
         'test_conf_thresh': 0.1,
         'test_nms_thresh': 0.45,
-        'use_nms': True,
+        'use_nms': False,
         'nms_class_agnostic': True,  # We prefer to use class-agnostic NMS in the demo.
         # ----------------- Label Assignment -----------------
         'matcher': 'ota',
-        'matcher_hpy': {'topk_candidate': 4,
-                        'center_sampling_radius': 2.5,
+        'matcher_hpy': {'topk_candidate': 1,
+                        'center_sampling_radius': 10000,
                         'sinkhorn_eps': 0.1,
                         'sinkhorn_iter': 50},
         # ----------------- Loss weight -----------------
@@ -53,8 +53,8 @@ pfcos_cfg = {
         'scheduler': '1x',
         ## Optimizer
         'optimizer': 'sgd',
-        'base_lr': 0.01 / 16,
-        'backbone_lr_ratio': 1.0 / 1.0,
+        'base_lr': 0.12 / 64,
+        'backbone_lr_ratio': 1.0 / 3.0,
         'momentum': 0.9,
         'weight_decay': 1e-4,
         'clip_max_norm': 10.0,
