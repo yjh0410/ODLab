@@ -3,10 +3,10 @@
 
 pfcos_cfg = {
     # ImageNet1k-V1 pretrained
-    'pfcos_r18_p5_1x':{
+    'pfcos_r50_p5_1x':{
         # ----------------- Model-----------------
         ## Backbone
-        'backbone': 'resnet18',
+        'backbone': 'resnet50',
         'backbone_norm': 'FrozeBN',
         'res5_dilation': False,
         'pretrained': True,
@@ -67,7 +67,7 @@ pfcos_cfg = {
         'warmup_factor': 0.00066667,
         ## Epoch
         'max_epoch': 12,      # 1x
-        'lr_epoch': [8, 11],  # 1x
+        'lr_epoch': [11],  # 1x
         # ----------------- Input -----------------
         ## Transforms
         'train_min_size': [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800],   # short edge of image
