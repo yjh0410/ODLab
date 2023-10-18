@@ -5,10 +5,9 @@ from utils.misc import sigmoid_focal_loss, SinkhornDistance
 
 
 class OTAMatcher(object):
-    def __init__(self, num_classes, topk_candidate=4, center_sampling_radius=1.5, sinkhorn_eps=0.1, sinkhorn_iters=50):
+    def __init__(self, num_classes, topk_candidate=4, sinkhorn_eps=0.1, sinkhorn_iters=50):
         self.num_classes = num_classes
         self.topk_candidate = topk_candidate
-        self.center_sampling_radius = center_sampling_radius
         self.sinkhorn = SinkhornDistance(sinkhorn_eps, sinkhorn_iters)
 
     def get_deltas(self, anchors, bboxes):
@@ -20,7 +19,7 @@ class OTAMatcher(object):
         return deltas
 
     @torch.no_grad()
-    def __call__(self, stride, anchors, cls_preds, reg_preds, box_preds, targets):
+    def __call__(self, anchors, cls_preds, box_preds, targets):
         cls_targets = []
         box_targets = []
         iou_targets = []
@@ -28,7 +27,7 @@ class OTAMatcher(object):
         device = anchors.device
 
         # --------------------- Perform label assignment on each image ---------------------
-        for target, cls_pred, reg_pred, box_pred in zip(targets, cls_preds, reg_preds, box_preds):
+        for target, cls_pred, box_pred in zip(targets, cls_preds, box_preds):
             gt_labels = target["labels"].to(device)
             gt_bboxes = target["boxes"].to(device)
 
@@ -36,24 +35,9 @@ class OTAMatcher(object):
             deltas = self.get_deltas(anchors, gt_bboxes.unsqueeze(1))
             is_in_bboxes = deltas.min(dim=-1).values > 0.01
 
-            # targets bbox centers: [N, 2]
-            centers = (gt_bboxes[:, :2] + gt_bboxes[:, 2:]) * 0.5
-            is_in_centers = []
-            radius = stride * self.center_sampling_radius
-            center_bboxes = torch.cat((
-                torch.max(centers - radius, gt_bboxes[:, :2]),
-                torch.min(centers + radius, gt_bboxes[:, 2:]),
-            ), dim=-1)
-            # [N, M, 2]
-            center_deltas = self.get_deltas(anchors, center_bboxes.unsqueeze(1))
-            is_in_centers.append(center_deltas.min(dim=-1).values > 0)
-            # [N, M], get central neighborhood points
-            is_in_centers = torch.cat(is_in_centers, dim=1)
-
-            del centers, center_bboxes, deltas, center_deltas
+            del deltas
 
             # [N, M]
-            is_in_bboxes = (is_in_bboxes & is_in_centers)
             num_gt = len(gt_labels)   # N
             num_anchor = anchors.shape[0]         # M
             shape = (num_gt, num_anchor, -1)      # [N, M, -1]

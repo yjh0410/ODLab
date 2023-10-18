@@ -16,29 +16,22 @@ pfcos_cfg = {
         ## Neck
         'neck': 'dilated_encoder',
         'neck_dilations': [2, 4, 6, 8],
-        'neck_expand_ratio': 0.25,
+        'neck_expand_ratio': 0.5,
         'neck_act': 'relu',
         'neck_norm': 'BN',
         ## Head
         'head': 'pfcos_head',
-        'head_dim': 512,
-        'num_cls_head': 2,
+        'head_dim': 256,
+        'num_cls_head': 4,
         'num_reg_head': 4,
         'head_act': 'relu',
         'head_norm': 'BN',
         ## Post-process
-        'train_topk': 1000,
-        'train_conf_thresh': 0.05,
-        'train_nms_thresh': 0.6,
+        'train_topk': 100,
         'test_topk': 100,
-        'test_conf_thresh': 0.1,
-        'test_nms_thresh': 0.45,
-        'use_nms': False,
-        'nms_class_agnostic': True,  # We prefer to use class-agnostic NMS in the demo.
         # ----------------- Label Assignment -----------------
         'matcher': 'ota',
         'matcher_hpy': {'topk_candidate': 1,
-                        'center_sampling_radius': 10000,
                         'sinkhorn_eps': 0.1,
                         'sinkhorn_iter': 50},
         # ----------------- Loss weight -----------------
@@ -46,15 +39,14 @@ pfcos_cfg = {
         'focal_loss_alpha': 0.25,
         'focal_loss_gamma': 2.0,
         'loss_cls_weight': 1.0,
-        'loss_reg_weight': 2.0,
-        'loss_iou_weight': 0.5,
+        'loss_reg_weight': 1.0,
         # ----------------- Training -----------------
         ## Training scheduler
         'scheduler': '1x',
         ## Optimizer
-        'optimizer': 'sgd',
-        'base_lr': 0.12 / 64,
-        'backbone_lr_ratio': 1.0 / 3.0,
+        'optimizer': 'adamw',
+        'base_lr': 0.0001 / 16,
+        'backbone_lr_ratio': 1.0 / 1.0,
         'momentum': 0.9,
         'weight_decay': 1e-4,
         'clip_max_norm': 10.0,
@@ -68,19 +60,18 @@ pfcos_cfg = {
         'lr_epoch': [8, 11],  # 1x
         # ----------------- Input -----------------
         ## Transforms
-        'train_min_size': [800],   # short edge of image
+        'train_min_size': [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800],   # short edge of image
+        'train_min_size2': [400, 500, 600],
         'train_max_size': 1333,
         'test_min_size': 800,
         'test_max_size': 1333,
+        'random_crop_size': [384, 600],
         ## Pixel mean & std
         'pixel_mean': [0.485, 0.456, 0.406],
         'pixel_std':  [0.229, 0.224, 0.225],
         ## Transforms
-        'detr_style': False,
-        'trans_config': [
-            {'name': 'RandomHFlip'},
-            {'name': 'RandomResize'}
-        ],
+        'detr_style': True,
+        'trans_config': None,
         'normalize_coords': False,
     },
 

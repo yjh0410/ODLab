@@ -13,15 +13,11 @@ from utils.misc import multiclass_nms
 # ------------------------ Plain Fully Convolutional One-Stage Detector ------------------------
 class PlainFCOS(nn.Module):
     def __init__(self, 
-                 device, 
                  cfg,
+                 device, 
                  num_classes :int   = 80, 
-                 conf_thresh :float = 0.05,
-                 nms_thresh  :float = 0.6,
                  topk        :int   = 1000,
-                 trainable   :bool  = False,
-                 use_nms     :bool  = False,
-                 ca_nms      :bool  = False):
+                 trainable   :bool  = False):
         super(PlainFCOS, self).__init__()
         # ---------------------- Basic Parameters ----------------------
         self.cfg = cfg
@@ -29,10 +25,6 @@ class PlainFCOS(nn.Module):
         self.trainable = trainable
         self.topk = topk
         self.num_classes = num_classes
-        self.conf_thresh = conf_thresh
-        self.nms_thresh = nms_thresh
-        self.use_nms = use_nms
-        self.ca_nms = ca_nms
 
         # ---------------------- Network Parameters ----------------------
         ## Backbone
@@ -44,51 +36,41 @@ class PlainFCOS(nn.Module):
         ## Heads
         self.head = build_head(cfg, cfg['head_dim'], cfg['head_dim'], num_classes)
 
-    def post_process(self, cls_pred, iou_pred, box_pred):
+    def post_process(self, cls_pred, box_pred):
         """
         Input:
-            cls_preds: (Tensor) [B, H x W, C]
-            iou_preds: (Tensor) [B, H x W, 1]
-            box_preds: (Tensor) [B, H x W, 4]
+            cls_pred: (Tensor) [B, H x W, C]
+            box_pred: (Tensor) [B, H x W, 4]
         """        
         cls_pred = cls_pred[0]
-        iou_pred = iou_pred[0]
         box_pred = box_pred[0]
         
         # (H x W x C,)
-        scores_i = torch.sqrt(cls_pred.sigmoid() * iou_pred.sigmoid()).flatten()
+        cls_scores = cls_pred.sigmoid().flatten()
 
         # Keep top k top scoring indices only.
         num_topk = min(self.topk, box_pred.size(0))
 
         # torch.sort is actually faster than .topk (at least on GPUs)
-        predicted_prob, topk_idxs = scores_i.sort(descending=True)
+        predicted_prob, topk_idxs = cls_scores.sort(descending=True)
+
+        # final scores
         topk_scores = predicted_prob[:num_topk]
         topk_idxs = topk_idxs[:num_topk]
 
-        # filter out the proposals with low confidence score
-        keep_idxs = topk_scores > self.conf_thresh
-        topk_idxs = topk_idxs[keep_idxs]
-
-        # final scores
-        scores = topk_scores[keep_idxs]
         # final labels
-        labels = topk_idxs % self.num_classes
+        topk_labels = topk_idxs % self.num_classes
+
         # final bboxes
         anchor_idxs = torch.div(topk_idxs, self.num_classes, rounding_mode='floor')
-        bboxes = box_pred[anchor_idxs]
+        topk_bboxes = box_pred[anchor_idxs]
 
         # to cpu & numpy
-        scores = scores.cpu().numpy()
-        labels = labels.cpu().numpy()
-        bboxes = bboxes.cpu().numpy()
+        topk_scores = topk_scores.cpu().numpy()
+        topk_labels = topk_labels.cpu().numpy()
+        topk_bboxes = topk_bboxes.cpu().numpy()
 
-        # nms
-        if self.use_nms:
-            scores, labels, bboxes = multiclass_nms(
-                scores, labels, bboxes, self.nms_thresh, self.num_classes, self.ca_nms)
-
-        return bboxes, scores, labels
+        return topk_bboxes, topk_scores, topk_labels
 
     @torch.no_grad()
     def inference_single_image(self, x):
@@ -103,9 +85,8 @@ class PlainFCOS(nn.Module):
 
         # ---------------- PostProcess ----------------
         cls_pred = outputs["pred_cls"]
-        iou_pred = outputs["pred_iou"]
         box_pred = outputs["pred_box"]
-        bboxes, scores, labels = self.post_process(cls_pred, iou_pred, box_pred)
+        bboxes, scores, labels = self.post_process(cls_pred, box_pred)
         # normalize bbox
         bboxes[..., 0::2] /= x.shape[-1]
         bboxes[..., 1::2] /= x.shape[-2]

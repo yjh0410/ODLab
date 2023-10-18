@@ -64,21 +64,18 @@ pdetr_cfg = {
         'lr_epoch': [11],     # 1x
         # ----------------- Input -----------------
         ## Transforms
-        'train_min_size': [800],   # short edge of image
+        'train_min_size': [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800],   # short edge of image
+        'train_min_size2': [400, 500, 600],
         'train_max_size': 1333,
         'test_min_size': 800,
         'test_max_size': 1333,
-        'train_min_size2': [400, 500, 600],
         'random_crop_size': [384, 600],
         ## Pixel mean & std
         'pixel_mean': [0.485, 0.456, 0.406],
         'pixel_std':  [0.229, 0.224, 0.225],
         ## Transforms
         'detr_style': True,
-        'trans_config': [
-            {'name': 'RandomHFlip'},
-            {'name': 'RandomResize'},
-        ],
+        'trans_config': None,
         'normalize_coords': True,
     },
     

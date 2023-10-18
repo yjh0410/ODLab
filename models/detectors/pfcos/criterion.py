@@ -21,13 +21,11 @@ class Criterion(nn.Module):
         self.gamma = cfg['focal_loss_gamma']
         # ------------- Loss weight -------------
         self.weight_dict = {'loss_cls': cfg['loss_cls_weight'],
-                            'loss_reg': cfg['loss_reg_weight'],
-                            'loss_iou': cfg['loss_iou_weight']}
+                            'loss_reg': cfg['loss_reg_weight']}
         # ------------- Matcher -------------
         self.matcher_cfg = cfg['matcher_hpy']
         self.matcher = OTAMatcher(num_classes = num_classes,
                                   topk_candidate=self.matcher_cfg['topk_candidate'],
-                                  center_sampling_radius=self.matcher_cfg['center_sampling_radius'],
                                   sinkhorn_eps=self.matcher_cfg['sinkhorn_eps'],
                                   sinkhorn_iters=self.matcher_cfg['sinkhorn_iter'])
 
@@ -81,28 +79,22 @@ class Criterion(nn.Module):
 
     def forward(self, outputs, targets):
         cls_preds = outputs['pred_cls']
-        reg_preds = outputs['pred_reg']
         box_preds = outputs['pred_box']
-        iou_preds = outputs['pred_iou']
         mask = ~outputs['mask']
         anchors = outputs['anchors']
         output_stride = outputs['stride']
         device = outputs['pred_cls'].device
 
         # --------------------- Label assignment ---------------------
-        cls_targets, box_targets, iou_targets = self.matcher(stride = output_stride,
-                                                             anchors = anchors,
+        cls_targets, box_targets, iou_targets = self.matcher(anchors = anchors,
                                                              cls_preds = cls_preds,
-                                                             reg_preds = reg_preds,
                                                              box_preds = box_preds,
                                                              targets = targets
                                                              )
 
         # Reshape: [B, M, C] -> [BM, C]
         cls_preds = cls_preds.view(-1, self.num_classes)
-        reg_preds = reg_preds.view(-1, 4)
         box_preds = box_preds.view(-1, 4)
-        iou_preds = iou_preds.view(-1, 1)
         masks = mask.view(-1)
 
         cls_targets = cls_targets.flatten().to(device)
@@ -125,13 +117,9 @@ class Criterion(nn.Module):
         # -------------------- Regression loss --------------------
         loss_reg = self.loss_bboxes(box_preds[foreground_idxs], box_targets[foreground_idxs], num_foreground)
 
-        # -------------------- IoU-aware loss --------------------
-        loss_iou = self.loss_ious(iou_preds[foreground_idxs], iou_targets[foreground_idxs], num_foreground)
-
         loss_dict = dict(
                 loss_cls = loss_cls,
                 loss_reg = loss_reg,
-                loss_iou = loss_iou,
         )
 
         return loss_dict

@@ -11,12 +11,9 @@ def build_pfcos(cfg, device, num_classes=80, trainable=False):
     model = PlainFCOS(cfg         = cfg,
                       device      = device,
                       num_classes = num_classes,
-                      conf_thresh = cfg['train_conf_thresh'] if trainable else cfg['test_conf_thresh'],
-                      nms_thresh  = cfg['train_nms_thresh']  if trainable else cfg['test_nms_thresh'],
-                      topk        = cfg['train_topk']        if trainable else cfg['test_topk'],
-                      trainable   = trainable,
-                      use_nms     = cfg['use_nms'],
-                      ca_nms      = False if trainable else cfg['nms_class_agnostic'])
+                      topk        = cfg['train_topk'] if trainable else cfg['test_topk'],
+                      trainable   = trainable
+                      )
             
     # -------------- Build Criterion --------------
     criterion = None
