@@ -218,11 +218,11 @@ class PlainFCOS(nn.Module):
                 # Reshape: [B, C, H, W] -> [B, M, C], M=HW
                 aux_cls_pred = aux_cls_pred.permute(0, 2, 3, 1).contiguous().view(B, -1, self.num_classes)
                 aux_reg_pred = aux_reg_pred.permute(0, 2, 3, 1).contiguous().view(B, -1, 4)
-                aux_reg_pred = self.decode_boxes(aux_reg_pred, anchors)
+                aux_box_pred = self.decode_boxes(aux_reg_pred, anchors)
                     
                 aux_outputs = {"pred_cls": aux_cls_pred,   # [B, M, C]
                                "pred_reg": aux_reg_pred,   # [B, M, 4]
-                               "pred_box": box_pred,       # [B, M, 4]
+                               "pred_box": aux_box_pred,       # [B, M, 4]
                                 "anchors": anchors,        # [M, 2]
                                 "stride": self.stride,
                                 "mask": mask}              # [B, M,]
