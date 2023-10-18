@@ -39,7 +39,7 @@ pfcos_cfg = {
         'train_topk': 100,
         'test_topk': 100,
         # ----------------- Label Assignment -----------------
-        'matcher': 'hybrid',
+        'matcher': 'ota',
         'matcher_hpy': {'topk_candidate': 1,
                         'sinkhorn_eps': 0.1,
                         'sinkhorn_iter': 50,
