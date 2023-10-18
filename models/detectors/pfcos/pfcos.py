@@ -115,7 +115,8 @@ class PlainFCOS(nn.Module):
             outputs = self.head(feat, mask)
 
             # ---------------- Aux Head ----------------
-            aux_outputs = self.aux_head(feat, mask)
-            outputs['aux_outputs'] = aux_outputs
+            if self.aux_head:
+                aux_outputs = self.aux_head(feat, mask)
+                outputs['aux_outputs'] = aux_outputs
 
             return outputs 
