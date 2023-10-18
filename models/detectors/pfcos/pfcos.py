@@ -1,3 +1,4 @@
+import math
 import torch
 import torch.nn as nn
 
@@ -20,11 +21,13 @@ class PlainFCOS(nn.Module):
                  trainable    :bool  = False,
                  use_aux_head :bool = False):
         super(PlainFCOS, self).__init__()
+        self.DEFAULT_SCALE_CLAMP = math.log(1000.0 / 16)
         # ---------------------- Basic Parameters ----------------------
         self.cfg = cfg
         self.device = device
         self.trainable = trainable
         self.topk = topk
+        self.stride = cfg['out_stride']
         self.num_classes = num_classes
         self.use_aux_head = use_aux_head
 
@@ -41,8 +44,57 @@ class PlainFCOS(nn.Module):
         ## Aux-Head
         if use_aux_head:
             aux_head_cfg = cfg['aux_head']
+            aux_head_cfg['head_dim'] = cfg['head_dim']
             self.aux_head = build_head(aux_head_cfg, aux_head_cfg['head_dim'], aux_head_cfg['head_dim'], num_classes)
 
+        ## Pred layers
+        self.cls_pred = nn.Conv2d(cfg['head_dim'], num_classes, kernel_size=3, padding=1)
+        self.reg_pred = nn.Conv2d(cfg['head_dim'], 4, kernel_size=3, padding=1)
+                
+        # init bias
+        self._init_pred_layers()
+
+    def _init_pred_layers(self):
+        for module in [self.cls_pred, self.reg_pred]:
+            for layer in module.modules():
+                if isinstance(layer, nn.Conv2d):
+                    torch.nn.init.normal_(layer.weight, mean=0, std=0.01)
+                    torch.nn.init.constant_(layer.bias, 0)
+                if isinstance(layer, nn.GroupNorm):
+                    torch.nn.init.constant_(layer.weight, 1)
+                    torch.nn.init.constant_(layer.bias, 0)
+        # init the bias of cls pred
+        init_prob = 0.01
+        bias_value = -torch.log(torch.tensor((1. - init_prob) / init_prob))
+        torch.nn.init.constant_(self.cls_pred.bias, bias_value)
+        
+    def get_anchors(self, fmp_size):
+        """
+            fmp_size: (List) [H, W]
+        """
+        # generate grid cells
+        fmp_h, fmp_w = fmp_size
+        anchor_y, anchor_x = torch.meshgrid([torch.arange(fmp_h), torch.arange(fmp_w)])
+        # [H, W, 2] -> [HW, 2]
+        anchors = torch.stack([anchor_x, anchor_y], dim=-1).float().view(-1, 2) + 0.5
+        anchors *= self.stride
+
+        return anchors
+        
+    def decode_boxes(self, pred_reg, anchors):
+        """
+            pred_reg: (Tensor) [B, M, 4] or [M, 4]
+            anchors:  (Tensor) [1, M, 2] or [M, 2]
+        """
+        pred_cxcy = anchors + pred_reg[..., :2] * self.stride
+        pred_bwbh = torch.exp(pred_reg[..., 2:].clamp(max=self.DEFAULT_SCALE_CLAMP)) * self.stride
+
+        pred_x1y1 = pred_cxcy - pred_bwbh * 0.5
+        pred_x2y2 = pred_cxcy + pred_bwbh * 0.5
+        pred_box = torch.cat([pred_x1y1, pred_x2y2], dim=-1)
+
+        return pred_box
+    
     def post_process(self, cls_pred, box_pred):
         """
         Input:
@@ -87,12 +139,26 @@ class PlainFCOS(nn.Module):
         # ---------------- Neck ----------------
         feat = self.neck(pyramid_feats[-1])
 
-        # ---------------- Heads ----------------
-        outputs = self.head(feat)
+        # ---------------- Head ----------------
+        cls_feat, reg_feat = self.head(feat)
 
+        # ---------------- Pred ----------------
+        cls_pred = self.cls_pred(cls_feat)
+        reg_pred = self.reg_pred(reg_feat)
+
+        # ------------------- Process preds -------------------
+        ## Generate anchors
+        B, _, H, W = cls_feat.size()
+        fmp_size = [H, W]
+        anchors = self.get_anchors(fmp_size)   # [M, 4]
+        anchors = anchors.to(cls_feat.device)
+
+        ## Reshape: [B, C, H, W] -> [B, M, C], M=HW
+        cls_pred = cls_pred.permute(0, 2, 3, 1).contiguous().view(B, -1, self.num_classes)
+        reg_pred = reg_pred.permute(0, 2, 3, 1).contiguous().view(B, -1, 4)
+        box_pred = self.decode_boxes(reg_pred, anchors)
+                
         # ---------------- PostProcess ----------------
-        cls_pred = outputs["pred_cls"]
-        box_pred = outputs["pred_box"]
         bboxes, scores, labels = self.post_process(cls_pred, box_pred)
         # normalize bbox
         bboxes[..., 0::2] /= x.shape[-1]
@@ -112,11 +178,55 @@ class PlainFCOS(nn.Module):
             feat = self.neck(pyramid_feats[-1])
 
             # ---------------- Head ----------------
-            outputs = self.head(feat, mask)
+            cls_feat, reg_feat = self.head(feat)
+
+            # ---------------- Pred ----------------
+            cls_pred = self.cls_pred(cls_feat)
+            reg_pred = self.reg_pred(reg_feat)
+
+            # ------------------- Process preds -------------------
+            ## Generate anchors
+            B, _, H, W = cls_feat.size()
+            fmp_size = [H, W]
+            anchors = self.get_anchors(fmp_size)   # [M, 4]
+            anchors = anchors.to(cls_feat.device)
+
+            ## Reshape: [B, C, H, W] -> [B, M, C], M=HW
+            cls_pred = cls_pred.permute(0, 2, 3, 1).contiguous().view(B, -1, self.num_classes)
+            reg_pred = reg_pred.permute(0, 2, 3, 1).contiguous().view(B, -1, 4)
+            box_pred = self.decode_boxes(reg_pred, anchors)
+            ## Adjust mask
+            if mask is not None:
+                # [B, H, W]
+                mask = torch.nn.functional.interpolate(mask[None].float(), size=[H, W]).bool()[0]
+                # [B, H, W] -> [B, M]
+                mask = mask.flatten(1)     
+                
+            outputs = {"pred_cls": cls_pred,   # [B, M, C]
+                        "pred_reg": reg_pred,   # [B, M, 4]
+                        "pred_box": box_pred,   # [B, M, 4]
+                        "anchors": anchors,     # [M, 2]
+                        "stride": self.stride,
+                        "mask": mask}           # [B, M,]
 
             # ---------------- Aux Head ----------------
             if self.use_aux_head:
-                aux_outputs = self.aux_head(feat, mask)
+                aux_cls_feat, aux_reg_feat = self.aux_head(feat)
+                aux_cls_pred = self.cls_pred(aux_cls_feat)
+                aux_reg_pred = self.reg_pred(aux_reg_feat)
+
+                # Reshape: [B, C, H, W] -> [B, M, C], M=HW
+                aux_cls_pred = aux_cls_pred.permute(0, 2, 3, 1).contiguous().view(B, -1, self.num_classes)
+                aux_reg_pred = aux_reg_pred.permute(0, 2, 3, 1).contiguous().view(B, -1, 4)
+                aux_reg_pred = self.decode_boxes(aux_reg_pred, anchors)
+                    
+                aux_outputs = {"pred_cls": aux_cls_pred,   # [B, M, C]
+                               "pred_reg": aux_reg_pred,   # [B, M, 4]
+                               "pred_box": box_pred,       # [B, M, 4]
+                                "anchors": anchors,        # [M, 2]
+                                "stride": self.stride,
+                                "mask": mask}              # [B, M,]
+
                 outputs['aux_outputs'] = aux_outputs
 
             return outputs 

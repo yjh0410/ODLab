@@ -243,6 +243,7 @@ class SimOTACriterion(nn.Module):
 class HybridCriterion(nn.Module):
     def __init__(self, cfg, device, num_classes=80):
         super().__init__()
+        # ------------- Criterion -------------
         self.criterion1 = OTACriterion(cfg, device, num_classes)
         self.criterion2 = SimOTACriterion(cfg, device, num_classes)
         # ------------- Loss weight -------------

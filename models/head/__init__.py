@@ -33,7 +33,6 @@ def build_head(cfg, in_dim, out_dim, num_classes):
         model = PlainFCOSHead(cfg          = cfg,
                               in_dim       = in_dim,
                               out_dim      = out_dim,
-                              num_classes  = num_classes,
                               num_cls_head = cfg['num_cls_head'],
                               num_reg_head = cfg['num_reg_head'],
                               act_type     = cfg['head_act'],
