@@ -33,7 +33,8 @@ pfcos_cfg = {
         'matcher': 'ota',
         'matcher_hpy': {'topk_candidate': 1,
                         'sinkhorn_eps': 0.1,
-                        'sinkhorn_iter': 50},
+                        'sinkhorn_iter': 50,
+                        'aux_topk_candidate': 8,},
         # ----------------- Loss weight -----------------
         ## Loss hyper-parameters
         'focal_loss_alpha': 0.25,
