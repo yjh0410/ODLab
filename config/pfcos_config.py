@@ -27,15 +27,13 @@ pfcos_cfg = {
         'head_act': 'relu',
         'head_norm': 'BN',
         ## AuxHead
-        'use_aux_head': True,
+        'use_aux_head': False,
         'aux_head': {'head': 'pfcos_head',
                      'head_dim': 512,
                      'num_cls_head': 4,
                      'num_reg_head': 4,
                      'head_act': 'relu',
                      'head_norm': 'BN',
-                     'use_aux_head': False,
-                     'out_stride': 32,
                      },
         ## Post-process
         'train_topk': 100,
