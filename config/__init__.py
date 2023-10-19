@@ -4,7 +4,6 @@ from .fcos_config import fcos_cfg
 from .yolof_config import yolof_cfg
 from .yolofv2_config import yolofv2_cfg
 from .pdetr_config import pdetr_cfg
-from .pfcos_config import pfcos_cfg
 
 
 def build_config(args):
@@ -23,9 +22,6 @@ def build_config(args):
     # Plain-DETR
     elif args.model in pdetr_cfg.keys():
         return pdetr_cfg[args.model]
-    # Plain-FCOS
-    elif args.model in pfcos_cfg.keys():
-        return pfcos_cfg[args.model]
     
     else:
         print('Unknown Model: {}'.format(args.model))

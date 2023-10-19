@@ -29,6 +29,17 @@ yolofv2_cfg = {
         'head_norm': 'BN',
         'center_clamp': 512,         
         'anchor_size': [[32, 32], [64, 64], [128, 128], [256, 256], [512, 512]],
+        ## AuxHead
+        'use_aux_head': False,
+        'aux_head': {'head': 'yolof_head',
+                     'head_dim': 512,
+                     'num_cls_head': 2,
+                     'num_reg_head': 4,
+                     'head_act': 'relu',
+                     'head_norm': 'BN',
+                     'center_clamp': 512,         
+                     'anchor_size': [[32, 32], [64, 64], [128, 128], [256, 256], [512, 512]],
+                     },
         ## Post-process
         'train_topk': 1000,
         'train_conf_thresh': 0.05,
@@ -39,11 +50,11 @@ yolofv2_cfg = {
         'use_nms': True,
         'nms_class_agnostic': True,  # We prefer to use class-agnostic NMS in the demo.
         # ----------------- Label Assignment -----------------
-        'matcher': 'simota',
-        'matcher_hpy': {'topk_candidate': 8,
-                        'sinkhorn_eps': 0.1,
-                        'sinkhorn_iter': 50,
-                        'aux_topk_candidate': 8,},
+        'matcher': 'hungarian',
+        'matcher_hpy': {# SimOTA matcher
+                        'topk_candidate': 8,
+                        # Hungarian matcher
+                        'topk_candidate': 1,},
         # ----------------- Loss weight -----------------
         ## Loss hyper-parameters
         'focal_loss_alpha': 0.25,
@@ -63,7 +74,7 @@ yolofv2_cfg = {
         ## LR Scheduler
         'lr_scheduler': 'step',
         'warmup': 'linear',
-        'warmup_iters': 1500,
+        'warmup_iters': 500,
         'warmup_factor': 0.00066667,
         ## Epoch
         'max_epoch': 12,      # 1x

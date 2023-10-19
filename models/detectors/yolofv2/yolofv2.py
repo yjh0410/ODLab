@@ -15,13 +15,14 @@ class YOLOFv2(nn.Module):
     def __init__(self, 
                  device, 
                  cfg,
-                 num_classes :int   = 80, 
-                 conf_thresh :float = 0.05,
-                 nms_thresh  :float = 0.6,
-                 topk        :int   = 1000,
-                 trainable   :bool  = False,
-                 use_nms     :bool  = True,
-                 ca_nms      :bool  = False):
+                 num_classes  :int   = 80, 
+                 conf_thresh  :float = 0.05,
+                 nms_thresh   :float = 0.6,
+                 topk         :int   = 1000,
+                 trainable    :bool  = False,
+                 use_nms      :bool  = True,
+                 ca_nms       :bool  = False,
+                 use_aux_head: bool = False):
         super(YOLOFv2, self).__init__()
         # ---------------------- Basic Parameters ----------------------
         self.cfg = cfg
@@ -33,6 +34,7 @@ class YOLOFv2(nn.Module):
         self.nms_thresh = nms_thresh
         self.use_nms = use_nms
         self.ca_nms = ca_nms
+        self.use_aux_head = use_aux_head
 
         # ---------------------- Network Parameters ----------------------
         ## Backbone
@@ -43,6 +45,14 @@ class YOLOFv2(nn.Module):
         
         ## Heads
         self.head = build_head(cfg, cfg['head_dim'], cfg['head_dim'], num_classes)
+        if use_aux_head:
+            aux_head_cfg = cfg['aux_head']
+            aux_head_cfg['head_dim'] = cfg['head_dim']
+            self.aux_head = build_head(aux_head_cfg, aux_head_cfg['head_dim'], aux_head_cfg['head_dim'], num_classes)
+            # share weight between Head and Aux-Head
+            self.aux_head.cls_pred = self.head.cls_pred
+            self.aux_head.reg_pred = self.head.reg_pred
+            self.aux_head.obj_pred = self.head.obj_pred
 
     def post_process(self, cls_pred, box_pred):
         """

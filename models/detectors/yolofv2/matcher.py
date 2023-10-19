@@ -1,115 +1,23 @@
 import torch
 import torch.nn.functional as F
-from utils.box_ops import box_iou
-from utils.misc import sigmoid_focal_loss, SinkhornDistance
+from torchvision.ops.boxes import box_area
+from scipy.optimize import linear_sum_assignment
 
 
-class OTAMatcher(object):
-    def __init__(self, num_classes, topk_candidate=4, sinkhorn_eps=0.1, sinkhorn_iters=50):
-        self.num_classes = num_classes
-        self.topk_candidate = topk_candidate
-        self.sinkhorn = SinkhornDistance(sinkhorn_eps, sinkhorn_iters)
+def box_iou(boxes1, boxes2):
+    area1 = box_area(boxes1)
+    area2 = box_area(boxes2)
 
-    def get_deltas(self, anchors, bboxes):
-        assert isinstance(anchors, torch.Tensor), type(anchors)
-        assert isinstance(anchors, torch.Tensor), type(anchors)
+    lt = torch.max(boxes1[:, None, :2], boxes2[:, :2])  # [N,M,2]
+    rb = torch.min(boxes1[:, None, 2:], boxes2[:, 2:])  # [N,M,2]
 
-        deltas = torch.cat((anchors - bboxes[..., :2], bboxes[..., 2:] - anchors), dim=-1)
+    wh = (rb - lt).clamp(min=0)  # [N,M,2]
+    inter = wh[:, :, 0] * wh[:, :, 1]  # [N,M]
 
-        return deltas
+    union = area1[:, None] + area2 - inter
 
-    @torch.no_grad()
-    def __call__(self, anchors, cls_preds, box_preds, targets):
-        cls_targets = []
-        box_targets = []
-        iou_targets = []
-        assigned_units = []
-        device = anchors.device
-
-        # --------------------- Perform label assignment on each image ---------------------
-        for target, cls_pred, box_pred in zip(targets, cls_preds, box_preds):
-            gt_labels = target["labels"].to(device)
-            gt_bboxes = target["boxes"].to(device)
-
-            # [N, M, 4], get inside points
-            deltas = self.get_deltas(anchors.unsqueeze(0), gt_bboxes.unsqueeze(1))
-            is_in_bboxes = deltas.min(dim=-1).values > 0.01
-
-            del deltas
-
-            # [N, M]
-            num_gt = len(gt_labels)   # N
-            num_anchor = anchors.shape[0]         # M
-            shape = (num_gt, num_anchor, -1)      # [N, M, -1]
-
-            with torch.no_grad():
-                # -------------------- Classification cost --------------------
-                ## Foreground cls cost
-                gt_labels_ot = F.one_hot(gt_labels, self.num_classes).float()
-                pair_wise_cls_pred  = cls_pred.unsqueeze(0).expand(shape)      # [M, C] -> [1, M, C] -> [N, M, C]
-                pair_wise_cls_label = gt_labels_ot.unsqueeze(1).expand(shape)  # [N, C] -> [N, 1, C] -> [N, M, C]
-                cost_cls = sigmoid_focal_loss(pair_wise_cls_pred, pair_wise_cls_label)
-                cost_cls = cost_cls.sum(dim=-1) # [N, M, C] -> [N, M]
-                ## Background cls cost
-                cost_cls_bg = sigmoid_focal_loss(cls_pred, torch.zeros_like(cls_pred))
-                cost_cls_bg = cost_cls_bg.sum(dim=-1) # [M, C] -> [M]
-
-                # -------------------- Regression cost --------------------
-                ## [N, M]
-                pair_wise_ious, _ = box_iou(gt_bboxes, box_pred)  # [N, M]
-                cost_reg = -torch.log(pair_wise_ious + 1e-8)
-
-                # Fully cost matrix
-                cost = cost_cls + 3.0 * cost_reg + 1e6 * (1 - is_in_bboxes.float())
-
-                # --------------------- Dynamic assignment with SinkHorn ---------------------
-                ## Prepare for Sinkhorn
-                topk_ious, _ = torch.topk(pair_wise_ious * is_in_bboxes.float(), self.topk_candidate, dim=1)
-                mu = pair_wise_ious.new_ones(num_gt + 1)
-                mu[:-1] = torch.clamp(topk_ious.sum(1).int(), min=1).float()
-                mu[-1] = num_anchor - mu[:-1].sum()
-                nu = pair_wise_ious.new_ones(num_anchor)
-                cost_matrix = torch.cat([cost, cost_cls_bg.unsqueeze(0)], dim=0)
-
-                ## Run Sinkhorn
-                _, pi = self.sinkhorn(mu, nu, cost_matrix)
-
-                ## Rescale pi so that the max pi for each gt equals to 1.
-                rescale_factor, _ = pi.max(dim=1)
-                pi = pi / rescale_factor.unsqueeze(1)
-
-                ## Get matched_gt_inds: [M,]
-                max_assigned_units, matched_gt_inds = torch.max(pi, dim=0)
-
-                # --------------------- Post-process assignment results ---------------------
-                # foreground mask: [M,]
-                fg_mask = matched_gt_inds != num_gt
-
-                # [M,]
-                gt_classes_i = gt_labels.new_ones(num_anchor) * self.num_classes
-                gt_classes_i[fg_mask] = gt_labels[matched_gt_inds[fg_mask]]
-                cls_targets.append(gt_classes_i)
-                assigned_units.append(max_assigned_units)
-
-                # [M, 4]
-                gt_bboxes_i = gt_bboxes.new_zeros((num_anchor, 4))
-                pair_wise_box_label = gt_bboxes.unsqueeze(1).expand(shape)
-                gt_bboxes_i[fg_mask] = \
-                    pair_wise_box_label[matched_gt_inds[fg_mask], torch.arange(num_anchor, device=device)[fg_mask]]
-                box_targets.append(gt_bboxes_i)
-
-                # [M,]
-                gt_ious_i = pair_wise_ious.new_zeros((num_anchor, 1))
-                gt_ious_i[fg_mask] = \
-                    pair_wise_ious[matched_gt_inds[fg_mask], torch.arange(num_anchor,  device=device)[fg_mask]].unsqueeze(1)
-                iou_targets.append(gt_ious_i)
-
-        # [B, M, C]
-        cls_targets = torch.stack(cls_targets)
-        box_targets = torch.stack(box_targets)
-        iou_targets = torch.stack(iou_targets)
-
-        return cls_targets, box_targets, iou_targets
+    iou = inter / union
+    return iou, union
 
 
 class SimOTAMatcher(object):
@@ -179,8 +87,8 @@ class SimOTAMatcher(object):
         box_targets = gt_bboxes.new_full(pred_box.shape, 0)        # [M, 4]
         box_targets[fg_mask_inboxes] = gt_bboxes[matched_gt_inds]  # [M, 4]
 
-        iou_targets = gt_bboxes.new_full(pred_cls[..., 0].shape, 0) # [M, 4]
-        iou_targets[fg_mask_inboxes] = matched_pred_ious            # [M, 4]
+        iou_targets = gt_bboxes.new_full(pred_cls[..., 0].shape, 0) # [M,]
+        iou_targets[fg_mask_inboxes] = matched_pred_ious            # [M,]
         
         return cls_targets, box_targets, iou_targets
 
@@ -245,3 +153,114 @@ class SimOTAMatcher(object):
         matched_gt_inds = matching_matrix[:, fg_mask_inboxes].argmax(0)
 
         return matched_pred_ious, matched_gt_inds, fg_mask_inboxes
+
+
+class HungarianMatcher(object):
+    def __init__(self, num_classes):
+        self.num_classes = num_classes
+
+    @torch.no_grad()
+    def __call__(self, anchors, pred_cls, pred_box, gt_labels, gt_bboxes):
+        num_gts = len(gt_labels)         # N
+        num_anchors = anchors.shape[0]   # M
+
+        # get inside points: [N, M]
+        is_in_gt = self.find_inside_points(gt_bboxes, anchors)
+        valid_mask = is_in_gt.sum(dim=0) > 0  # [M,]
+
+        # ----------------------------------- Regression cost -----------------------------------
+        pair_wise_ious, _ = box_iou(gt_bboxes, pred_box)  # [N, M]
+        pair_wise_reg_loss = -torch.log(pair_wise_ious + 1e-8)
+
+        # ----------------------------------- Classification cost -----------------------------------
+        ## select the predicted scores corresponded to the gt_labels
+        pairwise_pred_scores = pred_cls.permute(1, 0)  # [M, C] -> [C, M]
+        pairwise_pred_scores = pairwise_pred_scores[gt_labels.long(), :].float()   # [N, M]
+        ## scale factor
+        scale_factor = (pair_wise_ious - pairwise_pred_scores.sigmoid()).abs().pow(2.0)
+        ## cls cost
+        pair_wise_cls_loss = F.binary_cross_entropy_with_logits(
+            pairwise_pred_scores, pair_wise_ious,
+            reduction="none") * scale_factor # [N, M]
+            
+        del pairwise_pred_scores
+
+        # Final cost: [N, M]
+        cost_matrix = pair_wise_cls_loss + 3.0 * pair_wise_reg_loss
+        max_pad_value = torch.ones_like(cost_matrix) * 1e9
+        cost_matrix = torch.where(valid_mask[None].repeat(num_gts, 1), cost_matrix, max_pad_value)
+        cost_matrix = cost_matrix.cpu()
+        
+        # solve the one-to-one assignment
+        indices = linear_sum_assignment(cost_matrix)
+        gt_indices, pred_indices = indices[0].tolist(), indices[1].tolist()
+
+        fg_mask = pred_cls.new_zeros(num_anchors).bool()
+        fg_mask[pred_indices] = True
+
+        # [M, C]
+        cls_target = gt_labels.new_full(pred_cls[..., 0].shape, self.num_classes, dtype=torch.long)
+        cls_target[pred_indices] = gt_labels
+
+        # [M, 4]
+        box_target = gt_bboxes.new_full(pred_box.shape, 0)
+        box_target[pred_indices] = gt_bboxes
+
+        # [M,]
+        iou_target = gt_bboxes.new_full(pred_box[..., 0].shape, 0)
+        iou_target[pred_indices] = pair_wise_ious[gt_indices, pred_indices]        
+
+        return cls_target, box_target, iou_target
+
+    def find_inside_points(self, gt_bboxes, anchors):
+        """
+            gt_bboxes: Tensor -> [N, 2]
+            anchors:   Tensor -> [M, 2]
+        """
+        num_anchors = anchors.shape[0]
+        num_gt = gt_bboxes.shape[0]
+
+        anchors_expand = anchors.unsqueeze(0).repeat(num_gt, 1, 1)           # [N, M, 2]
+        gt_bboxes_expand = gt_bboxes.unsqueeze(1).repeat(1, num_anchors, 1)  # [N, M, 4]
+
+        # offset
+        lt = anchors_expand - gt_bboxes_expand[..., :2]
+        rb = gt_bboxes_expand[..., 2:] - anchors_expand
+        bbox_deltas = torch.cat([lt, rb], dim=-1)
+
+        is_in_gts = bbox_deltas.min(dim=-1).values > 0
+
+        return is_in_gts
+    
+
+def build_matcher(cfg, num_classes):
+    matcher_cfg = cfg['matcher_hpy']
+    if cfg['matcher'] == 'simota':
+        matcher = SimOTAMatcher(num_classes, matcher_cfg['topk_candidate'])
+    elif cfg['matcher'] == 'hungarian':
+        matcher = HungarianMatcher(num_classes)
+
+    return matcher
+
+
+if __name__ == "__main__":
+    import torch
+    
+    num_gts = 6
+    num_anchors = 16
+    num_classes = 7
+    # [H, W, 2] -> [HW, 2]
+    anchor_y, anchor_x = torch.meshgrid([torch.arange(4), torch.arange(4)])
+    anchors = torch.stack([anchor_x, anchor_y], dim=-1).float().view(-1, 2) + 0.5
+
+    pred_cls = torch.randn([num_anchors, num_classes])
+    pred_box = torch.randn([num_anchors, 4])
+
+    gt_labels = torch.randint(0, num_classes, [num_gts])
+    gt_bboxes = torch.as_tensor([[1. * 1.5 * i, 2. * 1.5 * i, 3. * 1.5 * i, 4. * 1.5 * i]  for i in range(num_gts)])
+
+    # print(gt_labels)
+    # print(pred_cls[:num_gts].sigmoid())
+    matcher = HungarianMatcher(num_classes)
+    matcher(anchors, pred_cls, pred_box, gt_labels, gt_bboxes)
+
