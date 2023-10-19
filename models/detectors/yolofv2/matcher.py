@@ -145,8 +145,15 @@ class HungarianMatcher(object):
 
     @torch.no_grad()
     def __call__(self, anchors, pred_cls, pred_box, gt_labels, gt_bboxes):
-        num_gts = len(gt_labels)         # N
-        num_anchors = anchors.shape[0]   # M
+        num_gt = len(gt_labels)         # N
+
+        # check gt
+        if num_gt == 0 or gt_bboxes.max().item() == 0.:
+            cls_target = gt_labels.new_full(pred_cls[..., 0].shape, self.num_classes, dtype=torch.long)
+            box_target = gt_bboxes.new_full(pred_box.shape, 0)
+            iou_target = gt_bboxes.new_full(pred_cls[..., 0].shape, 0)
+
+            return cls_target, box_target, iou_target
 
         # get inside points: [N, M]
         is_in_gt = self.find_inside_points(gt_bboxes, anchors)
@@ -172,15 +179,12 @@ class HungarianMatcher(object):
         # Final cost: [N, M]
         cost_matrix = pair_wise_cls_loss + 3.0 * pair_wise_reg_loss
         max_pad_value = torch.ones_like(cost_matrix) * 1e9
-        cost_matrix = torch.where(valid_mask[None].repeat(num_gts, 1), cost_matrix, max_pad_value)
+        cost_matrix = torch.where(valid_mask[None].repeat(num_gt, 1), cost_matrix, max_pad_value)
         cost_matrix = cost_matrix.cpu()
         
         # solve the one-to-one assignment
         indices = linear_sum_assignment(cost_matrix)
         gt_indices, pred_indices = indices[0].tolist(), indices[1].tolist()
-
-        fg_mask = pred_cls.new_zeros(num_anchors).bool()
-        fg_mask[pred_indices] = True
 
         # [M, C]
         cls_target = gt_labels.new_full(pred_cls[..., 0].shape, self.num_classes, dtype=torch.long)
