@@ -158,18 +158,14 @@ class HungarianMatcher(object):
         # get inside points: [N, M]
         is_in_gt = self.find_inside_points(gt_bboxes, anchors)
         valid_mask = is_in_gt.sum(dim=0) > 0  # [M,]
-        
-        # foreground predictions
-        pred_cls_valid = pred_cls[valid_mask]
-        pred_box_valid = pred_box[valid_mask]
 
         # ----------------------------------- Regression cost -----------------------------------
-        pair_wise_ious, _ = box_iou(gt_bboxes, pred_box_valid)  # [N, M]
+        pair_wise_ious, _ = box_iou(gt_bboxes, pred_box)  # [N, M]
         pair_wise_reg_loss = -torch.log(pair_wise_ious + 1e-8)
 
         # ----------------------------------- Classification cost -----------------------------------
         ## select the predicted scores corresponded to the gt_labels
-        pairwise_pred_scores = pred_cls_valid.permute(1, 0)  # [M, C] -> [C, M]
+        pairwise_pred_scores = pred_cls.permute(1, 0)  # [M, C] -> [C, M]
         pairwise_pred_scores = pairwise_pred_scores[gt_labels.long(), :].float()   # [N, M]
         ## scale factor
         scale_factor = (pair_wise_ious - pairwise_pred_scores.sigmoid()).abs().pow(2.0)
@@ -182,8 +178,8 @@ class HungarianMatcher(object):
 
         # Final cost: [N, M]
         cost_matrix = pair_wise_cls_loss + 3.0 * pair_wise_reg_loss
-        # max_pad_value = torch.ones_like(cost_matrix) * 1e9
-        # cost_matrix = torch.where(valid_mask[None].repeat(num_gt, 1), cost_matrix, max_pad_value)
+        max_pad_value = torch.ones_like(cost_matrix) * 1e9
+        cost_matrix = torch.where(valid_mask[None].repeat(num_gt, 1), cost_matrix, max_pad_value)
         cost_matrix = cost_matrix.cpu()
         
         # Solve the one-to-one assignment
@@ -192,21 +188,15 @@ class HungarianMatcher(object):
 
         # [M, C]
         cls_target = gt_labels.new_full(pred_cls[..., 0].shape, self.num_classes, dtype=torch.long)
-        cls_target_valid = gt_labels.new_full(pred_cls_valid[..., 0].shape, self.num_classes, dtype=torch.long)
-        cls_target_valid[pred_indices] = gt_labels
-        cls_target[valid_mask] = cls_target_valid
+        cls_target[pred_indices] = gt_labels
 
         # [M, 4]
         box_target = gt_bboxes.new_full(pred_box.shape, 0)
-        box_target_valid = gt_bboxes.new_full(pred_box_valid.shape, 0)
-        box_target_valid[pred_indices] = gt_bboxes
-        box_target[valid_mask] = box_target_valid
+        box_target[pred_indices] = gt_bboxes
 
         # [M,]
         iou_target = gt_bboxes.new_full(pred_box[..., 0].shape, 0)
-        iou_target_valid = gt_bboxes.new_full(pred_box_valid[..., 0].shape, 0)
-        iou_target_valid[pred_indices] = pair_wise_ious[gt_indices, pred_indices]
-        iou_target[valid_mask] = iou_target_valid
+        iou_target[pred_indices] = pair_wise_ious[gt_indices, pred_indices]
 
         return cls_target, box_target, iou_target
 
