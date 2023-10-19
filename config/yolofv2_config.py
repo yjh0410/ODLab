@@ -30,7 +30,7 @@ yolofv2_cfg = {
         'center_clamp': 512,         
         'anchor_size': [[32, 32], [64, 64], [128, 128], [256, 256], [512, 512]],
         ## AuxHead
-        'use_aux_head': True,
+        'use_aux_head': False,
         'aux_head': {'head': 'yolof_head',
                      'head_dim': 512,
                      'num_cls_head': 2,
