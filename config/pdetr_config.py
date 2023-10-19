@@ -18,13 +18,13 @@ pdetr_cfg = {
         ### - Encoder -
         'num_encoder': 6,
         'encoder_num_head': 8,
-        'encoder_mlp_ratio': 4.0,
+        'encoder_mlp_ratio': 8.0,
         'encoder_dropout': 0.1,
         'encoder_act': 'relu',
         ### - Decoder -
         'num_decoder': 6,
         'decoder_num_head': 8,
-        'decoder_mlp_ratio': 4.0,
+        'decoder_mlp_ratio': 8.0,
         'decoder_dropout': 0.0,
         'decoder_act': 'relu',
         'num_queries': 300,
