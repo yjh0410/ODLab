@@ -63,7 +63,7 @@ class OTACriterion(nn.Module):
     def forward(self, outputs, targets):
         cls_preds = outputs['pred_cls']
         box_preds = outputs['pred_box']
-        mask = ~outputs['mask']
+        masks = ~outputs['mask']
         anchors = outputs['anchors']
         device = outputs['pred_cls'].device
 
@@ -77,7 +77,7 @@ class OTACriterion(nn.Module):
         # Reshape: [B, M, C] -> [BM, C]
         cls_preds = cls_preds.view(-1, self.num_classes)
         box_preds = box_preds.view(-1, 4)
-        masks = mask.view(-1)
+        masks = masks.view(-1)
 
         cls_targets = cls_targets.flatten().to(device)
         box_targets = box_targets.view(-1, 4).to(device)
@@ -148,10 +148,10 @@ class SimOTACriterion(nn.Module):
     def forward(self, outputs, targets):
         mask = ~outputs['mask']
         anchors = outputs['anchors']
-        bs, device = mask.shape[0], mask.device
         # preds: [B, M, C]
         cls_preds = outputs['pred_cls']
         box_preds = outputs['pred_box']
+        bs, device = cls_preds.shape[0], cls_preds.device
 
         # --------------------- Label assignment ---------------------
         cls_targets = []

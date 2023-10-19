@@ -39,7 +39,7 @@ yolofv2_cfg = {
         'use_nms': True,
         'nms_class_agnostic': True,  # We prefer to use class-agnostic NMS in the demo.
         # ----------------- Label Assignment -----------------
-        'matcher': 'ota',
+        'matcher': 'simota',
         'matcher_hpy': {'topk_candidate': 4,
                         'sinkhorn_eps': 0.1,
                         'sinkhorn_iter': 50,
@@ -85,6 +85,20 @@ yolofv2_cfg = {
             {'name': 'RandomShift', 'max_shift': 32},
         ],
         'normalize_coords': False,
+        # ## Transforms
+        # 'train_min_size': [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800],   # short edge of image
+        # 'train_min_size2': [400, 500, 600],
+        # 'train_max_size': 1333,
+        # 'test_min_size': 800,
+        # 'test_max_size': 1333,
+        # 'random_crop_size': [384, 600],
+        # ## Pixel mean & std
+        # 'pixel_mean': [0.485, 0.456, 0.406],
+        # 'pixel_std':  [0.229, 0.224, 0.225],
+        # ## Transforms
+        # 'detr_style': True,
+        # 'trans_config': None,
+        # 'normalize_coords': False,
     },
 
 }
