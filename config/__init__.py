@@ -2,7 +2,6 @@
 from .retinanet_config import retinanet_cfg
 from .fcos_config import fcos_cfg
 from .yolof_config import yolof_cfg
-from .yolofv2_config import yolofv2_cfg
 from .pdetr_config import pdetr_cfg
 
 
@@ -13,9 +12,6 @@ def build_config(args):
     # FCOS
     elif args.model in fcos_cfg.keys():
         return fcos_cfg[args.model]
-    # YOLOFv2
-    elif args.model in yolofv2_cfg.keys():
-        return yolofv2_cfg[args.model]
     # YOLOF
     elif args.model in yolof_cfg.keys():
         return yolof_cfg[args.model]
