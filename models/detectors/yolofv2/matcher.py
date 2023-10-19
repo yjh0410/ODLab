@@ -182,7 +182,7 @@ class HungarianMatcher(object):
         cost_matrix = torch.where(valid_mask[None].repeat(num_gt, 1), cost_matrix, max_pad_value)
         cost_matrix = cost_matrix.cpu()
         
-        # solve the one-to-one assignment
+        # Solve the one-to-one assignment
         indices = linear_sum_assignment(cost_matrix)
         gt_indices, pred_indices = indices[0].tolist(), indices[1].tolist()
 
@@ -196,7 +196,7 @@ class HungarianMatcher(object):
 
         # [M,]
         iou_target = gt_bboxes.new_full(pred_box[..., 0].shape, 0)
-        iou_target[pred_indices] = pair_wise_ious[gt_indices, pred_indices]        
+        iou_target[pred_indices] = pair_wise_ious[gt_indices, pred_indices]
 
         return cls_target, box_target, iou_target
 

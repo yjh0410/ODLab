@@ -43,8 +43,10 @@ class YOLOFv2(nn.Module):
         ## Neck
         self.neck = build_neck(cfg, feat_dims[-1], cfg['head_dim'])
         
-        ## Heads
+        ## Head
         self.head = build_head(cfg, cfg['head_dim'], cfg['head_dim'], num_classes)
+
+        ## Aux Head
         if use_aux_head:
             aux_head_cfg = cfg['aux_head']
             aux_head_cfg['head_dim'] = cfg['head_dim']
