@@ -39,8 +39,8 @@ yolofv2_cfg = {
         'use_nms': True,
         'nms_class_agnostic': True,  # We prefer to use class-agnostic NMS in the demo.
         # ----------------- Label Assignment -----------------
-        'matcher': 'simota',
-        'matcher_hpy': {'topk_candidate': 4,
+        'matcher': 'ota',
+        'matcher_hpy': {'topk_candidate': 8,
                         'sinkhorn_eps': 0.1,
                         'sinkhorn_iter': 50,
                         'aux_topk_candidate': 8,},
@@ -70,8 +70,8 @@ yolofv2_cfg = {
         'lr_epoch': [8, 11],  # 1x
         # ----------------- Input -----------------
         ## Transforms
-        'train_min_size': [800],   # short edge of image
-        'train_max_size': 1333,
+        'train_min_size': [320],   # short edge of image
+        'train_max_size': 320,
         'test_min_size': 800,
         'test_max_size': 1333,
         ## Pixel mean & std

@@ -32,7 +32,7 @@ class OTAMatcher(object):
             gt_bboxes = target["boxes"].to(device)
 
             # [N, M, 4], get inside points
-            deltas = self.get_deltas(anchors, gt_bboxes.unsqueeze(1))
+            deltas = self.get_deltas(anchors.unsqueeze(0), gt_bboxes.unsqueeze(1))
             is_in_bboxes = deltas.min(dim=-1).values > 0.01
 
             del deltas
@@ -172,8 +172,7 @@ class SimOTAMatcher(object):
         del pair_wise_cls_loss, cost_matrix, pair_wise_ious, pair_wise_reg_loss
 
         # ----------------------------------- Post-process assigned labels -----------------------------------
-        cls_targets = gt_labels.new_full(pred_cls[..., 0].shape,
-                                             self.num_classes)  # [M,]
+        cls_targets = gt_labels.new_full(pred_cls[..., 0].shape, self.num_classes)  # [M,]
         cls_targets[fg_mask_inboxes] = gt_labels[matched_gt_inds].squeeze(-1)
         cls_targets = cls_targets.long()  # [M,]
 
