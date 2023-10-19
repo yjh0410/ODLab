@@ -37,6 +37,13 @@ class PlainDETR(nn.Module):
         ## Transformer
         self.transformer = build_transformer(cfg, num_classes, return_intermediate=trainable)
 
+    def decode_bboxes(self, reg_preds):
+        box_preds_x1y1 = reg_preds[..., :2] - 0.5 * reg_preds[..., 2:]
+        box_preds_x2y2 = reg_preds[..., :2] + 0.5 * reg_preds[..., 2:]
+        box_preds = torch.cat([box_preds_x1y1, box_preds_x2y2], dim=-1)
+
+        return box_preds
+    
     def post_process(self, cls_pred, box_pred):
         ## Top-k select
         cls_pred = cls_pred[0].flatten().sigmoid_()
@@ -69,7 +76,9 @@ class PlainDETR(nn.Module):
         output_classes, output_coords = self.transformer(feat)
 
         # ---------------- PostProcess ----------------
-        bboxes, scores, labels = self.post_process(output_classes[-1], output_coords[-1])
+        cls_preds = output_classes[-1]
+        box_preds = self.decode_bboxes(output_coords[-1])
+        bboxes, scores, labels = self.post_process(cls_preds, box_preds)
 
         # # normalize bbox
         # bboxes[..., 0::2] /= x.shape[-1]

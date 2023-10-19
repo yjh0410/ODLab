@@ -371,12 +371,12 @@ class PlainDETRTransformer(nn.Module):
 
         # ------------------------ Detection Head ------------------------
         for lid, (ref_sig, output) in enumerate(zip(ref_points[:-1], outputs)):
+            ## class pred
+            output_class = self.class_embed[lid](output)
             ## bbox pred
             tmp = self.bbox_embed[lid](output)
             tmp[..., :2] += self.inverse_sigmoid(ref_sig)
             output_coord = tmp.sigmoid()
-            ## class pred
-            output_class = self.class_embed[lid](output)
 
             output_classes.append(output_class)
             output_coords.append(output_coord)
