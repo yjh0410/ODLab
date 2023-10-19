@@ -4,6 +4,7 @@ import torch
 from .retinanet.build import build_retinanet
 from .fcos.build import build_fcos
 from .yolof.build import build_yolof
+from .yolofv2.build import build_yolofv2
 from .pdetr.build import build_pdetr
 from .pfcos.build import build_pfcos
 
@@ -19,6 +20,9 @@ def build_model(args, cfg, device, num_classes=80, trainable=False):
     # FCOS    
     elif 'fcos' in args.model:
         model, criterion = build_fcos(cfg, device, num_classes, trainable)
+    # YOLOF v2   
+    elif 'yolofv2' in args.model:
+        model, criterion = build_yolofv2(cfg, device, num_classes, trainable)
     # YOLOF    
     elif 'yolof' in args.model:
         model, criterion = build_yolof(cfg, device, num_classes, trainable)
