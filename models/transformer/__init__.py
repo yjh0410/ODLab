@@ -31,6 +31,7 @@ def build_transformer(cfg, num_classes, return_intermediate=False):
                                     decoder_dropout     = cfg['decoder_dropout'],
                                     decoder_act_type    = cfg['decoder_act'],
                                     num_classes         = num_classes,
+                                    num_queries         = cfg['num_queries'],
                                     return_intermediate = return_intermediate
                                     )
     else:

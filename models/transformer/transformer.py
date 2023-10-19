@@ -179,7 +179,7 @@ class PlainDETRTransformer(nn.Module):
                  decoder_dropout     :float = 0.1,
                  decoder_act_type    :str   = "relu",
                  # Other
-                 num_classes         :int   = 90,
+                 num_classes         :int   = 80,
                  num_queries         :int   = 100,
                  norm_before         :bool  = False,
                  return_intermediate :bool  = False):
