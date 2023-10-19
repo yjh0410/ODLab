@@ -39,7 +39,7 @@ yolofv2_cfg = {
         'use_nms': True,
         'nms_class_agnostic': True,  # We prefer to use class-agnostic NMS in the demo.
         # ----------------- Label Assignment -----------------
-        'matcher': 'ota',
+        'matcher': 'simota',
         'matcher_hpy': {'topk_candidate': 8,
                         'sinkhorn_eps': 0.1,
                         'sinkhorn_iter': 50,
