@@ -1,23 +1,7 @@
 import torch
 import torch.nn.functional as F
-from torchvision.ops.boxes import box_area
+from utils.box_ops import box_iou
 from scipy.optimize import linear_sum_assignment
-
-
-def box_iou(boxes1, boxes2):
-    area1 = box_area(boxes1)
-    area2 = box_area(boxes2)
-
-    lt = torch.max(boxes1[:, None, :2], boxes2[:, :2])  # [N,M,2]
-    rb = torch.min(boxes1[:, None, 2:], boxes2[:, 2:])  # [N,M,2]
-
-    wh = (rb - lt).clamp(min=0)  # [N,M,2]
-    inter = wh[:, :, 0] * wh[:, :, 1]  # [N,M]
-
-    union = area1[:, None] + area2 - inter
-
-    iou = inter / union
-    return iou, union
 
 
 class SimOTAMatcher(object):
@@ -241,26 +225,3 @@ def build_matcher(cfg, num_classes):
         matcher = HungarianMatcher(num_classes)
 
     return matcher
-
-
-if __name__ == "__main__":
-    import torch
-    
-    num_gts = 6
-    num_anchors = 16
-    num_classes = 7
-    # [H, W, 2] -> [HW, 2]
-    anchor_y, anchor_x = torch.meshgrid([torch.arange(4), torch.arange(4)])
-    anchors = torch.stack([anchor_x, anchor_y], dim=-1).float().view(-1, 2) + 0.5
-
-    pred_cls = torch.randn([num_anchors, num_classes])
-    pred_box = torch.randn([num_anchors, 4])
-
-    gt_labels = torch.randint(0, num_classes, [num_gts])
-    gt_bboxes = torch.as_tensor([[1. * 1.5 * i, 2. * 1.5 * i, 3. * 1.5 * i, 4. * 1.5 * i]  for i in range(num_gts)])
-
-    # print(gt_labels)
-    # print(pred_cls[:num_gts].sigmoid())
-    matcher = HungarianMatcher(num_classes)
-    matcher(anchors, pred_cls, pred_box, gt_labels, gt_bboxes)
-

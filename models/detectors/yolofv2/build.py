@@ -16,7 +16,8 @@ def build_yolofv2(cfg, device, num_classes=80, trainable=False):
                     topk        = cfg['train_topk']        if trainable else cfg['test_topk'],
                     trainable   = trainable,
                     use_nms     = cfg['use_nms'],
-                    ca_nms      = False if trainable else cfg['nms_class_agnostic'])
+                    ca_nms      = False if trainable else cfg['nms_class_agnostic'],
+                    use_aux_head= cfg['use_aux_head'] & trainable)
             
     # -------------- Build Criterion --------------
     criterion = None

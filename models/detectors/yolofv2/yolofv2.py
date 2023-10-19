@@ -48,6 +48,7 @@ class YOLOFv2(nn.Module):
         if use_aux_head:
             aux_head_cfg = cfg['aux_head']
             aux_head_cfg['head_dim'] = cfg['head_dim']
+            aux_head_cfg['out_stride'] = cfg['out_stride']
             self.aux_head = build_head(aux_head_cfg, aux_head_cfg['head_dim'], aux_head_cfg['head_dim'], num_classes)
             # share weight between Head and Aux-Head
             self.aux_head.cls_pred = self.head.cls_pred
@@ -130,7 +131,12 @@ class YOLOFv2(nn.Module):
             # ---------------- Neck ----------------
             feat = self.neck(pyramid_feats[-1])
 
-            # ---------------- Heads ----------------
+            # ---------------- Head ----------------
             outputs = self.head(feat, mask)
+
+            # ---------------- Aux Head ----------------
+            if self.use_aux_head:
+                aux_outputs = self.aux_head(feat, mask)
+                outputs['aux_outputs'] = aux_outputs
 
             return outputs 

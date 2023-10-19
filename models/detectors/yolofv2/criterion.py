@@ -109,8 +109,10 @@ class HybridCriterion(nn.Module):
     def __init__(self, cfg, device, num_classes=80):
         super().__init__()
         # ------------- Criterion -------------
-        self.criterion1 = Criterion(cfg, device, num_classes)  # use SimOTA Matcher
-        self.criterion2 = Criterion(cfg, device, num_classes)  # use Hungarian Matcher
+        cfg['matcher'] = 'hungarian'
+        self.criterion1 = Criterion(cfg, device, num_classes)  # use Hungarian Matcher
+        cfg['matcher'] = 'simota'
+        self.criterion2 = Criterion(cfg, device, num_classes)  # use SimOTA Matcher
         # ------------- Loss weight -------------
         self.weight_dict = self.criterion1.weight_dict
         self.weight_dict.update({k + "_0": v for k, v in self.criterion2.weight_dict.items()})

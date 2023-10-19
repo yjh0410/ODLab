@@ -30,7 +30,7 @@ yolofv2_cfg = {
         'center_clamp': 512,         
         'anchor_size': [[32, 32], [64, 64], [128, 128], [256, 256], [512, 512]],
         ## AuxHead
-        'use_aux_head': False,
+        'use_aux_head': True,
         'aux_head': {'head': 'yolof_head',
                      'head_dim': 512,
                      'num_cls_head': 2,
@@ -74,15 +74,15 @@ yolofv2_cfg = {
         ## LR Scheduler
         'lr_scheduler': 'step',
         'warmup': 'linear',
-        'warmup_iters': 500,
+        'warmup_iters': 1500,
         'warmup_factor': 0.00066667,
         ## Epoch
         'max_epoch': 12,      # 1x
         'lr_epoch': [8, 11],  # 1x
         # ----------------- Input -----------------
         ## Transforms
-        'train_min_size': [512],   # short edge of image
-        'train_max_size': 800,
+        'train_min_size': [800],   # short edge of image
+        'train_max_size': 1333,
         'test_min_size': 800,
         'test_max_size': 1333,
         ## Pixel mean & std
