@@ -212,10 +212,11 @@ class PlainDETRTransformer(nn.Module):
             self.decoder_layers = _get_clones(decoder_layer, num_decoder)
 
         ## Adaptive pos_embed
-        self.ref_point_head = nn.Linear(d_model, 2)
-        
+        self.ref_point_head = MLP(2 * d_model, d_model, d_model, 2)
+
         ## Object Query
-        self.query_embed = nn.Embedding(num_queries, d_model * 2)
+        self.query_embed = nn.Embedding(num_queries, d_model)
+        self.refpoint_embed = nn.Embedding(num_queries, 4)
         
         ## Output head
         class_embed = nn.Linear(self.d_model, num_classes)
@@ -239,8 +240,8 @@ class PlainDETRTransformer(nn.Module):
         for p in self.parameters():
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
-        xavier_uniform_(self.ref_point_head.weight.data, gain=1.0)
-        constant_(self.ref_point_head.bias.data, 0.0)
+        # xavier_uniform_(self.ref_point_head.weight.data, gain=1.0)
+        # constant_(self.ref_point_head.bias.data, 0.0)
 
     def pos2posembed(self, pos, temperature=10000):
         scale = 2 * math.pi
@@ -345,10 +346,11 @@ class PlainDETRTransformer(nn.Module):
             mask = mask.flatten(1)
 
         # ------------------------ Transformer Decoder ------------------------
-        query_embed, tgt = torch.split(self.query_embed.weight[:self.num_queries, :], c, dim=1)
+        tgt = self.query_embed.weight
+        query_embed = self.refpoint_embed.weight
         tgt = tgt[:, None, :].repeat(1, bs, 1)
         query_embed = query_embed[:, None, :].repeat(1, bs, 1)
-        ref_point = self.ref_point_head(query_embed).sigmoid()
+        ref_point = query_embed.sigmoid()
         ref_points = [ref_point]
         
         ## Decoder layer
@@ -357,12 +359,21 @@ class PlainDETRTransformer(nn.Module):
         output_classes = []
         output_coords = []
         for layer_id, decoder_layer in enumerate(self.decoder_layers):
+            # Conditional query
+            query_sine_embed = self.pos2posembed(ref_point)
+            query_pos = self.ref_point_head(query_sine_embed)
+
             # Decoder
-            output = decoder_layer(output, src, memory_key_padding_mask=mask, pos=pos_embed, query_pos=query_embed)
+            output = decoder_layer(output,
+                                   src,
+                                   memory_key_padding_mask=mask,
+                                   pos=pos_embed,
+                                   query_pos=query_pos
+                                   )
             
             # Iter update
             tmp = self.bbox_embed[layer_id](output)
-            new_ref_point = tmp[..., :2] + self.inverse_sigmoid(ref_point)
+            new_ref_point = tmp + self.inverse_sigmoid(ref_point)
             new_ref_point = new_ref_point.sigmoid()
             ref_point = new_ref_point.detach()
 
@@ -375,7 +386,7 @@ class PlainDETRTransformer(nn.Module):
             output_class = self.class_embed[lid](output)
             ## bbox pred
             tmp = self.bbox_embed[lid](output)
-            tmp[..., :2] += self.inverse_sigmoid(ref_sig)
+            tmp += self.inverse_sigmoid(ref_sig)
             output_coord = tmp.sigmoid()
 
             output_classes.append(output_class)

@@ -37,10 +37,11 @@ class PlainDETR(nn.Module):
         ## Transformer
         self.transformer = build_transformer(cfg, num_classes, return_intermediate=trainable)
 
-    def decode_bboxes(self, reg_preds):
-        box_preds_x1y1 = reg_preds[..., :2] - 0.5 * reg_preds[..., 2:]
-        box_preds_x2y2 = reg_preds[..., :2] + 0.5 * reg_preds[..., 2:]
-        box_preds = torch.cat([box_preds_x1y1, box_preds_x2y2], dim=-1)
+    def decode_bboxes(self, reg_preds, bbox_encode=False):
+        if not bbox_encode:
+            box_preds_x1y1 = reg_preds[..., :2] - 0.5 * reg_preds[..., 2:]
+            box_preds_x2y2 = reg_preds[..., :2] + 0.5 * reg_preds[..., 2:]
+            box_preds = torch.cat([box_preds_x1y1, box_preds_x2y2], dim=-1)
 
         return box_preds
     
