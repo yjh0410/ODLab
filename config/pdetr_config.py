@@ -49,7 +49,7 @@ pdetr_cfg = {
         'scheduler': '1x',
         ## Optimizer
         'optimizer': 'adamw',
-        'base_lr': 0.0001 / 16,
+        'base_lr': 0.0002 / 16,
         'backbone_lr_ratio': 0.1,
         'momentum': None,
         'weight_decay': 1e-4,
@@ -63,32 +63,19 @@ pdetr_cfg = {
         'max_epoch': 12,      # 1x
         'lr_epoch': [11],     # 1x
         # ----------------- Input -----------------
-        'train_min_size': [800],   # short edge of image
+        ## Transforms
+        'train_min_size': [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800],   # short edge of image
+        'train_min_size2': [400, 500, 600],
         'train_max_size': 1333,
         'test_min_size': 800,
         'test_max_size': 1333,
+        'random_crop_size': [384, 600],
         ## Pixel mean & std
         'pixel_mean': [0.485, 0.456, 0.406],
         'pixel_std':  [0.229, 0.224, 0.225],
         ## Transforms
-        'detr_style': False,
-        'trans_config': [
-            {'name': 'RandomHFlip'},
-            {'name': 'RandomResize'},
-        ],
-        # ## Transforms
-        # 'train_min_size': [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800],   # short edge of image
-        # 'train_min_size2': [400, 500, 600],
-        # 'train_max_size': 1333,
-        # 'test_min_size': 800,
-        # 'test_max_size': 1333,
-        # 'random_crop_size': [384, 600],
-        # ## Pixel mean & std
-        # 'pixel_mean': [0.485, 0.456, 0.406],
-        # 'pixel_std':  [0.229, 0.224, 0.225],
-        # ## Transforms
-        # 'detr_style': True,
-        # 'trans_config': None,
+        'detr_style': True,
+        'trans_config': None,
         'normalize_coords': True,
     },
     
