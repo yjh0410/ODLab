@@ -13,6 +13,7 @@ pdetr_cfg = {
         'max_stride': 32,
         'out_stride': 16,
         'upsample_c5': True,   # if out_stride != max_stride else False
+        'upsample_first': False,
         ## Transformer
         'transformer': 'plain_detr_transformer',
         'd_model': 256,
@@ -91,6 +92,7 @@ pdetr_cfg = {
         'max_stride': 32,
         'out_stride': 16,
         'upsample_c5': True,   # if out_stride != max_stride else False
+        'upsample_first': False,
         ## Transformer
         'transformer': 'plain_detr_transformer',
         'd_model': 256,
@@ -168,6 +170,7 @@ pdetr_cfg = {
         'max_stride': 32,
         'out_stride': 16,
         'upsample_c5': True,     # if out_stride != max_stride else False
+        'upsample_first': False,
         ## Transformer
         'transformer': 'plain_detr_transformer',
         'd_model': 256,
@@ -244,6 +247,7 @@ pdetr_cfg = {
         'max_stride': 32,
         'out_stride': 16,
         'upsample_c5': True,     # if out_stride != max_stride else False
+        'upsample_first': False,
         ## Transformer
         'transformer': 'plain_detr_transformer',
         'd_model': 256,

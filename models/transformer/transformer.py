@@ -172,6 +172,7 @@ class PlainDETRTransformer(nn.Module):
                  encoder_dropout     :float = 0.1,
                  encoder_act_type    :str   = "relu",
                  upsample            :bool  = False,
+                 upsample_first      :bool  = False,
                  # Decoder
                  num_decoder         :int   = 6,
                  decoder_num_head    :int   = 8,
@@ -187,6 +188,7 @@ class PlainDETRTransformer(nn.Module):
         # --------------- Basic parameters ---------------
         self.d_model = d_model
         self.upsample = upsample
+        self.upsample_first = upsample_first
         self.num_queries = num_queries
         self.num_classes = num_classes
         self.return_intermediate = return_intermediate
@@ -226,6 +228,7 @@ class PlainDETRTransformer(nn.Module):
 
         self.init_weight()
 
+    # -------------- Basic functions --------------
     def init_weight(self):
         # init class embed bias
         init_prob = 0.01
@@ -316,7 +319,12 @@ class PlainDETRTransformer(nn.Module):
 
         return mask
 
-    def forward(self, src, src_mask=None):
+    # -------------- Model forward --------------
+    def forward_pre_upsample(self, src, src_mask=None):
+        ## Upsample feature
+        if self.upsample_layer:
+            src = self.upsample_layer(src)
+
         bs, c, h, w = src.shape
         mask = self.resize_mask(src, src_mask)
 
@@ -332,24 +340,12 @@ class PlainDETRTransformer(nn.Module):
             for encoder_layer in self.encoder_layers:
                 src = encoder_layer(src, src_key_padding_mask=mask, pos_embed=pos_embed)
 
-        ## Upsample feature
-        if self.upsample_layer:
-            # Reshape: [N, B, C] -> [B, C, H, W]
-            src = src.permute(1, 2, 0).reshape(bs, c, h, w)
-            src = self.upsample_layer(src)
-            mask = self.resize_mask(src, src_mask)
-            # Generate pos_embed for upsampled src
-            pos_embed = self.get_posembed(mask)
-            # Reshape: [B, C, H, W] -> [N, B, C], N = HW
-            src = src.flatten(2).permute(2, 0, 1)
-            pos_embed = pos_embed.flatten(2).permute(2, 0, 1)
-            mask = mask.flatten(1)
-
         # ------------------------ Transformer Decoder ------------------------
         tgt = self.query_embed.weight
         query_embed = self.refpoint_embed.weight
         tgt = tgt[:, None, :].repeat(1, bs, 1)
         query_embed = query_embed[:, None, :].repeat(1, bs, 1)
+        
         ref_point = query_embed.sigmoid()
         ref_points = [ref_point]
         
@@ -397,3 +393,92 @@ class PlainDETRTransformer(nn.Module):
         output_coords  = torch.stack(output_coords).permute(0, 2, 1, 3)
 
         return output_classes, output_coords
+
+    def forward_post_upsample(self, src, src_mask=None):
+        bs, c, h, w = src.shape
+        mask = self.resize_mask(src, src_mask)
+
+        # ------------------------ Transformer Encoder ------------------------
+        ## Get pos_embed: [B, C, H, W]
+        pos_embed = self.get_posembed(mask)
+        ## Reshape: [B, C, H, W] -> [N, B, C], N = HW
+        src = src.flatten(2).permute(2, 0, 1)
+        pos_embed = pos_embed.flatten(2).permute(2, 0, 1)
+        mask = mask.flatten(1)
+        ## Encoder layer
+        if self.encoder_layers:
+            for encoder_layer in self.encoder_layers:
+                src = encoder_layer(src, src_key_padding_mask=mask, pos_embed=pos_embed)
+
+        ## Upsample feature
+        if self.upsample_layer:
+            # Reshape: [N, B, C] -> [B, C, H, W]
+            src = src.permute(1, 2, 0).reshape(bs, c, h, w)
+            src = self.upsample_layer(src)
+            mask = self.resize_mask(src, src_mask)
+            # Generate pos_embed for upsampled src
+            pos_embed = self.get_posembed(mask)
+            # Reshape: [B, C, H, W] -> [N, B, C], N = HW
+            src = src.flatten(2).permute(2, 0, 1)
+            pos_embed = pos_embed.flatten(2).permute(2, 0, 1)
+            mask = mask.flatten(1)
+
+        # ------------------------ Transformer Decoder ------------------------
+        tgt = self.query_embed.weight
+        query_embed = self.refpoint_embed.weight
+        tgt = tgt[:, None, :].repeat(1, bs, 1)
+        query_embed = query_embed[:, None, :].repeat(1, bs, 1)
+        
+        ref_point = query_embed.sigmoid()
+        ref_points = [ref_point]
+        
+        ## Decoder layer
+        output = tgt
+        outputs = []
+        output_classes = []
+        output_coords = []
+        for layer_id, decoder_layer in enumerate(self.decoder_layers):
+            # Conditional query
+            query_sine_embed = self.pos2posembed(ref_point)
+            query_pos = self.ref_point_head(query_sine_embed)
+
+            # Decoder
+            output = decoder_layer(output,
+                                   src,
+                                   memory_key_padding_mask=mask,
+                                   pos=pos_embed,
+                                   query_pos=query_pos
+                                   )
+            
+            # Iter update
+            tmp = self.bbox_embed[layer_id](output)
+            new_ref_point = tmp + self.inverse_sigmoid(ref_point)
+            new_ref_point = new_ref_point.sigmoid()
+            ref_point = new_ref_point.detach()
+
+            outputs.append(output)
+            ref_points.append(ref_point)
+
+        # ------------------------ Detection Head ------------------------
+        for lid, (ref_sig, output) in enumerate(zip(ref_points[:-1], outputs)):
+            ## class pred
+            output_class = self.class_embed[lid](output)
+            ## bbox pred
+            tmp = self.bbox_embed[lid](output)
+            tmp += self.inverse_sigmoid(ref_sig)
+            output_coord = tmp.sigmoid()
+
+            output_classes.append(output_class)
+            output_coords.append(output_coord)
+
+        # [L, Nq, B, Nc] -> [L, B, Nq, Nc]
+        output_classes = torch.stack(output_classes).permute(0, 2, 1, 3)
+        output_coords  = torch.stack(output_coords).permute(0, 2, 1, 3)
+
+        return output_classes, output_coords
+
+    def forward(self, src, src_mask=None):
+        if self.upsample_first:
+            return self.forward_pre_upsample(src, src_mask)
+        else:
+            return self.forward_post_upsample(src, src_mask)

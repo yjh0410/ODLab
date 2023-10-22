@@ -25,6 +25,7 @@ def build_transformer(cfg, num_classes, return_intermediate=False):
                                     encoder_dropout     = cfg['encoder_dropout'],
                                     encoder_act_type    = cfg['encoder_act'],
                                     upsample            = cfg['upsample_c5'],
+                                    upsample_first      = cfg['upsample_first'],
                                     num_decoder         = cfg['num_decoder'],
                                     decoder_num_head    = cfg['decoder_num_head'],
                                     decoder_mlp_ratio   = cfg['decoder_mlp_ratio'],
