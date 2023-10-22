@@ -40,6 +40,6 @@ def build_optimizer(optimizer_cfg, model, resume=None):
         # checkpoint state dict
         checkpoint_state_dict = checkpoint.pop("optimizer")
         optimizer.load_state_dict(checkpoint_state_dict)
-        start_epoch = checkpoint.pop("epoch")
+        start_epoch = checkpoint.pop("epoch") + 1
                                                         
     return optimizer, start_epoch
