@@ -10,4 +10,4 @@ python -m torch.distributed.run \
                     -m pdetr_r18_1x \
                     --batch_size 16 \
                     --eval_epoch 2 \
-                    --resume weights/coco/pdetr_r18_1x/pdetr_r18_1x_pure.pth
+                    --resume weights/coco/pdetr_r18_1x/pdetr_r18_1x_best.pth
