@@ -336,7 +336,6 @@ class PlainDETRTransformer(nn.Module):
         ## Upsample feature
         if self.upsample_layer:
             src = self.upsample_layer(src)
-
         bs, c, h, w = src.shape
         mask = self.resize_mask(src, src_mask)
 
@@ -350,9 +349,12 @@ class PlainDETRTransformer(nn.Module):
         ## Encoder layer
         if self.encoder_layers:
             for encoder_layer in self.encoder_layers:
-                src = encoder_layer(src, src_key_padding_mask=mask, pos_embed=pos_embed)
+                src = encoder_layer(src,
+                                    src_key_padding_mask = mask,
+                                    pos_embed            = pos_embed)
 
         # ------------------------ Transformer Decoder ------------------------
+        ## Prepare queries
         tgt = self.query_embed.weight
         query_embed = self.refpoint_embed.weight
         tgt = tgt[:, None, :].repeat(1, bs, 1)
@@ -361,11 +363,21 @@ class PlainDETRTransformer(nn.Module):
         ref_point = query_embed.sigmoid()
         ref_points = [ref_point]
         
+        ## Prepare attn mask
+        self_attn_mask = None
+        use_one2many = self.num_queries_one2many > 0 and self.is_train
+        if use_one2many:
+            self_attn_mask = torch.zeros([self.num_queries, self.num_queries]).bool().to(src.device)
+            self_attn_mask[self.num_queries_one2one:, :self.num_queries_one2one] = True
+            self_attn_mask[:self.num_queries_one2one, self.num_queries_one2one:] = True
+
         ## Decoder layer
         output = tgt
         outputs = []
-        output_classes = []
-        output_coords = []
+        output_classes_one2one = []
+        output_coords_one2one = []
+        output_classes_one2many = []
+        output_coords_one2many = []
         for layer_id, decoder_layer in enumerate(self.decoder_layers):
             # Conditional query
             query_sine_embed = self.pos2posembed(ref_point)
@@ -374,9 +386,10 @@ class PlainDETRTransformer(nn.Module):
             # Decoder
             output = decoder_layer(output,
                                    src,
-                                   memory_key_padding_mask=mask,
-                                   pos=pos_embed,
-                                   query_pos=query_pos
+                                   tgt_mask                = self_attn_mask,
+                                   memory_key_padding_mask = mask,
+                                   pos                     = pos_embed,
+                                   query_pos               = query_pos
                                    )
             
             # Iter update
@@ -397,14 +410,35 @@ class PlainDETRTransformer(nn.Module):
             tmp += self.inverse_sigmoid(ref_sig)
             output_coord = tmp.sigmoid()
 
-            output_classes.append(output_class)
-            output_coords.append(output_coord)
+            output_classes_one2one.append(output_class[:self.num_queries_one2one])
+            output_coords_one2one.append(output_coord[:self.num_queries_one2one])
+            if use_one2many:
+                output_classes_one2many.append(output_class[self.num_queries_one2many:])
+                output_coords_one2many.append(output_coord[self.num_queries_one2many:])
 
         # [L, Nq, B, Nc] -> [L, B, Nq, Nc]
-        output_classes = torch.stack(output_classes).permute(0, 2, 1, 3)
-        output_coords  = torch.stack(output_coords).permute(0, 2, 1, 3)
+        output_classes_one2one = torch.stack(output_classes_one2one).permute(0, 2, 1, 3)
+        output_coords_one2one  = torch.stack(output_coords_one2one).permute(0, 2, 1, 3)
+        if use_one2many:
+            output_classes_one2many = torch.stack(output_classes_one2many).permute(0, 2, 1, 3)
+            output_coords_one2many  = torch.stack(output_coords_one2many).permute(0, 2, 1, 3)
 
-        return output_classes, output_coords
+        # --------------------- Re-organize outputs ---------------------
+        ## One2one outputs
+        outputs = {
+            "pred_logits": output_classes_one2one[-1],
+            "pred_boxes":  output_coords_one2one[-1]
+        }
+        if self.return_intermediate:
+            outputs['aux_outputs'] = self.set_aux_loss(output_classes_one2one, output_coords_one2one)
+        ## One2many outputs
+        if use_one2many:
+            outputs["pred_logits_one2many"] = output_classes_one2many[-1]
+            outputs["pred_boxes_one2many"] = output_coords_one2many[-1]
+            if self.return_intermediate:
+                outputs['aux_outputs_one2many'] = self.set_aux_loss(output_classes_one2many, output_coords_one2many)
+
+        return outputs
 
     def forward_post_upsample(self, src, src_mask=None):
         bs, c, h, w = src.shape
