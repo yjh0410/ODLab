@@ -35,7 +35,7 @@ class PlainDETR(nn.Module):
         )
 
         ## Transformer
-        self.transformer = build_transformer(cfg, num_classes, return_intermediate=trainable)
+        self.transformer = build_transformer(cfg, num_classes, trainable, return_intermediate=trainable)
 
     def decode_bboxes(self, reg_preds, bbox_encode=False):
         if not bbox_encode:
@@ -59,14 +59,6 @@ class PlainDETR(nn.Module):
 
         return topk_bboxes, topk_scores, topk_labels
 
-    @torch.jit.unused
-    def set_aux_loss(self, outputs_class, outputs_coord):
-        # this is a workaround to make torchscript happy, as torchscript
-        # doesn't support dictionary with non-homogeneous values, such
-        # as a dict having both a Tensor and a list.
-        return [{'pred_logits': a, 'pred_boxes': b}
-                for a, b in zip(outputs_class[:-1], outputs_coord[:-1])]
-
     @torch.no_grad()
     def inference_single_image(self, x):
         # ---------------- Backbone ----------------
@@ -74,11 +66,11 @@ class PlainDETR(nn.Module):
         feat = self.input_proj(pyramid_feats[-1])
 
         # ---------------- Transformer ----------------
-        output_classes, output_coords = self.transformer(feat)
+        outputs = self.transformer(feat)
 
         # ---------------- PostProcess ----------------
-        cls_preds = output_classes[-1]
-        box_preds = self.decode_bboxes(output_coords[-1])
+        cls_preds = outputs["pred_logits"]
+        box_preds = self.decode_bboxes(outputs["pred_boxes"])
         bboxes, scores, labels = self.post_process(cls_preds, box_preds)
 
         # # normalize bbox
@@ -97,10 +89,6 @@ class PlainDETR(nn.Module):
             feat = self.input_proj(pyramid_feats[-1])
 
             # Transformer
-            output_classes, output_coords = self.transformer(feat, mask)
-
-            outputs = {'pred_logits': output_classes[-1], 'pred_boxes': output_coords[-1]}
-            if self.aux_loss:
-                outputs['aux_outputs'] = self.set_aux_loss(output_classes, output_coords)
+            outputs = self.transformer(feat, mask)
             
             return outputs

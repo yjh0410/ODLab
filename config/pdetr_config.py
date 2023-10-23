@@ -13,7 +13,7 @@ pdetr_cfg = {
         'max_stride': 32,
         'out_stride': 16,
         'upsample_c5': True,   # if out_stride != max_stride else False
-        'upsample_first': True,
+        'upsample_first': False,
         ## Transformer
         'transformer': 'plain_detr_transformer',
         'd_model': 256,
@@ -29,7 +29,8 @@ pdetr_cfg = {
         'decoder_mlp_ratio': 8.0,
         'decoder_dropout': 0.0,
         'decoder_act': 'relu',
-        'num_queries': 300,
+        'num_queries_one2one': 300,
+        'num_queries_one2many': 0,
         ## Post-process
         'train_topk': 100,
         'test_topk': 100,
