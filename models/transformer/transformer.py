@@ -191,9 +191,9 @@ class PlainDETRTransformer(nn.Module):
         self.d_model = d_model
         self.upsample = upsample
         self.upsample_first = upsample_first
-        self.num_queries = num_queries_one2one + num_queries_one2many
         self.num_queries_one2one = num_queries_one2one
         self.num_queries_one2many = num_queries_one2many
+        self.num_queries = num_queries_one2one + num_queries_one2many if is_train else num_queries_one2one
         self.num_classes = num_classes
         self.return_intermediate = return_intermediate
         # --------------- Network parameters ---------------
@@ -226,7 +226,7 @@ class PlainDETRTransformer(nn.Module):
         self.class_embed = nn.ModuleList([copy.deepcopy(class_embed) for _ in range(num_decoder)])
         self.bbox_embed  = nn.ModuleList([copy.deepcopy(bbox_embed)  for _ in range(num_decoder)])
 
-        ## One2One Queries
+        ## Object Queries
         self.query_embed = nn.Embedding(self.num_queries, d_model)
         self.refpoint_embed = nn.Embedding(self.num_queries, 4)
         
@@ -496,7 +496,6 @@ class PlainDETRTransformer(nn.Module):
 
             output_classes_one2one.append(output_class[:self.num_queries_one2one])
             output_coords_one2one.append(output_coord[:self.num_queries_one2one])
-
             if use_one2many:
                 output_classes_one2many.append(output_class[self.num_queries_one2many:])
                 output_coords_one2many.append(output_coord[self.num_queries_one2many:])
@@ -504,7 +503,6 @@ class PlainDETRTransformer(nn.Module):
         # [L, Nq, B, Nc] -> [L, B, Nq, Nc]
         output_classes_one2one = torch.stack(output_classes_one2one).permute(0, 2, 1, 3)
         output_coords_one2one  = torch.stack(output_coords_one2one).permute(0, 2, 1, 3)
-
         if use_one2many:
             output_classes_one2many = torch.stack(output_classes_one2many).permute(0, 2, 1, 3)
             output_coords_one2many  = torch.stack(output_coords_one2many).permute(0, 2, 1, 3)
