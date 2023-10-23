@@ -33,8 +33,8 @@ pdetr_cfg = {
         'num_queries_one2many': 1500,
         'k_one2many': 6,
         ## Post-process
-        'train_topk': 100,
-        'test_topk': 100,
+        'train_topk': 300,
+        'test_topk': 300,
         # ----------------- Label Assignment -----------------
         'matcher': 'HungarianMatcher',
         'matcher_hpy':{'cost_cls_weight':  2.0,

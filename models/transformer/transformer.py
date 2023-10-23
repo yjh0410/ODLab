@@ -378,7 +378,7 @@ class PlainDETRTransformer(nn.Module):
                                    query_pos               = query_pos
                                    )
             
-            # Iter update
+            # Look forward twice
             tmp = self.bbox_embed[layer_id](output)
             new_ref_point = tmp + self.inverse_sigmoid(ref_point)
             new_ref_point = new_ref_point.sigmoid()
