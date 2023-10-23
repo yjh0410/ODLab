@@ -247,8 +247,6 @@ class PlainDETRTransformer(nn.Module):
         for p in self.parameters():
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
-        # xavier_uniform_(self.ref_point_head.weight.data, gain=1.0)
-        # constant_(self.ref_point_head.bias.data, 0.0)
 
     def pos2posembed(self, pos, temperature=10000):
         scale = 2 * math.pi
@@ -294,18 +292,6 @@ class PlainDETRTransformer(nn.Module):
         # [B, H, W, C]
         pos_embed = self.pos2posembed(pos, temperature)
         pos_embed = pos_embed.permute(0, 3, 1, 2)
-
-        # dim_t = torch.arange(num_pos_feats, dtype=torch.float32, device=x.device)
-        # dim_t_ = torch.div(dim_t, 2, rounding_mode='floor') / num_pos_feats
-        # dim_t = temperature ** (2 * dim_t_)
-
-        # pos_x = torch.div(x_embed[..., None], dim_t)
-        # pos_y = torch.div(y_embed[..., None], dim_t)
-        # pos_x = torch.stack((pos_x[..., 0::2].sin(), pos_x[..., 1::2].cos()), dim=4).flatten(3)
-        # pos_y = torch.stack((pos_y[..., 0::2].sin(), pos_y[..., 1::2].cos()), dim=4).flatten(3)
-
-        # # [B, H, W, C] -> [B, C, H, W]
-        # pos_embed = torch.cat((pos_y, pos_x), dim=3).permute(0, 3, 1, 2)
         
         return pos_embed        
 
@@ -531,8 +517,8 @@ class PlainDETRTransformer(nn.Module):
             output_classes_one2one.append(output_class[:self.num_queries_one2one])
             output_coords_one2one.append(output_coord[:self.num_queries_one2one])
             if use_one2many:
-                output_classes_one2many.append(output_class[self.num_queries_one2many:])
-                output_coords_one2many.append(output_coord[self.num_queries_one2many:])
+                output_classes_one2many.append(output_class[self.num_queries_one2one:])
+                output_coords_one2many.append(output_coord[self.num_queries_one2one:])
 
         # [L, Nq, B, Nc] -> [L, B, Nq, Nc]
         output_classes_one2one = torch.stack(output_classes_one2one).permute(0, 2, 1, 3)

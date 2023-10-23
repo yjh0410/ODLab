@@ -1,3 +1,4 @@
+import copy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -19,6 +20,7 @@ class Criterion(nn.Module):
         # ------------ Basic parameters ------------
         self.cfg = cfg
         self.num_classes = num_classes
+        self.k_one2many = cfg['k_one2many']
         self.aux_loss = aux_loss
         self.losses = ['labels', 'boxes']
         # ------------- Focal loss -------------
@@ -39,6 +41,13 @@ class Criterion(nn.Module):
             for i in range(cfg['num_decoder'] - 1):
                 aux_weight_dict.update({k + f'_{i}': v for k, v in self.weight_dict.items()})
             self.weight_dict.update(aux_weight_dict)
+        # ------------- One2many loss weight -------------
+        if cfg['num_queries_one2many'] > 0:
+            one2many_loss_weight = {}
+            for k, v in self.weight_dict.items():
+                one2many_loss_weight[k+"_one2many"] = v
+            self.weight_dict.update(one2many_loss_weight)
+            self.one2many_loss_weight = cfg["one2many_loss_weight"]
 
     def _get_src_permutation_idx(self, indices):
         # permute predictions following indices
@@ -111,21 +120,21 @@ class Criterion(nn.Module):
         assert loss in loss_map, f'do you really want to compute {loss} loss?'
         return loss_map[loss](outputs, targets, indices, num_boxes, **kwargs)
 
-    def forward(self, outputs, targets):
+    def compute_loss(self, outputs_one2one, targets):
         """ This performs the loss computation.
         Parameters:
              outputs: dict of tensors, see the output specification of the model for the format
              targets: list of dicts, such that len(targets) == batch_size.
                       The expected keys in each dict depends on the losses applied, see each loss' doc
         """
-        outputs_without_aux = {k: v for k, v in outputs.items() if k != 'aux_outputs'}
+        outputs_without_aux = {k: v for k, v in outputs_one2one.items() if k != 'aux_outputs'}
 
         # Retrieve the matching between the outputs of the last layer and the targets
-        indices = self.matcher(outputs_without_aux, targets)
+        indices = self.matcher(outputs_without_aux["pred_logits"], outputs_without_aux["pred_boxes"], targets)
 
         # Compute the average number of target boxes accross all nodes, for normalization purposes
         num_boxes = sum(len(t["labels"]) for t in targets)
-        num_boxes = torch.as_tensor([num_boxes], dtype=torch.float, device=next(iter(outputs.values())).device)
+        num_boxes = torch.as_tensor([num_boxes], dtype=torch.float, device=next(iter(outputs_one2one.values())).device)
 
         if is_dist_avail_and_initialized():
             torch.distributed.all_reduce(num_boxes)
@@ -134,12 +143,12 @@ class Criterion(nn.Module):
         # Compute all the requested losses
         losses = {}
         for loss in self.losses:
-            losses.update(self.get_loss(loss, outputs, targets, indices, num_boxes))
+            losses.update(self.get_loss(loss, outputs_one2one, targets, indices, num_boxes))
 
         # In case of auxiliary losses, we repeat this process with the output of each intermediate layer.
-        if 'aux_outputs' in outputs:
-            for i, aux_outputs in enumerate(outputs['aux_outputs']):
-                indices = self.matcher(aux_outputs, targets)
+        if 'aux_outputs' in outputs_one2one:
+            for i, aux_outputs in enumerate(outputs_one2one['aux_outputs']):
+                indices = self.matcher(aux_outputs["pred_logits"], aux_outputs["pred_boxes"], targets)
                 for loss in self.losses:
                     kwargs = {}
                     l_dict = self.get_loss(loss, aux_outputs, targets, indices, num_boxes, **kwargs)
@@ -148,6 +157,30 @@ class Criterion(nn.Module):
 
         return losses
 
+    def forward(self, outputs, targets):
+        # Compute one-to-one losses
+        outputs_one2one = {k: v for k, v in outputs.items() if "one2many" not in k}
+        losses = self.compute_loss(outputs_one2one, targets)
+
+        # Compute one-to-many losses
+        outputs_one2many = {k[:-9]: v for k, v in outputs.items() if "one2many" in k}
+        if len(outputs_one2many) > 0:
+            # Copy targets
+            multi_targets = copy.deepcopy(targets)
+            for target in multi_targets:
+                target["boxes"] = target["boxes"].repeat(self.k_one2many, 1)
+                target["labels"] = target["labels"].repeat(self.k_one2many)
+            # Compute one-to-many losses
+            one2many_losses = self.compute_loss(outputs_one2many, multi_targets)
+            # add one2many losses in to the final loss_dict
+            for k, v in one2many_losses.items():
+                if k + "_one2many" in losses.keys():
+                    losses[k + "_one2many"] += v * self.one2many_loss_weight
+                else:
+                    losses[k + "_one2many"] = v * self.one2many_loss_weight
+
+        return losses
+    
 
 # build criterion
 def build_criterion(cfg, num_classes, aux_loss=False):

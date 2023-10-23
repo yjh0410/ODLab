@@ -14,11 +14,11 @@ class HungarianMatcher(nn.Module):
         self.gamma = gamma
 
     @torch.no_grad()
-    def forward(self, outputs, targets):
-        bs, num_queries = outputs["pred_logits"].shape[:2]
+    def forward(self, pred_logits, pred_boxes, targets):
+        bs, num_queries = pred_logits.shape[:2]
         # [B, Nq, C] -> [BNq, C]
-        out_prob = outputs["pred_logits"].flatten(0, 1).sigmoid()
-        out_bbox = outputs["pred_boxes"].flatten(0, 1)
+        out_prob = pred_logits.flatten(0, 1).sigmoid()
+        out_bbox = pred_boxes.flatten(0, 1)
 
         # List[B, M, C] -> [BM, C]
         tgt_ids = torch.cat([v["labels"] for v in targets])

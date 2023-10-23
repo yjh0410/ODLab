@@ -30,7 +30,8 @@ pdetr_cfg = {
         'decoder_dropout': 0.0,
         'decoder_act': 'relu',
         'num_queries_one2one': 300,
-        'num_queries_one2many': 0,
+        'num_queries_one2many': 1500,
+        'k_one2many': 6,
         ## Post-process
         'train_topk': 100,
         'test_topk': 100,
@@ -47,6 +48,7 @@ pdetr_cfg = {
         'loss_cls_weight':  1.0,
         'loss_box_weight':  5.0,
         'loss_giou_weight': 2.0,
+        'one2many_loss_weight': 1.0,
         # ----------------- Training -----------------
         ## Training scheduler
         'scheduler': '1x',
