@@ -220,16 +220,16 @@ class PlainDETRTransformer(nn.Module):
         ## Adaptive pos_embed
         self.ref_point_head = MLP(2 * d_model, d_model, d_model, 2)
 
+        ## Object Queries
+        self.query_embed = nn.Embedding(self.num_queries, d_model)
+        self.refpoint_embed = nn.Embedding(self.num_queries, 4)
+        
         ## Output head
         class_embed = nn.Linear(self.d_model, num_classes)
         bbox_embed  = MLP(self.d_model, self.d_model, 4, 3)
         self.class_embed = nn.ModuleList([copy.deepcopy(class_embed) for _ in range(num_decoder)])
         self.bbox_embed  = nn.ModuleList([copy.deepcopy(bbox_embed)  for _ in range(num_decoder)])
 
-        ## Object Queries
-        self.query_embed = nn.Embedding(self.num_queries, d_model)
-        self.refpoint_embed = nn.Embedding(self.num_queries, 4)
-        
         self.init_weight()
 
     # -------------- Basic functions --------------
