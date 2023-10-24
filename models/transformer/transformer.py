@@ -304,25 +304,24 @@ class PlainDETRTransformer(nn.Module):
         dim_t_ = torch.div(dim_t, 2, rounding_mode='floor') / num_pos_feats
         dim_t = temperature ** (2 * dim_t_)
 
+        # Position embedding for XY
         x_embed = pos[..., 0] * scale
         y_embed = pos[..., 1] * scale
         pos_x = x_embed[..., None] / dim_t
         pos_y = y_embed[..., None] / dim_t
         pos_x = torch.stack((pos_x[..., 0::2].sin(), pos_x[..., 1::2].cos()), dim=-1).flatten(-2)
         pos_y = torch.stack((pos_y[..., 0::2].sin(), pos_y[..., 1::2].cos()), dim=-1).flatten(-2)
+        posemb = torch.cat((pos_y, pos_x), dim=-1)
         
-        if pos.size(-1) == 2:    
-            posemb = torch.cat((pos_y, pos_x), dim=-1)
-        elif pos.size(-1) == 4:
+        # Position embedding for WH
+        if pos.size(-1) == 4:
             w_embed = pos[..., 2] * scale
             h_embed = pos[..., 3] * scale
             pos_w = w_embed[..., None] / dim_t
             pos_h = h_embed[..., None] / dim_t
             pos_w = torch.stack((pos_w[..., 0::2].sin(), pos_w[..., 1::2].cos()), dim=-1).flatten(-2)
             pos_h = torch.stack((pos_h[..., 0::2].sin(), pos_h[..., 1::2].cos()), dim=-1).flatten(-2)
-            posemb = torch.cat((pos_y, pos_x, pos_w, pos_h), dim=-1)
-        else:
-            raise ValueError("Unknown pos_tensor shape(-1):{}".format(pos.size(-1)))
+            posemb = torch.cat((posemb, pos_w, pos_h), dim=-1)
         
         return posemb
 
