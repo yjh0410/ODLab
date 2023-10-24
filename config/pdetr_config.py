@@ -32,6 +32,7 @@ pdetr_cfg = {
         'num_queries_one2one': 300,
         'num_queries_one2many': 1500,
         'k_one2many': 6,
+        'look_forward_twice': False,
         ## Post-process
         'train_topk': 300,
         'test_topk': 300,
