@@ -3,10 +3,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .matcher import HungarianMatcher
 from utils.misc import sigmoid_focal_loss
 from utils.box_ops import box_cxcywh_to_xyxy, box_xyxy_to_cxcywh, generalized_box_iou
 from utils.distributed_utils import is_dist_avail_and_initialized, get_world_size
+
+from .matcher import HungarianMatcher
 
 
 class Criterion(nn.Module):
@@ -158,11 +159,11 @@ class Criterion(nn.Module):
         return losses
 
     def forward(self, outputs, targets):
-        # Compute one-to-one losses
+        # --------------------- One-to-one losses ---------------------
         outputs_one2one = {k: v for k, v in outputs.items() if "one2many" not in k}
         losses = self.compute_loss(outputs_one2one, targets)
 
-        # Compute one-to-many losses
+        # --------------------- One-to-many losses ---------------------
         outputs_one2many = {k[:-9]: v for k, v in outputs.items() if "one2many" in k}
         if len(outputs_one2many) > 0:
             # Copy targets
