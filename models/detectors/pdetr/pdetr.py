@@ -35,7 +35,7 @@ class PlainDETR(nn.Module):
         )
 
         ## Transformer
-        self.transformer = build_transformer(cfg, num_classes, trainable, return_intermediate=trainable)
+        self.transformer = build_transformer(cfg, num_classes, return_intermediate=trainable)
 
     def decode_bboxes(self, reg_preds, bbox_encode=False):
         if not bbox_encode:
@@ -66,7 +66,7 @@ class PlainDETR(nn.Module):
         feat = self.input_proj(pyramid_feats[-1])
 
         # ---------------- Transformer ----------------
-        outputs = self.transformer(feat)
+        outputs = self.transformer(src=feat)
 
         # ---------------- PostProcess ----------------
         cls_preds = outputs["pred_logits"]
@@ -89,6 +89,6 @@ class PlainDETR(nn.Module):
             feat = self.input_proj(pyramid_feats[-1])
 
             # Transformer
-            outputs = self.transformer(feat, mask)
+            outputs = self.transformer(src=feat, is_train=True, src_mask=mask)
             
             return outputs

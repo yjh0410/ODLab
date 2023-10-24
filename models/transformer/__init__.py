@@ -1,10 +1,9 @@
 from .transformer import PlainDETRTransformer
 
 
-def build_transformer(cfg, num_classes, trainable=False, return_intermediate=False):
+def build_transformer(cfg, num_classes, return_intermediate=False):
     if cfg['transformer'] == "plain_detr_transformer":
-        return PlainDETRTransformer(is_train            = trainable,
-                                    d_model             = cfg['d_model'],
+        return PlainDETRTransformer(d_model             = cfg['d_model'],
                                     num_encoder         = cfg['num_encoder'],
                                     encoder_num_head    = cfg['encoder_num_head'],
                                     encoder_mlp_ratio   = cfg['encoder_mlp_ratio'],
