@@ -323,15 +323,13 @@ class PlainDETRTransformer(nn.Module):
         return posemb
 
     def get_posembed(self, mask, temperature=10000):
-        scale = 2 * math.pi
         not_mask = ~mask
-
         # [B, H, W]
         y_embed = not_mask.cumsum(1, dtype=torch.float32)
         x_embed = not_mask.cumsum(2, dtype=torch.float32)
 
-        y_embed = (y_embed - 0.5) / (y_embed[:, -1:, :] + 1e-6)* scale
-        x_embed = (x_embed - 0.5) / (x_embed[:, :, -1:] + 1e-6)* scale
+        y_embed = (y_embed - 0.5) / (y_embed[:, -1:, :] + 1e-6)
+        x_embed = (x_embed - 0.5) / (x_embed[:, :, -1:] + 1e-6)
     
         # [H, W] -> [B, H, W, 2]
         pos = torch.stack([x_embed, y_embed], dim=-1)
