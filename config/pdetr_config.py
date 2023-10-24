@@ -30,9 +30,9 @@ pdetr_cfg = {
         'decoder_dropout': 0.0,
         'decoder_act': 'relu',
         'num_queries_one2one': 300,
-        'num_queries_one2many': 1500,
+        'num_queries_one2many': 0,
         'k_one2many': 6,
-        'look_forward_twice': False,
+        'look_forward_twice': True,
         ## Post-process
         'train_topk': 300,
         'test_topk': 300,
