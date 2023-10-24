@@ -86,24 +86,27 @@ class DETRTransformer(nn.Module):
     def pos2posembed(self, pos, temperature=10000):
         scale = 2 * math.pi
         num_pos_feats = self.d_model // 2
-        pos = pos * scale
+
         dim_t = torch.arange(num_pos_feats, dtype=torch.float32, device=pos.device)
         dim_t_ = torch.div(dim_t, 2, rounding_mode='floor') / num_pos_feats
         dim_t = temperature ** (2 * dim_t_)
-        pos_x = pos[..., 0, None] / dim_t
-        pos_y = pos[..., 1, None] / dim_t
+
+        x_embed = pos[..., 0] * scale
+        y_embed = pos[..., 1] * scale
+        pos_x = x_embed[..., None] / dim_t
+        pos_y = y_embed[..., None] / dim_t
         pos_x = torch.stack((pos_x[..., 0::2].sin(), pos_x[..., 1::2].cos()), dim=-1).flatten(-2)
         pos_y = torch.stack((pos_y[..., 0::2].sin(), pos_y[..., 1::2].cos()), dim=-1).flatten(-2)
         
         if pos.size(-1) == 2:    
             posemb = torch.cat((pos_y, pos_x), dim=-1)
         elif pos.size(-1) == 4:
-            w_embed = pos[:, :, 2] * scale
-            pos_w = w_embed[:, :, None] / dim_t
-            pos_w = torch.stack((pos_w[:, :, 0::2].sin(), pos_w[:, :, 1::2].cos()), dim=3).flatten(2)
-            h_embed = pos[:, :, 3] * scale
-            pos_h = h_embed[:, :, None] / dim_t
-            pos_h = torch.stack((pos_h[:, :, 0::2].sin(), pos_h[:, :, 1::2].cos()), dim=3).flatten(2)
+            w_embed = pos[..., 2] * scale
+            h_embed = pos[..., 3] * scale
+            pos_w = w_embed[..., None] / dim_t
+            pos_h = h_embed[..., None] / dim_t
+            pos_w = torch.stack((pos_w[..., 0::2].sin(), pos_w[..., 1::2].cos()), dim=-1).flatten(-2)
+            pos_h = torch.stack((pos_h[..., 0::2].sin(), pos_h[..., 1::2].cos()), dim=-1).flatten(-2)
             posemb = torch.cat((pos_y, pos_x, pos_w, pos_h), dim=-1)
         else:
             raise ValueError("Unknown pos_tensor shape(-1):{}".format(pos.size(-1)))
@@ -111,15 +114,13 @@ class DETRTransformer(nn.Module):
         return posemb
 
     def get_posembed(self, mask, temperature=10000):
-        scale = 2 * math.pi
         not_mask = ~mask
-
         # [B, H, W]
         y_embed = not_mask.cumsum(1, dtype=torch.float32)
         x_embed = not_mask.cumsum(2, dtype=torch.float32)
 
-        y_embed = (y_embed - 0.5) / (y_embed[:, -1:, :] + 1e-6)* scale
-        x_embed = (x_embed - 0.5) / (x_embed[:, :, -1:] + 1e-6)* scale
+        y_embed = (y_embed - 0.5) / (y_embed[:, -1:, :] + 1e-6)
+        x_embed = (x_embed - 0.5) / (x_embed[:, :, -1:] + 1e-6)
     
         # [H, W] -> [B, H, W, 2]
         pos = torch.stack([x_embed, y_embed], dim=-1)
@@ -298,24 +299,27 @@ class PlainDETRTransformer(nn.Module):
     def pos2posembed(self, pos, temperature=10000):
         scale = 2 * math.pi
         num_pos_feats = self.d_model // 2
-        pos = pos * scale
+
         dim_t = torch.arange(num_pos_feats, dtype=torch.float32, device=pos.device)
         dim_t_ = torch.div(dim_t, 2, rounding_mode='floor') / num_pos_feats
         dim_t = temperature ** (2 * dim_t_)
-        pos_x = pos[..., 0, None] / dim_t
-        pos_y = pos[..., 1, None] / dim_t
+
+        x_embed = pos[..., 0] * scale
+        y_embed = pos[..., 1] * scale
+        pos_x = x_embed[..., None] / dim_t
+        pos_y = y_embed[..., None] / dim_t
         pos_x = torch.stack((pos_x[..., 0::2].sin(), pos_x[..., 1::2].cos()), dim=-1).flatten(-2)
         pos_y = torch.stack((pos_y[..., 0::2].sin(), pos_y[..., 1::2].cos()), dim=-1).flatten(-2)
         
         if pos.size(-1) == 2:    
             posemb = torch.cat((pos_y, pos_x), dim=-1)
         elif pos.size(-1) == 4:
-            w_embed = pos[:, :, 2] * scale
-            pos_w = w_embed[:, :, None] / dim_t
-            pos_w = torch.stack((pos_w[:, :, 0::2].sin(), pos_w[:, :, 1::2].cos()), dim=3).flatten(2)
-            h_embed = pos[:, :, 3] * scale
-            pos_h = h_embed[:, :, None] / dim_t
-            pos_h = torch.stack((pos_h[:, :, 0::2].sin(), pos_h[:, :, 1::2].cos()), dim=3).flatten(2)
+            w_embed = pos[..., 2] * scale
+            h_embed = pos[..., 3] * scale
+            pos_w = w_embed[..., None] / dim_t
+            pos_h = h_embed[..., None] / dim_t
+            pos_w = torch.stack((pos_w[..., 0::2].sin(), pos_w[..., 1::2].cos()), dim=-1).flatten(-2)
+            pos_h = torch.stack((pos_h[..., 0::2].sin(), pos_h[..., 1::2].cos()), dim=-1).flatten(-2)
             posemb = torch.cat((pos_y, pos_x, pos_w, pos_h), dim=-1)
         else:
             raise ValueError("Unknown pos_tensor shape(-1):{}".format(pos.size(-1)))
