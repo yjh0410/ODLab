@@ -1,6 +1,6 @@
 # 8 GPUs
 python -m torch.distributed.run \
-                    --nproc_per_node=2 \
+                    --nproc_per_node=8 \
                     --master_port 1663 \
                     main.py \
                     --cuda \

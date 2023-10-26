@@ -84,11 +84,11 @@ class PlainDETR(nn.Module):
         if not self.trainable:
             return self.inference_single_image(x)
         else:
-            # Backbone
+            # ---------------- Backbone ----------------
             pyramid_feats = self.backbone(x)
             feat = self.input_proj(pyramid_feats[-1])
 
-            # Transformer
+            # ---------------- Transformer ----------------
             outputs = self.transformer(src=feat, is_train=True, src_mask=mask)
             
             return outputs
