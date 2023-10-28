@@ -13,6 +13,12 @@ import torch.utils.checkpoint as checkpoint
 import numpy as np
 from timm.models.layers import DropPath, to_2tuple, trunc_normal_
 
+model_urls = {
+    'swin_T_224_1k': 'https://github.com/yjh0410/ODLab/releases/download/backbone_weights/swin_tiny_patch4_window7_224_22k.pth',
+    'swin_S_224_22k': 'https://github.com/yjh0410/ODLab/releases/download/backbone_weights/swin_small_patch4_window7_224_22k.pth',
+    'swin_b': None,
+    'swin_l': None,
+}
 
 # ------------------- Basic modules -------------------
 class Mlp(nn.Module):
@@ -572,13 +578,36 @@ class SwinTransformer(nn.Module):
         return outs
 
 
+# ----------------------- Model functions -----------------------
+def load_weight(arch, model):
+    # load weight
+    url = model_urls[arch]
+    print('Loading pretrained weight: {}'.format(url))
+    if url is not None:
+        checkpoint = torch.hub.load_state_dict_from_url(
+            url=url, map_location="cpu", check_hash=True)
+        # checkpoint state dict
+        checkpoint_state_dict = checkpoint.pop("model")
+        model.load_state_dict(checkpoint_state_dict, strict=False)
+    else:
+        print('No pretrained for {}'.format(arch))
+
+    return model
+
+
 def build_swin_transformer(cfg, pretrained=False, **kw):
-    assert cfg['backbone'] in ['swin_T_224_1k', 'swin_B_224_22k', 'swin_B_384_22k', 'swin_L_224_22k', 'swin_L_384_22k']
+    assert cfg['backbone'] in ['swin_T_224_1k', 'swin_S_224_22k', 'swin_B_224_22k', 'swin_B_384_22k', 'swin_L_224_22k', 'swin_L_384_22k']
 
     model_para_dict = {
         'swin_T_224_1k': dict(
             embed_dim=96,
             depths=[ 2, 2, 6, 2 ],
+            num_heads=[ 3, 6, 12, 24],
+            window_size=7
+        ),        
+        'swin_S_224_22k': dict(
+            embed_dim=96,
+            depths=[ 2, 2, 18, 2 ],
             num_heads=[ 3, 6, 12, 24],
             window_size=7
         ),        
@@ -612,16 +641,20 @@ def build_swin_transformer(cfg, pretrained=False, **kw):
     backbone = SwinTransformer(pretrain_img_size=cfg['pretrained_img_size'], **kw_cgf)
     backbone_feat_dims = [kw_cgf['embed_dim'] * 2 ** i for i in range(4)]
 
+    if pretrained:
+        backbone = load_weight(cfg['backbone'], backbone)
+
     return backbone, backbone_feat_dims
 
 
 if __name__ == "__main__":
     cfg = {
-        'backbone':      'swin_T_224_1k',
+        'backbone':      'swin_S_224_22k',
+        'pretrained': True,
         'pretrained_img_size': 224,
         'res5_dilation': False,
     }
-    bakcbone, backbone_feat_dims = build_swin_transformer(cfg)
+    bakcbone, backbone_feat_dims = build_swin_transformer(cfg, pretrained=cfg['pretrained'])
     x = torch.rand(2, 3, 1024, 1024)
     y = bakcbone(x)
     for out in y:

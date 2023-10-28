@@ -10,4 +10,5 @@ python -m torch.distributed.run \
                     -m pdetr_swinT_1x \
                     --batch_size 16 \
                     --eval_epoch 2 \
+                    --find_unused_parameters \
                     # --resume weights/coco/pdetr_r18_1x/pdetr_r18_1x_best.pth

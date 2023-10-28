@@ -65,6 +65,8 @@ def parse_args():
                         help='number of distributed processes')
     parser.add_argument('--sybn', action='store_true', default=False, 
                         help='use sybn.')
+    parser.add_argument('--find_unused_parameters', action='store_true', default=False, 
+                        help='set find_unused_parameters as True.')
 
     return parser.parse_args()
 
@@ -119,7 +121,7 @@ def main():
     model.to(device)
     model_without_ddp = model
     if args.distributed:
-        model = DDP(model, device_ids=[args.gpu], find_unused_parameters=True)
+        model = DDP(model, device_ids=[args.gpu], find_unused_parameters=args.find_unused_parameters)
         model_without_ddp = model.module
     ## Calcute Params & GFLOPs
     if distributed_utils.is_main_process():

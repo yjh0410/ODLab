@@ -10,7 +10,7 @@ def build_backbone(cfg, pretrained=False):
         pretrained_weight = cfg['pretrained_weight'] if pretrained else None
         return build_resnet(cfg, pretrained_weight)
     # SwinTransformer
-    elif cfg['backbone'] in ['swin_T_224_1k', 'swin_B_224_22k', 'swin_B_384_22k', 'swin_L_224_22k', 'swin_L_384_22k']:
+    elif cfg['backbone'] in ['swin_T_224_1k', 'swin_S_224_22k', 'swin_B_224_22k', 'swin_B_384_22k', 'swin_L_224_22k', 'swin_L_384_22k']:
         return build_swin_transformer(cfg, pretrained)
     
                            
