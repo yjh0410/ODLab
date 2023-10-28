@@ -92,7 +92,7 @@ pdetr_cfg = {
         'backbone_norm': 'FrozeBN',
         'res5_dilation': False,
         'pretrained': True,
-        'pretrained_weight': 'imagenet1k_v1',
+        'pretrained_weight': 'imagenet1k_v2',
         'max_stride': 32,
         'out_stride': 16,
         'upsample_c5': True,   # if out_stride != max_stride else False
