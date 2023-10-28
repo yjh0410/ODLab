@@ -119,7 +119,7 @@ def main():
     model.to(device)
     model_without_ddp = model
     if args.distributed:
-        model = DDP(model, device_ids=[args.gpu])
+        model = DDP(model, device_ids=[args.gpu], find_unused_parameters=True)
         model_without_ddp = model.module
     ## Calcute Params & GFLOPs
     if distributed_utils.is_main_process():
