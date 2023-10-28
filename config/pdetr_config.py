@@ -172,9 +172,10 @@ pdetr_cfg = {
     'pdetr_swinT_1x':{
         # ----------------- Model-----------------
         ## Backbone
-        'backbone': 'swin_t',
+        'backbone': 'swin_T_224_1k',
         'backbone_drop_rate': 0.2,
         'pretrained': True,
+        'pretrained_img_size': 224,
         'max_stride': 32,
         'out_stride': 16,
         'upsample_c5': True,     # if out_stride != max_stride else False
