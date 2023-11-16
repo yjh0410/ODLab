@@ -12,8 +12,8 @@ import copy
 import torch
 import torch.nn as nn
 
-from .transformer_encoder import DETRTransformerEncoderLayer, PlainDETRTransformerEncoderLayer
-from .transformer_decoder import DETRTransformerDecoderLayer, PlainDETRTransformerDecoderLayer
+from .transformer_encoder import DETRTransformerEncoderLayer
+from .transformer_decoder import DETRTransformerDecoderLayer, BoxRPBTransformerDecoderLayer
 from ..basic.mlp import MLP
 
 
@@ -223,15 +223,20 @@ class PlainDETRTransformer(nn.Module):
                  decoder_mlp_ratio   :float = 4.0,
                  decoder_dropout     :float = 0.1,
                  decoder_act_type    :str   = "relu",
+                 decoder_ctn_type    :str   = "box_rpb",
+                 decoder_rpb_dim     :int   = 256,
+                 reparam             :bool  = False,
                  # Other
                  num_classes          :int   = 80,
                  num_queries_one2one  :int   = 300,
                  num_queries_one2many :int   = 1500,
                  norm_before          :bool  = False,
                  look_forward_twice   :bool  = False,
-                 return_intermediate  :bool  = False):
+                 return_intermediate  :bool  = False,
+                 out_stride           :int   = 16):
         super().__init__()
         # --------------- Basic parameters ---------------
+        self.out_stride = out_stride
         self.d_model = d_model
         self.upsample = upsample
         self.upsample_first = upsample_first
@@ -245,7 +250,7 @@ class PlainDETRTransformer(nn.Module):
         ## Transformer Encoder
         self.encoder_layers = None
         if num_encoder > 0:
-            encoder_layer = PlainDETRTransformerEncoderLayer(d_model, encoder_num_head, encoder_mlp_ratio, encoder_dropout, encoder_act_type)
+            encoder_layer = DETRTransformerEncoderLayer(d_model, encoder_num_head, encoder_mlp_ratio, encoder_dropout, encoder_act_type)
             self.encoder_layers = _get_clones(encoder_layer, num_encoder)
 
         ## Upsample layer
@@ -259,7 +264,8 @@ class PlainDETRTransformer(nn.Module):
         ## Transformer Decoder
         self.decoder_layers = None
         if num_decoder > 0:
-            decoder_layer = PlainDETRTransformerDecoderLayer(d_model, decoder_num_head, decoder_mlp_ratio, decoder_dropout, decoder_act_type)
+            decoder_layer = BoxRPBTransformerDecoderLayer(d_model, decoder_num_head, decoder_mlp_ratio, decoder_dropout, decoder_act_type,
+                                                          decoder_ctn_type, decoder_rpb_dim, out_stride, reparam)
             self.decoder_layers = _get_clones(decoder_layer, num_decoder)
 
         ## Adaptive pos_embed
@@ -479,6 +485,7 @@ class PlainDETRTransformer(nn.Module):
 
     def forward_post_upsample(self, src, is_train=False, src_mask=None):
         bs, c, h, w = src.shape
+        feat_spatial_shape = [[h, w]]
         mask = self.resize_mask(src, src_mask)
 
         # ------------------------ Transformer Encoder ------------------------
@@ -487,12 +494,12 @@ class PlainDETRTransformer(nn.Module):
         ## Reshape: [B, C, H, W] -> [N, B, C], N = HW
         src = src.flatten(2).permute(2, 0, 1)
         pos_embed = pos_embed.flatten(2).permute(2, 0, 1)
-        mask = mask.flatten(1)
+        mask_flatten = mask.flatten(1)
         ## Encoder layer
         if self.encoder_layers:
             for encoder_layer in self.encoder_layers:
                 src = encoder_layer(src,
-                                    src_key_padding_mask = mask,
+                                    src_key_padding_mask = mask_flatten,
                                     pos_embed            = pos_embed)
 
         ## Upsample feature
@@ -501,19 +508,20 @@ class PlainDETRTransformer(nn.Module):
             src = src.permute(1, 2, 0).reshape(bs, c, h, w)
             src = self.upsample_layer(src)
             mask = self.resize_mask(src, src_mask)
+            feat_spatial_shape = [[src.shape[-2], src.shape[-1]]]
             # Generate pos_embed for upsampled src
             pos_embed = self.get_posembed(mask)
             # Reshape: [B, C, H, W] -> [N, B, C], N = HW
             src = src.flatten(2).permute(2, 0, 1)
             pos_embed = pos_embed.flatten(2).permute(2, 0, 1)
-            mask = mask.flatten(1)
+            mask_flatten = mask.flatten(1)
 
         # ------------------------ Transformer Decoder ------------------------
         ## Prepare queries
         tgt = self.query_embed.weight
-        query_embed = self.refpoint_embed.weight
+        refpoint_embed = self.refpoint_embed.weight
         tgt = tgt[:, None, :].repeat(1, bs, 1)
-        query_embed = query_embed[:, None, :].repeat(1, bs, 1)
+        refpoint_embed = refpoint_embed[:, None, :].repeat(1, bs, 1)
         
         ## Prepare attn mask
         use_one2many = self.num_queries_one2many > 0 and is_train
@@ -524,9 +532,9 @@ class PlainDETRTransformer(nn.Module):
         else:
             self_attn_mask = None
             tgt = tgt[:self.num_queries_one2one]
-            query_embed = query_embed[:self.num_queries_one2one]
+            refpoint_embed = refpoint_embed[:self.num_queries_one2one]
 
-        ref_point = query_embed.sigmoid()
+        ref_point = refpoint_embed.sigmoid()
         ref_points = [ref_point]
         
         ## Decoder layer
@@ -542,12 +550,14 @@ class PlainDETRTransformer(nn.Module):
             query_pos = self.ref_point_head(query_sine_embed)
 
             # Decoder
-            output = decoder_layer(output,
-                                   src,
+            output = decoder_layer(tgt                     = output,
+                                   memory                  = src,
                                    tgt_mask                = self_attn_mask,
-                                   memory_key_padding_mask = mask,
+                                   memory_key_padding_mask = mask_flatten,
                                    pos                     = pos_embed,
-                                   query_pos               = query_pos
+                                   query_pos               = query_pos,
+                                   reference_points        = ref_point[:, :, None],
+                                   memory_spatial_shapes   = feat_spatial_shape,
                                    )
             
             # Iter update

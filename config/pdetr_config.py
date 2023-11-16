@@ -29,6 +29,9 @@ pdetr_cfg = {
         'decoder_mlp_ratio': 8.0,
         'decoder_dropout': 0.0,
         'decoder_act': 'relu',
+        'decoder_ctn': 'box_rpb',  # 'box_rpb' or None
+        'decoder_rpb_dim': 256,
+        'box_reparam': False,
         'num_queries_one2one': 300,
         'num_queries_one2many': 1500,
         'k_one2many': 6,
