@@ -75,6 +75,9 @@ class DETRTransformerDecoderLayer(nn.Module):
 # ---------------------------- BoxRPB Transformer Decoder modules ----------------------------
 ## BoxPRB Attention
 class BoxRPBAttention(nn.Module):
+    """
+        This code referenced to https://github.com/impiga/Plain-DETR/blob/main/models/global_rpe_decomp_decoder.py
+    """
     def __init__(
         self,
         dim,
