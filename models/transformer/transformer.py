@@ -244,6 +244,7 @@ class PlainDETRTransformer(nn.Module):
         self.num_queries_one2many = num_queries_one2many
         self.num_queries = num_queries_one2one + num_queries_one2many
         self.num_classes = num_classes
+        self.reparam = reparam
         self.look_forward_twice = look_forward_twice
         self.return_intermediate = return_intermediate
         # --------------- Network parameters ---------------
@@ -535,6 +536,10 @@ class PlainDETRTransformer(nn.Module):
             refpoint_embed = refpoint_embed[:self.num_queries_one2one]
 
         ref_point = refpoint_embed.sigmoid()
+        if self.reparam:
+            # TODO: bbox reparameter
+            ref_point[..., [0, 2]] *= feat_spatial_shape[1]
+            ref_point[..., [1, 3]] *= feat_spatial_shape[0]
         ref_points = [ref_point]
         
         ## Decoder layer
@@ -562,8 +567,12 @@ class PlainDETRTransformer(nn.Module):
             
             # Iter update
             tmp = self.bbox_embed[layer_id](output)
-            new_ref_point = tmp + self.inverse_sigmoid(ref_point)
-            new_ref_point = new_ref_point.sigmoid()
+            if self.reparam:
+                # TODO:
+                pass
+            else:
+                new_ref_point = tmp + self.inverse_sigmoid(ref_point)
+                new_ref_point = new_ref_point.sigmoid()
             ref_point = new_ref_point.detach()
 
             outputs.append(output)
