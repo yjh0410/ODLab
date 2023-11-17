@@ -568,7 +568,7 @@ class PlainDETRTransformer(nn.Module):
             # Iter update
             tmp = self.bbox_embed[layer_id](output)
             if self.reparam:
-                # TODO:
+                # TODO: delta to bbox
                 pass
             else:
                 new_ref_point = tmp + self.inverse_sigmoid(ref_point)
