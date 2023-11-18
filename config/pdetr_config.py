@@ -66,7 +66,7 @@ pdetr_cfg = {
         ## LR Scheduler
         'lr_scheduler': 'step',
         'warmup': 'linear',
-        'warmup_iters': 100,
+        'warmup_iters': 5000,
         'warmup_factor': 0.00066667,
         ## Epoch
         'max_epoch': 12,      # 1x
