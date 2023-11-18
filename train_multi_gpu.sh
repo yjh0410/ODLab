@@ -8,7 +8,7 @@ python -m torch.distributed.run \
                     -d coco \
                     --root /data/datasets/COCO/ \
                     -m pdetr_r18_1x \
-                    --batch_size 16 \
+                    --batch_size 8 \
                     --eval_epoch 2 \
                     --find_unused_parameters \
                     # --resume weights/coco/pdetr_r18_1x/pdetr_r18_1x_best.pth
