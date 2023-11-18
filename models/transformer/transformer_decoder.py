@@ -183,7 +183,7 @@ class BoxRPBAttention(nn.Module):
         attn = self.attn_drop(attn)
         x = attn @ v
         # Output ptoj
-        x = x.permute(2, 0, 1, 3).reshape(N, B_, C) # B, nheads, nQ, C -> B, nQ, B, nheads, C
+        x = x.permute(2, 0, 1, 3).reshape(N, B_, C) # B, nheads, nQ, C -> nQ, B, nheads, C -> nQ, B, C
         x = self.proj(x)
         x = self.proj_drop(x)
 
