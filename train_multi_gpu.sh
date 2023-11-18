@@ -7,7 +7,7 @@ python -m torch.distributed.run \
                     -dist \
                     -d coco \
                     --root /data/datasets/COCO/ \
-                    -m pdetr_r50_1x \
+                    -m pdetr_r18_1x \
                     --batch_size 16 \
                     --eval_epoch 2 \
                     --find_unused_parameters \
