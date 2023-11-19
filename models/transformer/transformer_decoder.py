@@ -132,11 +132,10 @@ class BoxRPBAttention(nn.Module):
             reference_points: (torch.Tensor) [Nq, B, C]
             k_input_flatten:  (torch.Tensor) [N, B, C]
             v_input_flatten:  (torch.Tensor) [N, B, C]
-            input_spatial_shapes: (List[List[int, int]]) [[h, w]]
+            input_spatial_shapes: (List[int, int]) [h, w]
             input_padding_mask
         """
-        assert len(input_spatial_shapes) == 1, 'This is designed for single-scale decoder.'
-        h, w = input_spatial_shapes[0]
+        h, w = input_spatial_shapes
         stride = self.feature_stride
         device = query.device
 

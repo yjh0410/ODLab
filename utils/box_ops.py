@@ -60,6 +60,42 @@ def get_ious(bboxes1,
         raise NotImplementedError
 
 
+def delta2bbox(proposals,
+               deltas,
+               max_shape=None,
+               wh_ratio_clip=16 / 1000,
+               clip_border=True,
+               add_ctr_clamp=False,
+               ctr_clamp=32):
+
+    dxy = deltas[..., :2]
+    dwh = deltas[..., 2:]
+
+    # Compute width/height of each roi
+    pxy = proposals[..., :2]
+    pwh = proposals[..., 2:]
+
+    dxy_wh = pwh * dxy
+    wh_ratio_clip = torch.tensor(wh_ratio_clip).to(deltas.device)
+    max_ratio = torch.abs(torch.log(wh_ratio_clip))
+    if add_ctr_clamp:
+        dxy_wh = torch.clamp(dxy_wh, max=ctr_clamp, min=-ctr_clamp)
+        dwh = torch.clamp(dwh, max=max_ratio)
+    else:
+        dwh = dwh.clamp(min=-max_ratio, max=max_ratio)
+
+    gxy = pxy + dxy_wh
+    gwh = pwh * dwh.exp()
+    x1y1 = gxy - (gwh * 0.5)
+    x2y2 = gxy + (gwh * 0.5)
+    bboxes = torch.cat([x1y1, x2y2], dim=-1)
+    if clip_border and max_shape is not None:
+        bboxes[..., 0::2].clamp_(min=0).clamp_(max=max_shape[1])
+        bboxes[..., 1::2].clamp_(min=0).clamp_(max=max_shape[0])
+        
+    return bboxes
+
+
 def box_cxcywh_to_xyxy(x):
     x_c, y_c, w, h = x.unbind(-1)
     b = [(x_c - 0.5 * w), (y_c - 0.5 * h),

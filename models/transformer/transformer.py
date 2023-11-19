@@ -16,6 +16,8 @@ from .transformer_encoder import DETRTransformerEncoderLayer
 from .transformer_decoder import DETRTransformerDecoderLayer, BoxRPBTransformerDecoderLayer
 from ..basic.mlp import MLP
 
+from utils.box_ops import box_xyxy_to_cxcywh, delta2bbox
+
 
 def _get_clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
@@ -300,8 +302,9 @@ class PlainDETRTransformer(nn.Module):
             nn.init.constant_(bbox_embed.layers[-1].weight.data, 0)
             nn.init.constant_(bbox_embed.layers[-1].bias.data, 0)
         # init refpoint xy
-        self.refpoint_embed.weight.data[:, :2].uniform_(0, 1)
-        self.refpoint_embed.weight.data[:, :2] = self.inverse_sigmoid(self.refpoint_embed.weight.data[:, :2])
+        if not self.reparam:
+            self.refpoint_embed.weight.data[:, :2].uniform_(0, 1)
+            self.refpoint_embed.weight.data[:, :2] = self.inverse_sigmoid(self.refpoint_embed.weight.data[:, :2])
 
     def pos2posembed(self, pos, temperature=10000):
         scale = 2 * math.pi
@@ -373,7 +376,7 @@ class PlainDETRTransformer(nn.Module):
                 for a, b in zip(outputs_class[:-1], outputs_coord[:-1])]
 
     # -------------- Model forward --------------
-    def forward_pre_upsample(self, src, is_train=False, src_mask=None):
+    def forward_pre_upsample(self, src, is_train=False, src_mask=None, img_size=None):
         ## Upsample feature
         if self.upsample_layer:
             src = self.upsample_layer(src)
@@ -484,9 +487,10 @@ class PlainDETRTransformer(nn.Module):
 
         return outputs
 
-    def forward_post_upsample(self, src, is_train=False, src_mask=None):
+    def forward_post_upsample(self, src, is_train=False, src_mask=None, img_size=None):
         bs, c, h, w = src.shape
-        feat_spatial_shape = [[h, w]]
+        feat_spatial_shape = [h, w]
+        max_shape = [img_size[1], img_size[0]]  # [img_w, img_h]
         mask = self.resize_mask(src, src_mask)
 
         # ------------------------ Transformer Encoder ------------------------
@@ -509,7 +513,7 @@ class PlainDETRTransformer(nn.Module):
             src = src.permute(1, 2, 0).reshape(bs, c, h, w)
             src = self.upsample_layer(src)
             mask = self.resize_mask(src, src_mask)
-            feat_spatial_shape = [[src.shape[-2], src.shape[-1]]]
+            feat_spatial_shape = [src.shape[-2], src.shape[-1]]
             # Generate pos_embed for upsampled src
             pos_embed = self.get_posembed(mask)
             # Reshape: [B, C, H, W] -> [N, B, C], N = HW
@@ -536,10 +540,6 @@ class PlainDETRTransformer(nn.Module):
             refpoint_embed = refpoint_embed[:self.num_queries_one2one]
 
         ref_point = refpoint_embed.sigmoid()
-        if self.reparam:
-            # TODO: bbox reparameter
-            ref_point[..., [0, 2]] *= feat_spatial_shape[1]
-            ref_point[..., [1, 3]] *= feat_spatial_shape[0]
         ref_points = [ref_point]
         
         ## Decoder layer
@@ -568,8 +568,7 @@ class PlainDETRTransformer(nn.Module):
             # Iter update
             tmp = self.bbox_embed[layer_id](output)
             if self.reparam:
-                # TODO: delta to bbox
-                pass
+                new_ref_point = box_xyxy_to_cxcywh(delta2bbox(ref_point, tmp, max_shape))
             else:
                 new_ref_point = tmp + self.inverse_sigmoid(ref_point)
                 new_ref_point = new_ref_point.sigmoid()
@@ -579,13 +578,16 @@ class PlainDETRTransformer(nn.Module):
             ref_points.append(new_ref_point if self.look_forward_twice else ref_point)
 
         # ------------------------ Detection Head ------------------------
-        for lid, (ref_sig, output) in enumerate(zip(ref_points[:-1], outputs)):
+        for lid, (ref_point, output) in enumerate(zip(ref_points[:-1], outputs)):
             ## class pred
             output_class = self.class_embed[lid](output)
             ## bbox pred
             tmp = self.bbox_embed[lid](output)
-            tmp += self.inverse_sigmoid(ref_sig)
-            output_coord = tmp.sigmoid()
+            if self.reparam:
+                output_coord = box_xyxy_to_cxcywh(delta2bbox(ref_point, tmp, max_shape))
+            else:
+                tmp += self.inverse_sigmoid(ref_point)
+                output_coord = tmp.sigmoid()
 
             output_classes_one2one.append(output_class[:self.num_queries_one2one])
             output_coords_one2one.append(output_coord[:self.num_queries_one2one])
@@ -617,8 +619,8 @@ class PlainDETRTransformer(nn.Module):
 
         return outputs
 
-    def forward(self, src, is_train=False, src_mask=None):
+    def forward(self, src, is_train=False, src_mask=None, img_size=None):
         if self.upsample_first:
-            return self.forward_pre_upsample(src, is_train, src_mask)
+            return self.forward_pre_upsample(src, is_train, src_mask, img_size)
         else:
-            return self.forward_post_upsample(src, is_train, src_mask)
+            return self.forward_post_upsample(src, is_train, src_mask, img_size)

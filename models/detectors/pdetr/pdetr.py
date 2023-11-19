@@ -25,6 +25,7 @@ class PlainDETR(nn.Module):
         self.trainable = trainable
         self.max_stride = cfg['max_stride']
         self.out_stride = cfg['out_stride']
+        self.normalize_bbox = not cfg['box_reparam']
 
         # ---------------------- Network Parameters ----------------------
         ## Backbone
@@ -66,17 +67,18 @@ class PlainDETR(nn.Module):
         feat = self.input_proj(pyramid_feats[-1])
 
         # ---------------- Transformer ----------------
-        outputs = self.transformer(src=feat)
+        outputs = self.transformer(src=feat, img_size=x.shape[-2:])
 
         # ---------------- PostProcess ----------------
         cls_preds = outputs["pred_logits"]
         box_preds = self.decode_bboxes(outputs["pred_boxes"])
         bboxes, scores, labels = self.post_process(cls_preds, box_preds)
 
-        # # normalize bbox
-        # bboxes[..., 0::2] /= x.shape[-1]
-        # bboxes[..., 1::2] /= x.shape[-2]
-        # bboxes = bboxes.clip(0., 1.)
+        # normalize bbox
+        if self.normalize_bbox:
+            bboxes[..., 0::2] /= x.shape[-1]
+            bboxes[..., 1::2] /= x.shape[-2]
+            bboxes = bboxes.clip(0., 1.)
 
         return bboxes, scores, labels
 
@@ -89,6 +91,6 @@ class PlainDETR(nn.Module):
             feat = self.input_proj(pyramid_feats[-1])
 
             # ---------------- Transformer ----------------
-            outputs = self.transformer(src=feat, is_train=True, src_mask=mask)
+            outputs = self.transformer(src=feat, is_train=True, src_mask=mask, img_size=x.shape[-2:])
             
             return outputs
