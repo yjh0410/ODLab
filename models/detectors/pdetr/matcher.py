@@ -1,24 +1,25 @@
 import torch
 import torch.nn as nn
 from scipy.optimize import linear_sum_assignment
-from utils.box_ops import box_cxcywh_to_xyxy, box_xyxy_to_cxcywh, generalized_box_iou
+from utils.box_ops import box_cxcywh_to_xyxy, box_xyxy_to_cxcywh, generalized_box_iou, bbox2delta
 
 
 class HungarianMatcher(nn.Module):
-    def __init__(self, cost_class, cost_bbox, cost_giou, alpha, gamma):
+    def __init__(self, cost_class, cost_bbox, cost_giou, alpha=0.25, gamma=2.0, box_reparam=False):
         super().__init__()
         self.cost_class = cost_class
         self.cost_bbox = cost_bbox
         self.cost_giou = cost_giou
         self.alpha = alpha
         self.gamma = gamma
+        self.box_reparam = box_reparam
 
     @torch.no_grad()
-    def forward(self, pred_logits, pred_boxes, targets):
-        bs, num_queries = pred_logits.shape[:2]
+    def forward(self, outputs, targets):
+        bs, num_queries = outputs["pred_logits"].shape[:2]
         # [B, Nq, C] -> [BNq, C]
-        out_prob = pred_logits.flatten(0, 1).sigmoid()
-        out_bbox = pred_boxes.flatten(0, 1)
+        out_prob = outputs["pred_logits"].flatten(0, 1).sigmoid()
+        out_bbox = outputs["pred_boxes"].flatten(0, 1)
 
         # List[B, M, C] -> [BM, C]
         tgt_ids = torch.cat([v["labels"] for v in targets])
@@ -31,9 +32,15 @@ class HungarianMatcher(nn.Module):
 
         # -------------------- Regression cost --------------------
         ## L1 cost: [Nq, M]
-        cost_bbox = torch.cdist(out_bbox, box_xyxy_to_cxcywh(tgt_bbox).to(out_bbox.device), p=1)
-        ## GIoU cost: Nq, M]
-        cost_giou = -generalized_box_iou(box_cxcywh_to_xyxy(out_bbox), tgt_bbox.to(out_bbox.device))
+        if self.box_reparam:
+            out_delta = outputs["pred_deltas"].flatten(0, 1)
+            out_bbox_old = outputs["pred_boxes_old"].flatten(0, 1)
+            tgt_delta = bbox2delta(out_bbox_old, tgt_bbox)
+            cost_bbox = torch.cdist(out_delta[:, None], tgt_delta, p=1).squeeze(1)
+        else:
+            cost_bbox = torch.cdist(out_bbox, box_xyxy_to_cxcywh(tgt_bbox).to(out_bbox.device), p=1)
+            ## GIoU cost: Nq, M]
+            cost_giou = -generalized_box_iou(box_cxcywh_to_xyxy(out_bbox), tgt_bbox.to(out_bbox.device))
 
         # Final cost: [B, Nq, M]
         C = self.cost_bbox * cost_bbox + self.cost_class * cost_class + self.cost_giou * cost_giou

@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from utils.misc import sigmoid_focal_loss
-from utils.box_ops import box_cxcywh_to_xyxy, box_xyxy_to_cxcywh, generalized_box_iou
+from utils.box_ops import box_cxcywh_to_xyxy, box_xyxy_to_cxcywh, generalized_box_iou, bbox2delta
 from utils.distributed_utils import is_dist_avail_and_initialized, get_world_size
 
 from .matcher import HungarianMatcher
@@ -24,6 +24,7 @@ class Criterion(nn.Module):
         self.k_one2many = cfg['k_one2many']
         self.aux_loss = aux_loss
         self.losses = ['labels', 'boxes']
+        self.box_reparam = cfg['box_reparam']
         # ------------- Focal loss -------------
         self.alpha = cfg['focal_loss_alpha']
         self.gamma = cfg['focal_loss_gamma']
@@ -32,7 +33,8 @@ class Criterion(nn.Module):
                                         cost_bbox  = cfg['matcher_hpy']['cost_box_weight'],
                                         cost_giou  = cfg['matcher_hpy']['cost_giou_weight'],
                                         alpha      = self.alpha,
-                                        gamma      = self.gamma)
+                                        gamma      = self.gamma,
+                                        box_reparam=cfg['box_reparam'])
         # ------------- Loss weight -------------
         self.weight_dict = {'loss_cls':  cfg['loss_cls_weight'],
                             'loss_box':  cfg['loss_box_weight'],
@@ -101,7 +103,13 @@ class Criterion(nn.Module):
         target_boxes = torch.cat([t['boxes'][i] for t, (_, i) in zip(targets, indices)], dim=0).to(src_boxes.device)
         
         # compute L1 loss
-        loss_bbox = F.l1_loss(src_boxes, box_xyxy_to_cxcywh(target_boxes), reduction='none')
+        if self.box_reparam:
+            src_deltas = outputs["pred_deltas"][idx]
+            src_boxes_old = outputs["pred_boxes_old"][idx]
+            target_deltas = bbox2delta(src_boxes_old, target_boxes)
+            loss_bbox = F.l1_loss(src_deltas, target_deltas, reduction="none")
+        else:
+            loss_bbox = F.l1_loss(src_boxes, box_xyxy_to_cxcywh(target_boxes), reduction='none')
 
         # compute GIoU loss
         bbox_giou = generalized_box_iou(box_cxcywh_to_xyxy(src_boxes), target_boxes)
@@ -131,7 +139,7 @@ class Criterion(nn.Module):
         outputs_without_aux = {k: v for k, v in outputs.items() if k != 'aux_outputs'}
 
         # Retrieve the matching between the outputs of the last layer and the targets
-        indices = self.matcher(outputs_without_aux["pred_logits"], outputs_without_aux["pred_boxes"], targets)
+        indices = self.matcher(outputs_without_aux, targets)
 
         # Compute the average number of target boxes accross all nodes, for normalization purposes
         num_boxes = sum(len(t["labels"]) for t in targets)
@@ -149,7 +157,7 @@ class Criterion(nn.Module):
         # In case of auxiliary losses, we repeat this process with the output of each intermediate layer.
         if 'aux_outputs' in outputs:
             for i, aux_outputs in enumerate(outputs['aux_outputs']):
-                indices = self.matcher(aux_outputs["pred_logits"], aux_outputs["pred_boxes"], targets)
+                indices = self.matcher(aux_outputs, targets)
                 for loss in self.losses:
                     kwargs = {}
                     l_dict = self.get_loss(loss, aux_outputs, targets, indices, num_boxes, **kwargs)
