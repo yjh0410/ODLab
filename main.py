@@ -95,7 +95,7 @@ def main():
     per_gpu_batch = args.batch_size // world_size
 
     # ---------------------------- Build CUDA ----------------------------
-    if args.cuda:
+    if args.cuda and torch.cuda.is_available():
         print('use cuda')
         device = torch.device("cuda")
     else:
