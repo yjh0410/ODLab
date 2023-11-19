@@ -25,7 +25,7 @@ class PlainDETR(nn.Module):
         self.trainable = trainable
         self.max_stride = cfg['max_stride']
         self.out_stride = cfg['out_stride']
-        self.normalize_bbox = not cfg['box_reparam']
+        self.normalize_bbox = cfg['box_reparam']
 
         # ---------------------- Network Parameters ----------------------
         ## Backbone
