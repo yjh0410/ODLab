@@ -542,7 +542,7 @@ class PlainDETRTransformer(nn.Module):
             refpoint_embed = refpoint_embed[:self.num_queries_one2one]
 
         ## Initial reference points
-        if not self.box_reparam:
+        if self.box_reparam:
             ref_point_x = refpoint_embed[..., 0] * max_shape[1]
             ref_point_y = refpoint_embed[..., 1] * max_shape[0]
             ref_point_w = refpoint_embed[..., 2] * max_shape[1]

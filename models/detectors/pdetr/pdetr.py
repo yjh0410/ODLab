@@ -79,6 +79,7 @@ class PlainDETR(nn.Module):
             bboxes[..., 0::2] /= x.shape[-1]
             bboxes[..., 1::2] /= x.shape[-2]
             bboxes = bboxes.clip(0., 1.)
+            print(bboxes.shape)
 
         return bboxes, scores, labels
 
