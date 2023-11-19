@@ -9,3 +9,5 @@ __pycache__
 det_results
 .vscode
 deployment/OpenVINO/cpp/build
+train_nebula.py
+train_nebula.sh
