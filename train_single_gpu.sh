@@ -1,1 +1,0 @@
-python main.py --cuda -d coco --root /data/datasets/COCO/ -m pdetr_r18_1x --batch_size 2 --eval_epoch 2
