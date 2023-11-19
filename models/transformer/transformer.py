@@ -246,7 +246,7 @@ class PlainDETRTransformer(nn.Module):
         self.num_queries_one2many = num_queries_one2many
         self.num_queries = num_queries_one2one + num_queries_one2many
         self.num_classes = num_classes
-        self.reparam = reparam
+        self.box_reparam = reparam
         self.look_forward_twice = look_forward_twice
         self.return_intermediate = return_intermediate
         # --------------- Network parameters ---------------
@@ -302,7 +302,9 @@ class PlainDETRTransformer(nn.Module):
             nn.init.constant_(bbox_embed.layers[-1].weight.data, 0)
             nn.init.constant_(bbox_embed.layers[-1].bias.data, 0)
         # init refpoint xy
-        if not self.reparam:
+        if self.box_reparam:
+            self.refpoint_embed.weight.data[:, :2].uniform_(0, 1)
+        else:
             self.refpoint_embed.weight.data[:, :2].uniform_(0, 1)
             self.refpoint_embed.weight.data[:, :2] = self.inverse_sigmoid(self.refpoint_embed.weight.data[:, :2])
 
@@ -539,7 +541,15 @@ class PlainDETRTransformer(nn.Module):
             tgt = tgt[:self.num_queries_one2one]
             refpoint_embed = refpoint_embed[:self.num_queries_one2one]
 
-        ref_point = refpoint_embed.sigmoid()
+        ## Initial reference points
+        if not self.box_reparam:
+            ref_point_x = refpoint_embed[..., 0] * max_shape[1]
+            ref_point_y = refpoint_embed[..., 1] * max_shape[0]
+            ref_point_w = refpoint_embed[..., 2] * max_shape[1]
+            ref_point_h = refpoint_embed[..., 3] * max_shape[0]
+            ref_point = torch.stack([ref_point_x, ref_point_y, ref_point_w, ref_point_h], dim=-1)
+        else:
+            ref_point = refpoint_embed.sigmoid()
         ref_points = [ref_point]
         
         ## Decoder layer
@@ -567,7 +577,7 @@ class PlainDETRTransformer(nn.Module):
             
             # Iter update
             tmp = self.bbox_embed[layer_id](output)
-            if self.reparam:
+            if self.box_reparam:
                 new_ref_point = box_xyxy_to_cxcywh(delta2bbox(ref_point, tmp, max_shape))
             else:
                 new_ref_point = tmp + self.inverse_sigmoid(ref_point)
@@ -583,7 +593,7 @@ class PlainDETRTransformer(nn.Module):
             output_class = self.class_embed[lid](output)
             ## bbox pred
             tmp = self.bbox_embed[lid](output)
-            if self.reparam:
+            if self.box_reparam:
                 output_coord = box_xyxy_to_cxcywh(delta2bbox(ref_point, tmp, max_shape))
             else:
                 tmp += self.inverse_sigmoid(ref_point)
