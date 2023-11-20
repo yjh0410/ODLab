@@ -592,7 +592,7 @@ class PlainDETRTransformer(nn.Module):
         output_classes_one2many = []
         output_coords_one2many = []
         output_deltas_one2many = []
-        ## collect previous outputs
+        ## collect previous bbox outputs
         output_coords_old_one2one = []
         output_coords_old_one2many = []
 
