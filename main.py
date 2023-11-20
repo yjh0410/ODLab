@@ -67,6 +67,9 @@ def parse_args():
                         help='use sybn.')
     parser.add_argument('--find_unused_parameters', action='store_true', default=False, 
                         help='set find_unused_parameters as True.')
+    # Debug setting
+    parser.add_argument('--debug', action='store_true', default=False, 
+                        help='debug codes.')
 
     return parser.parse_args()
 
@@ -161,7 +164,8 @@ def main():
 
         # Train one epoch
         train_one_epoch(cfg, model, criterion, train_loader, optimizer, device, epoch,
-                        cfg['max_epoch'], cfg['clip_max_norm'], args.vis_tgt, wp_lr_scheduler, dataset_info['class_labels'])
+                        cfg['max_epoch'], cfg['clip_max_norm'], args.vis_tgt, wp_lr_scheduler,
+                        dataset_info['class_labels'], debug=args.debug)
         
         # LR Scheduler
         lr_scheduler.step()
@@ -189,6 +193,10 @@ def main():
                                 os.path.join(path_to_save, '{}_best.pth'.format(args.model)))
         if args.distributed:
             dist.barrier()
+
+        if args.debug:
+            print("For debug mode, we only train the model with 1 epoch.")
+            exit(0)
 
 
 if __name__ == '__main__':

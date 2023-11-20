@@ -24,6 +24,7 @@ def train_one_epoch(cfg,
                     vis_target  : bool,
                     warmup_lr_scheduler,
                     class_labels = None,
+                    debug       :bool = False
                     ):
     model.train()
     criterion.train()
@@ -86,6 +87,10 @@ def train_one_epoch(cfg,
 
         metric_logger.update(loss=loss_value, **loss_dict_reduced_scaled)
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
+
+        if debug:
+            print("For debug mode, we only train the model with 1 iteration.")
+            break
     
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
