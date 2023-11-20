@@ -370,12 +370,12 @@ class PlainDETRTransformer(nn.Module):
         return mask
 
     @torch.jit.unused
-    def set_aux_loss(self, outputs_class, outputs_coord):
+    def set_aux_loss(self, outputs_class, outputs_coord, outputs_deltas):
         # this is a workaround to make torchscript happy, as torchscript
         # doesn't support dictionary with non-homogeneous values, such
         # as a dict having both a Tensor and a list.
-        return [{'pred_logits': a, 'pred_boxes': b}
-                for a, b in zip(outputs_class[:-1], outputs_coord[:-1])]
+        return [{'pred_logits': a, 'pred_boxes': b, 'pred_deltas': c}
+                for a, b, c in zip(outputs_class[:-1], outputs_coord[:-1], outputs_deltas[:-1])]
 
     # -------------- Model forward --------------
     def forward_pre_upsample(self, src, is_train=False, src_mask=None, img_size=None):
@@ -555,10 +555,6 @@ class PlainDETRTransformer(nn.Module):
         ## Decoder layer
         output = tgt
         outputs = []
-        output_classes_one2one = []
-        output_coords_one2one = []
-        output_classes_one2many = []
-        output_coords_one2many = []
         for layer_id, decoder_layer in enumerate(self.decoder_layers):
             # Conditional query
             query_sine_embed = self.pos2posembed(ref_point)
@@ -588,6 +584,18 @@ class PlainDETRTransformer(nn.Module):
             ref_points.append(new_ref_point if self.look_forward_twice else ref_point)
 
         # ------------------------ Detection Head ------------------------
+        ## collect one2one outputs
+        output_classes_one2one = []
+        output_coords_one2one = []
+        output_deltas_one2one = []
+        ## collect one2many outputs
+        output_classes_one2many = []
+        output_coords_one2many = []
+        output_deltas_one2many = []
+        ## collect previous outputs
+        output_coords_old_one2one = []
+        output_coords_old_one2many = []
+
         for lid, (ref_point, output) in enumerate(zip(ref_points[:-1], outputs)):
             ## class pred
             output_class = self.class_embed[lid](output)
@@ -601,31 +609,41 @@ class PlainDETRTransformer(nn.Module):
 
             output_classes_one2one.append(output_class[:self.num_queries_one2one])
             output_coords_one2one.append(output_coord[:self.num_queries_one2one])
+            output_deltas_one2one.append(tmp[:self.num_queries_one2one])
+            output_coords_old_one2one.append(ref_point[:self.num_queries_one2one])
             if use_one2many:
                 output_classes_one2many.append(output_class[self.num_queries_one2one:])
                 output_coords_one2many.append(output_coord[self.num_queries_one2one:])
-
-        # [L, Nq, B, Nc] -> [L, B, Nq, Nc]
-        output_classes_one2one = torch.stack(output_classes_one2one).permute(0, 2, 1, 3)
-        output_coords_one2one  = torch.stack(output_coords_one2one).permute(0, 2, 1, 3)
-        if use_one2many:
-            output_classes_one2many = torch.stack(output_classes_one2many).permute(0, 2, 1, 3)
-            output_coords_one2many  = torch.stack(output_coords_one2many).permute(0, 2, 1, 3)
+                output_deltas_one2many.append(tmp[self.num_queries_one2one:])
+                output_coords_old_one2many.append(ref_point[self.num_queries_one2one:])
 
         # --------------------- Re-organize outputs ---------------------
         ## One2one outputs
+        # [L, Nq, B, Nc] -> [L, B, Nq, Nc]
+        output_classes_one2one = torch.stack(output_classes_one2one).permute(0, 2, 1, 3)
+        output_coords_one2one  = torch.stack(output_coords_one2one).permute(0, 2, 1, 3)
+        output_deltas_one2one  = torch.stack(output_deltas_one2one).permute(0, 2, 1, 3)
+        output_coords_old_one2one  = torch.stack(output_coords_old_one2one).permute(0, 2, 1, 3)
         outputs = {
             "pred_logits": output_classes_one2one[-1],
-            "pred_boxes":  output_coords_one2one[-1]
+            "pred_boxes":  output_coords_one2one[-1],
+            "pred_deltas": output_deltas_one2one[-1],
+            "pred_boxes_old": output_coords_old_one2one[-1]
         }
         if self.return_intermediate:
-            outputs['aux_outputs'] = self.set_aux_loss(output_classes_one2one, output_coords_one2one)
+            outputs['aux_outputs'] = self.set_aux_loss(output_classes_one2one, output_coords_one2one, output_deltas_one2one)
         ## One2many outputs
         if use_one2many:
+            output_classes_one2many = torch.stack(output_classes_one2many).permute(0, 2, 1, 3)
+            output_coords_one2many  = torch.stack(output_coords_one2many).permute(0, 2, 1, 3)
+            output_deltas_one2many  = torch.stack(output_deltas_one2many).permute(0, 2, 1, 3)
+            output_coords_old_one2many  = torch.stack(output_coords_old_one2many).permute(0, 2, 1, 3)
             outputs["pred_logits_one2many"] = output_classes_one2many[-1]
-            outputs["pred_boxes_one2many"] = output_coords_one2many[-1]
+            outputs["pred_boxes_one2many"]  = output_coords_one2many[-1]
+            outputs["pred_deltas_one2many"] = output_deltas_one2many[-1]
+            outputs["pred_boxes_old_one2many"] = output_coords_old_one2many[-1]
             if self.return_intermediate:
-                outputs['aux_outputs_one2many'] = self.set_aux_loss(output_classes_one2many, output_coords_one2many)
+                outputs['aux_outputs_one2many'] = self.set_aux_loss(output_classes_one2many, output_coords_one2many, output_deltas_one2many)
 
         return outputs
 
