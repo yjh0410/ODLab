@@ -11,3 +11,4 @@ det_results
 deployment/OpenVINO/cpp/build
 train_nebula.py
 train_nebula.sh
+cluster.json

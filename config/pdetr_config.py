@@ -31,7 +31,7 @@ pdetr_cfg = {
         'decoder_act': 'relu',
         'decoder_ctn': 'box_rpb',  # 'box_rpb' or None
         'decoder_rpb_dim': 256,
-        'box_reparam': True,
+        'box_reparam': False,
         'num_queries_one2one': 300,
         'num_queries_one2many': 1500,
         'k_one2many': 6,
@@ -85,7 +85,7 @@ pdetr_cfg = {
         ## Transforms
         'detr_style': True,
         'trans_config': None,
-        'normalize_coords': False,
+        'normalize_coords': True,
     },
     
     'pdetr_r50_1x':{
