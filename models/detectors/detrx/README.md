@@ -7,7 +7,7 @@ We are still optimizing this work, and currently only presenting interim results
 - [x] Iterative refinement
 - [x] Look forward twice
 - [x] Hybrid Matching
-- [ ] Feature pyramid network for Backbone Hierarchical
+- [ ] Feature pyramid network for hierarchical backbone
 - [ ] Box reparameterization
 
 
