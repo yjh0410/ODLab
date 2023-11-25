@@ -1,5 +1,6 @@
 # DETRX config
 
+
 detrx_cfg = {
     # ----------------- ResNet backbone -----------------
     'detrx_r18_1x':{
