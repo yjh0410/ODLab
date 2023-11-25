@@ -24,7 +24,6 @@ class Criterion(nn.Module):
         self.k_one2many = cfg['k_one2many']
         self.aux_loss = aux_loss
         self.losses = ['labels', 'boxes']
-        self.box_reparam = cfg['box_reparam']
         # ------------- Focal loss -------------
         self.alpha = cfg['focal_loss_alpha']
         self.gamma = cfg['focal_loss_gamma']
@@ -33,8 +32,7 @@ class Criterion(nn.Module):
                                         cost_bbox  = cfg['matcher_hpy']['cost_box_weight'],
                                         cost_giou  = cfg['matcher_hpy']['cost_giou_weight'],
                                         alpha      = self.alpha,
-                                        gamma      = self.gamma,
-                                        box_reparam=cfg['box_reparam'])
+                                        gamma      = self.gamma)
         # ------------- Loss weight -------------
         self.weight_dict = {'loss_cls':  cfg['loss_cls_weight'],
                             'loss_box':  cfg['loss_box_weight'],
@@ -103,13 +101,7 @@ class Criterion(nn.Module):
         target_boxes = torch.cat([t['boxes'][i] for t, (_, i) in zip(targets, indices)], dim=0).to(src_boxes.device)
         
         # compute L1 loss
-        if self.box_reparam:
-            src_deltas = outputs["pred_deltas"][idx]
-            src_boxes_old = outputs["pred_boxes_old"][idx]
-            target_deltas = bbox2delta(src_boxes_old, target_boxes)
-            loss_bbox = F.l1_loss(src_deltas, target_deltas, reduction="none")
-        else:
-            loss_bbox = F.l1_loss(src_boxes, box_xyxy_to_cxcywh(target_boxes), reduction='none')
+        loss_bbox = F.l1_loss(src_boxes, box_xyxy_to_cxcywh(target_boxes), reduction='none')
 
         # compute GIoU loss
         bbox_giou = generalized_box_iou(box_cxcywh_to_xyxy(src_boxes), target_boxes)

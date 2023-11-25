@@ -1,5 +1,3 @@
-# Plain-DETR
-
 import torch
 import torch.nn as nn
 
@@ -7,7 +5,8 @@ from ...backbone import build_backbone
 from ...transformer import build_transformer
 
 
-class PlainDETR(nn.Module):
+# Enhanced DETR
+class DETRX(nn.Module):
     def __init__(self, 
                  cfg,
                  device, 
@@ -15,7 +14,7 @@ class PlainDETR(nn.Module):
                  topk        :int   = 100,
                  trainable   :bool  = False,
                  aux_loss    :bool  = False):
-        super(PlainDETR, self).__init__()
+        super(DETRX, self).__init__()
         # ---------------------- Basic Parameters ----------------------
         self.cfg = cfg
         self.device = device
@@ -25,7 +24,6 @@ class PlainDETR(nn.Module):
         self.trainable = trainable
         self.max_stride = cfg['max_stride']
         self.out_stride = cfg['out_stride']
-        self.normalize_bbox = cfg['box_reparam']
 
         # ---------------------- Network Parameters ----------------------
         ## Backbone
@@ -67,18 +65,12 @@ class PlainDETR(nn.Module):
         feat = self.input_proj(pyramid_feats[-1])
 
         # ---------------- Transformer ----------------
-        outputs = self.transformer(src=feat, img_size=x.shape[-2:])
+        outputs = self.transformer(src=feat)
 
         # ---------------- PostProcess ----------------
         cls_preds = outputs["pred_logits"]
         box_preds = self.decode_bboxes(outputs["pred_boxes"])
         bboxes, scores, labels = self.post_process(cls_preds, box_preds)
-
-        # normalize bbox
-        if self.normalize_bbox:
-            bboxes[..., 0::2] /= x.shape[-1]
-            bboxes[..., 1::2] /= x.shape[-2]
-            bboxes = bboxes.clip(0., 1.)
 
         return bboxes, scores, labels
 
@@ -91,6 +83,6 @@ class PlainDETR(nn.Module):
             feat = self.input_proj(pyramid_feats[-1])
 
             # ---------------- Transformer ----------------
-            outputs = self.transformer(src=feat, is_train=True, src_mask=mask, img_size=x.shape[-2:])
+            outputs = self.transformer(src=feat, is_train=True, src_mask=mask)
             
             return outputs

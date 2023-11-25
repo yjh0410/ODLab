@@ -1,8 +1,8 @@
-# Plain-DETR config
+# DETRX config
 
-pdetr_cfg = {
+detrx_cfg = {
     # ----------------- ResNet backbone -----------------
-    'pdetr_r18_1x':{
+    'detrx_r18_1x':{
         # ----------------- Model-----------------
         ## Backbone
         'backbone': 'resnet18',
@@ -13,9 +13,8 @@ pdetr_cfg = {
         'max_stride': 32,
         'out_stride': 16,
         'upsample_c5': True,   # if out_stride != max_stride else False
-        'upsample_first': False,
         ## Transformer
-        'transformer': 'plain_detr_transformer',
+        'transformer': 'detrx_transformer',
         'd_model': 256,
         ### - Encoder -
         'num_encoder': 6,
@@ -29,9 +28,6 @@ pdetr_cfg = {
         'decoder_mlp_ratio': 8.0,
         'decoder_dropout': 0.0,
         'decoder_act': 'relu',
-        'decoder_ctn': 'box_rpb',  # 'box_rpb' or None
-        'decoder_rpb_dim': 256,
-        'box_reparam': False,
         'num_queries_one2one': 300,
         'num_queries_one2many': 1500,
         'k_one2many': 6,
@@ -66,7 +62,7 @@ pdetr_cfg = {
         ## LR Scheduler
         'lr_scheduler': 'step',
         'warmup': 'linear',
-        'warmup_iters': 5000,
+        'warmup_iters': 100,
         'warmup_factor': 0.00066667,
         ## Epoch
         'max_epoch': 12,      # 1x
@@ -88,7 +84,7 @@ pdetr_cfg = {
         'normalize_coords': True,
     },
     
-    'pdetr_r50_1x':{
+    'detrx_r50_1x':{
         # ----------------- Model-----------------
         ## Backbone
         'backbone': 'resnet50',
@@ -99,9 +95,8 @@ pdetr_cfg = {
         'max_stride': 32,
         'out_stride': 16,
         'upsample_c5': True,   # if out_stride != max_stride else False
-        'upsample_first': False,
         ## Transformer
-        'transformer': 'plain_detr_transformer',
+        'transformer': 'detrx_transformer',
         'd_model': 256,
         ### - Encoder -
         'num_encoder': 6,
@@ -172,7 +167,7 @@ pdetr_cfg = {
     },
     
     # ----------------- SwinTransformer backbone -----------------
-    'pdetr_swinT_1x':{
+    'detrx_swinT_1x':{
         # ----------------- Model-----------------
         ## Backbone
         'backbone': 'swin_T_224_1k',
@@ -182,9 +177,8 @@ pdetr_cfg = {
         'max_stride': 32,
         'out_stride': 16,
         'upsample_c5': True,     # if out_stride != max_stride else False
-        'upsample_first': False,
         ## Transformer
-        'transformer': 'plain_detr_transformer',
+        'transformer': 'detrx_transformer',
         'd_model': 256,
         ### - Encoder -
         'num_encoder': 6,

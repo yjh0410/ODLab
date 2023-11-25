@@ -5,14 +5,13 @@ from utils.box_ops import box_cxcywh_to_xyxy, box_xyxy_to_cxcywh, generalized_bo
 
 
 class HungarianMatcher(nn.Module):
-    def __init__(self, cost_class, cost_bbox, cost_giou, alpha=0.25, gamma=2.0, box_reparam=False):
+    def __init__(self, cost_class, cost_bbox, cost_giou, alpha=0.25, gamma=2.0):
         super().__init__()
         self.cost_class = cost_class
         self.cost_bbox = cost_bbox
         self.cost_giou = cost_giou
         self.alpha = alpha
         self.gamma = gamma
-        self.box_reparam = box_reparam
 
     @torch.no_grad()
     def forward(self, outputs, targets):
@@ -32,15 +31,9 @@ class HungarianMatcher(nn.Module):
 
         # -------------------- Regression cost --------------------
         ## L1 cost: [Nq, M]
-        if self.box_reparam:
-            out_delta = outputs["pred_deltas"].flatten(0, 1)
-            out_bbox_old = outputs["pred_boxes_old"].flatten(0, 1)
-            tgt_delta = bbox2delta(out_bbox_old, tgt_bbox)
-            cost_bbox = torch.cdist(out_delta[:, None], tgt_delta, p=1).squeeze(1)
-        else:
-            cost_bbox = torch.cdist(out_bbox, box_xyxy_to_cxcywh(tgt_bbox).to(out_bbox.device), p=1)
-            ## GIoU cost: Nq, M]
-            cost_giou = -generalized_box_iou(box_cxcywh_to_xyxy(out_bbox), tgt_bbox.to(out_bbox.device))
+        cost_bbox = torch.cdist(out_bbox, box_xyxy_to_cxcywh(tgt_bbox).to(out_bbox.device), p=1)
+        ## GIoU cost: Nq, M]
+        cost_giou = -generalized_box_iou(box_cxcywh_to_xyxy(out_bbox), tgt_bbox.to(out_bbox.device))
 
         # Final cost: [B, Nq, M]
         C = self.cost_bbox * cost_bbox + self.cost_class * cost_class + self.cost_giou * cost_giou

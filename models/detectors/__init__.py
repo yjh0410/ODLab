@@ -4,7 +4,7 @@ import torch
 from .retinanet.build import build_retinanet
 from .fcos.build import build_fcos
 from .yolof.build import build_yolof
-from .pdetr.build import build_pdetr
+from .detrx.build import build_detrx
 
 
 # build object detector
@@ -18,9 +18,9 @@ def build_model(args, cfg, device, num_classes=80, trainable=False):
     # YOLOF    
     elif 'yolof' in args.model:
         model, criterion = build_yolof(cfg, device, num_classes, trainable)
-    # PlainDETR    
-    elif 'pdetr' in args.model:
-        model, criterion = build_pdetr(cfg, device, num_classes, trainable)
+    # DETRX    
+    elif 'detrx' in args.model:
+        model, criterion = build_detrx(cfg, device, num_classes, trainable)
         
     if trainable:
         # Load pretrained weight
