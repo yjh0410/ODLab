@@ -32,6 +32,8 @@ class DETRX(nn.Module):
             nn.Conv2d(self.feat_dims[-1], cfg['d_model'], kernel_size=1),
             nn.GroupNorm(32, cfg['d_model'])
         )
+        ## FPN
+        # self.fpn = None
 
         ## Transformer
         self.transformer = build_transformer(cfg, num_classes, return_intermediate=trainable)
