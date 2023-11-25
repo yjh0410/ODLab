@@ -1,4 +1,5 @@
 # DETRX: Enhanced DETR with faster convergence speed
+We are still optimizing this work, and currently only presenting interim results. Our goal is to optimize the performance of DETR as much as possible without introducing too many annoying tricks.
 
 - Tricks:
 
@@ -10,12 +11,11 @@
 - [ ] Box reparameterization
 
 
-
 - ImageNet-1K_V1 pretrained
 
 | Model         |  scale     |  FPS  | AP<sup>val<br>0.5:0.95 | AP<sup>val<br>0.5 | Weight | Logs  |
 | ------------- | ---------- | ----- | ---------------------- |  ---------------  | ------ | ----- |
-| DETRX_R18_1x  |  800,1333  |       |         28.0           |         48.6      |  |  |
+| DETRX_R18_1x  |  800,1333  |       |         28.0           |         48.6      | [ckpt](https://github.com/yjh0410/ODLab/releases/download/detection_weights/detrx_r18_1x_coco.pth) | [log](https://github.com/yjh0410/ODLab/releases/download/detection_weights/DETRX-R18-1x.txt) |
 | DETRX_R50_1x  |  800,1333  |       |                        |                   |  |  |
 
 
