@@ -8,13 +8,13 @@
 | YOLOF_R50_C5_1x   |  800,1333  |       |          38.0          |       57.7        | [ckpt](https://github.com/yjh0410/ODLab/releases/download/detection_weights/yolof_r50_c5_1x_coco.pth) | [log](https://github.com/yjh0410/ODLab/releases/download/detection_weights/YOLOF-R50-C5-1x.txt) |
 | YOLOF_R50_DC5_1x  |  800,1333  |       |          39.5          |       58.5        | [ckpt](https://github.com/yjh0410/ODLab/releases/download/detection_weights/yolof_r50_dc5_1x_coco.pth) | [log](https://github.com/yjh0410/ODLab/releases/download/detection_weights/YOLOF-R50-DC5-1x.txt) |
 | YOLOF_R101_C5_1x  |  800,1333  |       |          40.0          |       59.6        | [ckpt](https://github.com/yjh0410/ODLab/releases/download/detection_weights/yolof_r101_c5_1x_coco.pth) | [log](https://github.com/yjh0410/ODLab/releases/download/detection_weights/YOLOF-R101-C5-1x.txt) |
-| YOLOF_R101_DC5_1x |  800,1333  |       |                        |                   |  |  |
+| YOLOF_R101_DC5_1x |  800,1333  |       |          41.1          |       60.6        | [ckpt](https://github.com/yjh0410/ODLab/releases/download/detection_weights/yolof_r101_dc5_1x_coco.pth) | [log](https://github.com/yjh0410/ODLab/releases/download/detection_weights/YOLOF-R101-DC5-1x.txt) |
 
 - ImageNet-1K_V2 pretrained
 
 | Model               |  scale     |  FPS  | AP<sup>val<br>0.5:0.95 | AP<sup>val<br>0.5 | Weight | Logs  |
 | ------------------- | ---------- | ----- | ---------------------- |  ---------------  | ------ | ----- |
-| YOLOF_R50v2_C5_1x   |  800,1333  |       |                        |                   |  |  |
+| YOLOF_R50v2_C5_1x   |  800,1333  |       |        38.6            |        58.4       | [ckpt](https://github.com/yjh0410/ODLab/releases/download/detection_weights/yolof_r50v2_c5_1x_coco.pth) | [log](https://github.com/yjh0410/ODLab/releases/download/detection_weights/YOLOF-R50v2-C5-1x.txt) |
 | YOLOF_R50v2_DC5_1x  |  800,1333  |       |                        |                   |  |  |
 | YOLOF_R101v2_C5_1x  |  800,1333  |       |                        |                   |  |  |
 | YOLOF_R101v2_DC5_1x |  800,1333  |       |                        |                   |  |  |
