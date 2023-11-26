@@ -12,8 +12,8 @@ import copy
 import torch
 import torch.nn as nn
 
-from .transformer_encoder import DETRTransformerEncoderLayer
-from .transformer_decoder import DETRTransformerDecoderLayer
+from .transformer_encoder import DETRTransformerEncoderLayer, DETRXTransformerEncoder
+from .transformer_decoder import DETRTransformerDecoderLayer, DETRXTransformerDecoder
 from ..basic.mlp import MLP
 
 

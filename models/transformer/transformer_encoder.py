@@ -9,6 +9,7 @@ Copy-paste from torch.nn.Transformer with modifications:
     * extra LN at the end of encoder is removed
     * decoder returns a stack of activations from all decoding layers
 """
+import math
 import copy
 from typing import Optional
 
@@ -23,18 +24,8 @@ from ..basic.mlp import FFN
 def _get_clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
 
-def _get_activation_fn(activation):
-    """Return an activation function given a string"""
-    if activation == "relu":
-        return F.relu
-    if activation == "gelu":
-        return F.gelu
-    if activation == "glu":
-        return F.glu
-    raise RuntimeError(F"activation should be relu/gelu, not {activation}.")
 
-
-# ---------------------------- Standard DETR-series Transformer Encoder modules ----------------------------
+# ---------------------------- Transformer Encoder layer ----------------------------
 class DETRTransformerEncoderLayer(nn.Module):
     def __init__(self,
                  d_model,
@@ -70,3 +61,51 @@ class DETRTransformerEncoderLayer(nn.Module):
 
         return src
 
+
+# ---------------------------- Transformer Encoder ----------------------------
+class DETRTransformerEncoder(nn.Module):
+    def __init__(self,
+                 d_model             :int   = 256,
+                 num_encoder         :int   = 6,
+                 encoder_num_head    :int   = 8,
+                 encoder_mlp_ratio   :float = 4.0,
+                 encoder_dropout     :float = 0.1,
+                 encoder_act_type    :str   = "relu",
+                 ):
+        super().__init__()
+        # --------------- Basic parameters ---------------
+        self.d_model = d_model
+        self.scale = 2 * math.pi
+        self.num_encoder = num_encoder
+        self.encoder_num_head = encoder_num_head
+        self.encoder_mlp_ratio = encoder_mlp_ratio
+        self.encoder_dropout = encoder_dropout
+        self.encoder_act_type = encoder_act_type
+        # --------------- Network parameters ---------------
+        ## Transformer Encoder
+        self.encoder_layers = None
+        if num_encoder > 0:
+            encoder_layer = DETRTransformerEncoderLayer(d_model, encoder_num_head, encoder_mlp_ratio, encoder_dropout, encoder_act_type)
+            self.encoder_layers = _get_clones(encoder_layer, num_encoder)
+
+        self.init_weight()
+
+    # -------------- Basic functions --------------
+    def init_weight(self):
+        # init all layer weights
+        for p in self.parameters():
+            if p.dim() > 1:
+                nn.init.xavier_uniform_(p)
+
+    # -------------- Model forward --------------
+    def forward(self, src, src_mask=None, pos_embed=None):
+        """
+            src:       (torch.Tensor) [N, B, C]
+            src_mask:  (torch.Tensor) [B, N]
+            pos_embed: (torch.Tensor) [N, B, C]
+        """
+        ## Encoder layer
+        for encoder_layer in self.encoder_layers:
+            src = encoder_layer(src, src_key_padding_mask=src_mask, pos_embed=pos_embed)
+
+        return src

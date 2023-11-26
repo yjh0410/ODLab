@@ -23,7 +23,7 @@ class BasicFPN(nn.Module):
         self.input_projs = nn.ModuleList()
         self.smooth_layers = nn.ModuleList()
         for in_dim in in_dims[::-1]:
-            self.input_projs.append(nn.Conv2d(in_dim, out_dim, kernel_size=1))
+            self.input_projs.append(nn.Conv2d(in_dim, out_dim, kernel_size=1) if in_dim != out_dim else nn.Identity())
             self.smooth_layers.append(nn.Conv2d(out_dim, out_dim, kernel_size=3, padding=1))
 
         ## P6/P7 layers
@@ -96,7 +96,7 @@ class PaFPN(nn.Module):
         self.input_projs = nn.ModuleList()
         
         for in_dim in in_dims:
-            self.input_projs.append(nn.Conv2d(in_dim, out_dim, kernel_size=1))
+            self.input_projs.append(nn.Conv2d(in_dim, out_dim, kernel_size=1) if in_dim != out_dim else nn.Identity())
 
         # P6/P7 conv layers
         if p6_feat:
