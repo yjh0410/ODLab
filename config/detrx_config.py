@@ -71,7 +71,7 @@ detrx_cfg = {
         'warmup_factor': 0.00066667,
         ## Epoch
         'max_epoch': 12,      # 1x
-        'lr_epoch': [11],     # 1x
+        'lr_epoch': [10],     # 1x
         # ----------------- Input -----------------
         ## Transforms
         'train_min_size': [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800],   # short edge of image
