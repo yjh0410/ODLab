@@ -38,6 +38,7 @@ class DETRX(nn.Module):
             ) for feat_dim in self.feat_dims
         )
         self.feat_dims = [cfg['d_model']] * len(self.feat_dims)
+        
         ## Neck
         self.transformer_encoder = build_transformer_encoder(cfg)
         self.fpn = build_neck(cfg, self.feat_dims, cfg['d_model'])
@@ -114,6 +115,16 @@ class DETRX(nn.Module):
 
         return topk_bboxes, topk_scores, topk_labels
 
+    def resize_mask(self, src, mask=None):
+        bs, c, h, w = src.shape
+        if mask is not None:
+            # [B, H, W]
+            mask = nn.functional.interpolate(mask[None].float(), size=[h, w]).bool()[0]
+        else:
+            mask = torch.zeros([bs, h, w], device=src.device, dtype=torch.bool)
+
+        return mask
+
     @torch.no_grad()
     def inference_single_image(self, x):
         # ---------------- Backbone ----------------
@@ -125,7 +136,7 @@ class DETRX(nn.Module):
         # ---------------- Encoder ----------------
         feat = pyramid_feats[-1].flatten(2).permute(2, 0, 1)
         bs, c, h, w = pyramid_feats[-1].shape
-        mask = torch.zeros([bs, h, w], device=x.device, dtype=torch.bool)
+        mask = self.resize_mask(pyramid_feats[-1])
         pos_embed = self.get_posembed(mask)
         feat = self.transformer_encoder(feat, mask.flatten(1), pos_embed.flatten(2).permute(2, 0, 1))
         pyramid_feats[-1] = feat.permute(1, 2, 0).reshape(bs, c, h, w)
@@ -137,7 +148,7 @@ class DETRX(nn.Module):
         memory_pos_embeds = []
         for feat in pyramid_feats:
             bs, c, h, w = feat.shape
-            mask = torch.zeros([bs, h, w], device=x.device, dtype=torch.bool)
+            mask = self.resize_mask(feat)
             pos_embed = self.get_posembed(mask)
 
             memory_feats.append(feat.flatten(2).permute(2, 0, 1))           # [N, B, C]
@@ -157,10 +168,11 @@ class DETRX(nn.Module):
 
         return bboxes, scores, labels
 
-    def forward(self, x, mask=None):
+    def forward(self, x, src_mask=None):
         if not self.trainable:
             return self.inference_single_image(x)
         else:
+            assert src_mask is not None, "During training, we have to use mask tensor."
             # ---------------- Backbone ----------------
             backbone_feats = self.backbone(x)
             pyramid_feats = []
@@ -170,7 +182,7 @@ class DETRX(nn.Module):
             # ---------------- Encoder ----------------
             feat = pyramid_feats[-1].flatten(2).permute(2, 0, 1)
             bs, c, h, w = pyramid_feats[-1].shape
-            mask = torch.zeros([bs, h, w], device=x.device, dtype=torch.bool)
+            mask = self.resize_mask(pyramid_feats[-1], src_mask)
             pos_embed = self.get_posembed(mask)
             feat = self.transformer_encoder(feat, mask.flatten(1), pos_embed.flatten(2).permute(2, 0, 1))
             pyramid_feats[-1] = feat.permute(1, 2, 0).reshape(bs, c, h, w)
@@ -182,7 +194,7 @@ class DETRX(nn.Module):
             memory_pos_embeds = []
             for feat in pyramid_feats:
                 bs, c, h, w = feat.shape
-                mask = torch.zeros([bs, h, w], device=x.device, dtype=torch.bool)
+                mask = self.resize_mask(feat, src_mask)
                 pos_embed = self.get_posembed(mask)
 
                 memory_feats.append(feat.flatten(2).permute(2, 0, 1))           # [N, B, C]
