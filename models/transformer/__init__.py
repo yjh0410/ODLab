@@ -2,6 +2,7 @@ from .transformer_encoder import DETRTransformerEncoder
 from .transformer_decoder import DETRTransformerDecoder, DETRXTransformerDecoder
 
 
+# ---------------------- Build Transformer Encoder ----------------------
 def build_transformer_encoder(cfg):
     if cfg['transformer_encoder'] == "detr_encoder":
         return DETRTransformerEncoder(d_model            = cfg['d_model'],
@@ -13,6 +14,7 @@ def build_transformer_encoder(cfg):
                                       )
 
 
+# ---------------------- Build Transformer Decoder ----------------------
 def build_transformer_decoder(cfg, num_classes, return_intermediate=False):
     if cfg['transformer_decoder'] == "detr_decoder":
         return DETRTransformerDecoder(d_model            = cfg['d_model'],
