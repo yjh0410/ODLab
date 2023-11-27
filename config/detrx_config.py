@@ -11,8 +11,8 @@ detrx_cfg = {
         'res5_dilation': False,
         'pretrained': True,
         'pretrained_weight': 'imagenet1k_v1',
-        'max_stride': 128,
-        'out_stride': [8, 16, 32, 64, 128],
+        'max_stride': 32,
+        'out_stride': [8, 16, 32],
         ## Transformer Encoder
         'transformer_encoder': 'detr_encoder',
         'd_model': 256,
@@ -23,8 +23,8 @@ detrx_cfg = {
         'encoder_act': 'relu',
         ## FPN Neck
         'neck': 'basic_fpn',
-        'fpn_p6_feat': True,
-        'fpn_p7_feat': True,
+        'fpn_p6_feat': False,
+        'fpn_p7_feat': False,
         'fpn_p6_from_c5': False,
         ## Transformer Decoder
         'transformer_decoder': 'detrx_decoder',
