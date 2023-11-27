@@ -16,7 +16,7 @@ detrx_cfg = {
         ## Transformer Encoder
         'transformer_encoder': 'detr_encoder',
         'd_model': 256,
-        'num_encoder': 1,
+        'num_encoder': 3,
         'encoder_num_head': 8,
         'encoder_mlp_ratio': 8.0,
         'encoder_dropout': 0.1,
