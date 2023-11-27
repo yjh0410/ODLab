@@ -17,7 +17,7 @@
 | YOLOF_R50v2_C5_1x   |  800,1333  |       |        38.6            |        58.4       | [ckpt](https://github.com/yjh0410/ODLab/releases/download/detection_weights/yolof_r50v2_c5_1x_coco.pth) | [log](https://github.com/yjh0410/ODLab/releases/download/detection_weights/YOLOF-R50v2-C5-1x.txt) |
 | YOLOF_R50v2_DC5_1x  |  800,1333  |       |        40.0            |        59.5       | [ckpt](https://github.com/yjh0410/ODLab/releases/download/detection_weights/yolof_r50v2_dc5_1x_coco.pth) | [log](https://github.com/yjh0410/ODLab/releases/download/detection_weights/YOLOF-R50v2-DC5-1x.txt) |
 | YOLOF_R101v2_C5_1x  |  800,1333  |       |        41.6            |        61.5       | [ckpt](https://github.com/yjh0410/ODLab/releases/download/detection_weights/yolof_r101v2_c5_1x_coco.pth) | [log](https://github.com/yjh0410/ODLab/releases/download/detection_weights/YOLOF-R101v2-C5-1x.txt) |
-| YOLOF_R101v2_DC5_1x |  800,1333  |       |                        |                   |  |  |
+| YOLOF_R101v2_DC5_1x |  800,1333  |       |        42.6            |        62.3       | [ckpt](https://github.com/yjh0410/ODLab/releases/download/detection_weights/yolof_r101v2_dc5_1x_coco.pth) | [log](https://github.com/yjh0410/ODLab/releases/download/detection_weights/YOLOF-R101v2-DC5-1x.txt) |
 
 ## Train YOLOF
 ### Single GPU
