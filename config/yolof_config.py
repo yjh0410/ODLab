@@ -33,7 +33,7 @@ yolof_cfg = {
         'train_topk': 1000,
         'train_conf_thresh': 0.05,
         'train_nms_thresh': 0.6,
-        'test_topk': 100,
+        'test_topk': 300,
         'test_conf_thresh': 0.1,
         'test_nms_thresh': 0.45,
         'nms_class_agnostic': True,  # We prefer to use class-agnostic NMS in the demo.
@@ -115,7 +115,7 @@ yolof_cfg = {
         'train_topk': 1000,
         'train_conf_thresh': 0.05,
         'train_nms_thresh': 0.6,
-        'test_topk': 100,
+        'test_topk': 300,
         'test_conf_thresh': 0.1,
         'test_nms_thresh': 0.45,
         'nms_class_agnostic': True,  # We prefer to use class-agnostic NMS in the demo.
@@ -197,7 +197,7 @@ yolof_cfg = {
         'train_topk': 1000,
         'train_conf_thresh': 0.05,
         'train_nms_thresh': 0.6,
-        'test_topk': 100,
+        'test_topk': 300,
         'test_conf_thresh': 0.1,
         'test_nms_thresh': 0.45,
         'nms_class_agnostic': True,  # We prefer to use class-agnostic NMS in the demo.
@@ -280,7 +280,7 @@ yolof_cfg = {
         'train_topk': 1000,
         'train_conf_thresh': 0.05,
         'train_nms_thresh': 0.6,
-        'test_topk': 100,
+        'test_topk': 300,
         'test_conf_thresh': 0.1,
         'test_nms_thresh': 0.45,
         'nms_class_agnostic': True,  # We prefer to use class-agnostic NMS in the demo.
@@ -362,7 +362,7 @@ yolof_cfg = {
         'train_topk': 1000,
         'train_conf_thresh': 0.05,
         'train_nms_thresh': 0.6,
-        'test_topk': 100,
+        'test_topk': 300,
         'test_conf_thresh': 0.1,
         'test_nms_thresh': 0.45,
         'nms_class_agnostic': True,  # We prefer to use class-agnostic NMS in the demo.
@@ -447,7 +447,7 @@ yolof_cfg = {
         'train_topk': 1000,
         'train_conf_thresh': 0.05,
         'train_nms_thresh': 0.6,
-        'test_topk': 100,
+        'test_topk': 300,
         'test_conf_thresh': 0.1,
         'test_nms_thresh': 0.45,
         'nms_class_agnostic': True,  # We prefer to use class-agnostic NMS in the demo.
@@ -529,7 +529,7 @@ yolof_cfg = {
         'train_topk': 1000,
         'train_conf_thresh': 0.05,
         'train_nms_thresh': 0.6,
-        'test_topk': 100,
+        'test_topk': 300,
         'test_conf_thresh': 0.1,
         'test_nms_thresh': 0.45,
         'nms_class_agnostic': True,  # We prefer to use class-agnostic NMS in the demo.
@@ -612,7 +612,7 @@ yolof_cfg = {
         'train_topk': 1000,
         'train_conf_thresh': 0.05,
         'train_nms_thresh': 0.6,
-        'test_topk': 100,
+        'test_topk': 300,
         'test_conf_thresh': 0.1,
         'test_nms_thresh': 0.45,
         'nms_class_agnostic': True,  # We prefer to use class-agnostic NMS in the demo.
@@ -694,7 +694,7 @@ yolof_cfg = {
         'train_topk': 1000,
         'train_conf_thresh': 0.05,
         'train_nms_thresh': 0.6,
-        'test_topk': 100,
+        'test_topk': 300,
         'test_conf_thresh': 0.1,
         'test_nms_thresh': 0.45,
         'nms_class_agnostic': True,  # We prefer to use class-agnostic NMS in the demo.

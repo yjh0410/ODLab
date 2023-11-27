@@ -166,7 +166,9 @@ if __name__ == '__main__':
     if args.resave:
         print('Resave: {}'.format(args.model.upper()))
         checkpoint = torch.load(args.weight, map_location='cpu')
-        checkpoint_path = 'weights/{}/{}/{}_pure.pth'.format(args.dataset, args.model, args.model)
+        output_dir = 'weights/{}/{}/'.format(args.dataset, args.model)
+        os.makedirs(output_dir, exist_ok=True)
+        checkpoint_path = os.path.join(output_dir, "{}_pure.pth".format(args.model))
         torch.save({'model': model.state_dict(),
                     'mAP': checkpoint.pop("mAP"),
                     'epoch': checkpoint.pop("epoch")}, 
