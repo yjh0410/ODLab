@@ -4,7 +4,7 @@ DATA_ROOT="/data/datasets/COCO/"
 # DATA_ROOT="/Users/liuhaoran/Desktop/python_work/object-detection/dataset/COCO/"
 
 # MODEL setting
-MODEL="pdetr_r18_1x"
+MODEL="fcos_r101_1x"
 if [[ $MODEL == *"yolof"* ]]; then
     # Epoch setting
     BATCH_SIZE=64
