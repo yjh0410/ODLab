@@ -24,7 +24,7 @@ elif [[ $MODEL == *"pdetr"* ]]; then
 fi
 
 # -------------------------- Train Pipeline --------------------------
-WORLD_SIZE=1
+WORLD_SIZE=8
 MASTER_PORT=1663
 if [ $WORLD_SIZE == 1 ]; then
     python main.py \
