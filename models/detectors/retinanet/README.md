@@ -1,5 +1,10 @@
 # RetinaNet
 
+Our `RetinaNet-R50-1x` baseline on COCO-val:
+```Shell
+
+```
+
 - ImageNet-1K_V1 pretrained
 
 | Model                |  scale     |  FPS  | AP<sup>val<br>0.5:0.95 | AP<sup>val<br>0.5 | Weight | Logs  |
