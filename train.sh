@@ -17,7 +17,7 @@ elif [[ $MODEL == *"retinanet"* ]]; then
     # Epoch setting
     BATCH_SIZE=16
     EVAL_EPOCH=2
-elif [[ $MODEL == *"pdetr"* ]]; then
+elif [[ $MODEL == *"detrx"* ]]; then
     # Epoch setting
     BATCH_SIZE=16
     EVAL_EPOCH=2
