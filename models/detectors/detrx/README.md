@@ -7,7 +7,7 @@ We are still optimizing this work, and currently only presenting interim results
 - [x] Iterative refinement
 - [x] Look forward twice
 - [x] Hybrid Matching
-- [ ] Feature pyramid network for hierarchical backbone
+- [x] Feature pyramid network for hierarchical backbone
 - [ ] Box reparameterization
 
 
@@ -15,7 +15,7 @@ We are still optimizing this work, and currently only presenting interim results
 
 | Model         |  scale     |  FPS  | AP<sup>val<br>0.5:0.95 | AP<sup>val<br>0.5 | Weight | Logs  |
 | ------------- | ---------- | ----- | ---------------------- |  ---------------  | ------ | ----- |
-| DETRX_R18_1x  |  800,1333  |       |         28.0           |         48.6      | [ckpt](https://github.com/yjh0410/ODLab/releases/download/detection_weights/detrx_r18_1x_coco.pth) | [log](https://github.com/yjh0410/ODLab/releases/download/detection_weights/DETRX-R18-1x.txt) |
+| DETRX_R18_1x  |  800,1333  |       |         30.0           |         50.2      |  |  |
 | DETRX_R50_1x  |  800,1333  |       |                        |                   |  |  |
 
 
