@@ -1,5 +1,5 @@
 from .dilated_encoder import DilatedEncoder
-from .fpn import BasicFPN, PaFPN
+from .fpn import BasicFPN, PaFPN, DETRXPaFPN
 
 
 # build neck
@@ -28,5 +28,14 @@ def build_neck(cfg, in_dim, out_dim):
                       p6_feat = cfg['fpn_p6_feat'],
                       p7_feat = cfg['fpn_p7_feat'],
                       )
+    elif cfg['neck'] == 'detrx_pafpn':
+        model = DETRXPaFPN(in_dims = in_dim,
+                           out_dim = out_dim,
+                           depth   = cfg['depth'],
+                           p6_feat = cfg['fpn_p6_feat'],
+                           p7_feat = cfg['fpn_p7_feat'],
+                           from_p5 = False,
+                           depthwise = cfg['fpn_depthwise']
+                           )
         
     return model

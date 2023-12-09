@@ -8,6 +8,7 @@ We are still optimizing this work, and currently only presenting interim results
 - [x] Look forward twice
 - [x] Hybrid Matching
 - [x] Feature pyramid network for hierarchical backbone
+- [ ] Real-time design
 - [ ] Box reparameterization
 
 
