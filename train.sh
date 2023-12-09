@@ -4,7 +4,7 @@ DATA_ROOT="/data/datasets/COCO/"
 # DATA_ROOT="/Users/liuhaoran/Desktop/python_work/object-detection/dataset/COCO/"
 
 # MODEL setting
-MODEL="fcos_r101_1x"
+MODEL="fcos_r18_3x"
 if [[ $MODEL == *"yolof"* ]]; then
     # Epoch setting
     BATCH_SIZE=64
@@ -24,7 +24,7 @@ elif [[ $MODEL == *"detrx"* ]]; then
 fi
 
 # -------------------------- Train Pipeline --------------------------
-WORLD_SIZE=8
+WORLD_SIZE=4
 MASTER_PORT=1663
 if [ $WORLD_SIZE == 1 ]; then
     python main.py \
