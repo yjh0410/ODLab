@@ -181,16 +181,16 @@ class ConvModule(nn.Module):
         if not depthwise:
             self.convs = nn.Sequential(
                 nn.Conv2d(c1, c2, kernel_size=k, padding=p, stride=s, bias=False),
-                nn.BatchNorm2d(c2),
+                nn.GroupNorm(32, c2),
                 nn.ReLU(inplace=True)
             )
         else:
             self.convs = nn.Sequential(
                 nn.Conv2d(c1, c1, kernel_size=k, padding=p, stride=s, groups=c1, bias=False),
-                nn.BatchNorm2d(c1),
+                nn.GroupNorm(32, c1),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(c1, c2, kernel_size=1, padding=0, stride=1, bias=False),
-                nn.BatchNorm2d(c2),
+                nn.GroupNorm(32, c2),
                 nn.ReLU(inplace=True),
             )            
 
