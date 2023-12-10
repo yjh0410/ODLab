@@ -23,7 +23,7 @@ Our `FCOS-R50-1x` baseline on COCO-val:
 | FCOS_R18_1x       |  800,1333  |       |          34.1          |        52.2       | [ckpt](https://github.com/yjh0410/ODLab/releases/download/detection_weights/fcos_r18_1x_coco.pth) | [Logs](https://github.com/yjh0410/ODLab/releases/download/detection_weights/FCOS-R18-1x.txt) |
 | FCOS_R50_1x       |  800,1333  |       |          39.1          |        57.9       | [ckpt](https://github.com/yjh0410/ODLab/releases/download/detection_weights/fcos_r50_1x_coco.pth) | [Logs](https://github.com/yjh0410/ODLab/releases/download/detection_weights/FCOS-R50-1x.txt) |
 | FCOS_R101_1x      |  800,1333  |       |          41.4          |        60.2       | [ckpt](https://github.com/yjh0410/ODLab/releases/download/detection_weights/fcos_r101_1x_coco.pth) | [Logs](https://github.com/yjh0410/ODLab/releases/download/detection_weights/FCOS-R101-1x.txt) |
-| FCOS_R18_3x       |  800,1333  |       |                        |                   |  |  |
+| FCOS_R18_3x       |  800,1333  |       |          38.0          |        56.0       | [ckpt](https://github.com/yjh0410/ODLab/releases/download/detection_weights/fcos_r18_3x_coco.pth) | [Logs](https://github.com/yjh0410/ODLab/releases/download/detection_weights/FCOS-R18-3x.txt) |
 | FCOS_R50_3x       |  800,1333  |       |                        |                   |        |  |
 | FCOS_R101_3x      |  800,1333  |       |                        |                   |        |  |
 | FCOS_RT_R18_3x    |  512,736   |       |                        |                   |        |  |
