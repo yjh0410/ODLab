@@ -1,5 +1,5 @@
 from .dilated_encoder import DilatedEncoder
-from .fpn import BasicFPN, PaFPN, DETRXPaFPN
+from .fpn import BasicFPN, FcosRTPaFPN, DETRXPaFPN
 
 
 # build neck
@@ -22,12 +22,14 @@ def build_neck(cfg, in_dim, out_dim):
                          p7_feat = cfg['fpn_p7_feat'],
                          from_c5 = cfg['fpn_p6_from_c5'], 
                          )
-    elif cfg['neck'] == 'pafpn':
-        model = PaFPN(in_dims = in_dim,
-                      out_dim = out_dim,
-                      p6_feat = cfg['fpn_p6_feat'],
-                      p7_feat = cfg['fpn_p7_feat'],
-                      )
+    elif cfg['neck'] == 'fcos_rt_pafpn':
+        model = FcosRTPaFPN(cfg     = cfg,
+                            in_dims = in_dim,
+                            out_dim = out_dim,
+                            depth   = cfg['depth'],
+                            use_spp = cfg['use_spp'],
+                            depthwise = cfg['fpn_depthwise']
+                            )
     elif cfg['neck'] == 'detrx_pafpn':
         model = DETRXPaFPN(in_dims = in_dim,
                            out_dim = out_dim,
@@ -37,5 +39,7 @@ def build_neck(cfg, in_dim, out_dim):
                            from_p5 = False,
                            depthwise = cfg['fpn_depthwise']
                            )
+    else:
+        raise NotImplementedError
         
     return model

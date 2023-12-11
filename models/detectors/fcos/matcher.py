@@ -222,3 +222,9 @@ class FcosMatcher(object):
 
         # [B, M], [B, M, 4], [B, M]
         return torch.stack(gt_classes), torch.stack(gt_anchors_deltas), torch.stack(gt_centerness)
+
+
+class AlignedSimOtaMatcher(object):
+    def __init__(self) -> None:
+        pass
+    

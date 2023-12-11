@@ -78,7 +78,7 @@ class Criterion(nn.Module):
 
         return loss_box.sum() / num_boxes
 
-    def forward(self, outputs, targets):
+    def fcos_loss(self, outputs, targets):
         """
             outputs['pred_cls']: (Tensor) [B, M, C]
             outputs['pred_reg']: (Tensor) [B, M, 4]
@@ -139,6 +139,26 @@ class Criterion(nn.Module):
 
         return loss_dict
     
+    def ota_loss(self, outputs, targets):
+        return
+    
+    def forward(self, outputs, targets):
+        """
+            outputs['pred_cls']: (Tensor) [B, M, C]
+            outputs['pred_reg']: (Tensor) [B, M, 4]
+            outputs['pred_ctn']: (Tensor) [B, M, 1]
+            outputs['strides']: (List) [8, 16, 32, ...] stride of the model output
+            targets: (List) [dict{'boxes': [...], 
+                                 'labels': [...], 
+                                 'orig_size': ...}, ...]
+        """
+        if self.cfg['matcher'] == "fcos_matcher":
+            return self.fcos_loss(outputs, targets)
+        elif self.cfg['matcher'] == "aligned_simota":
+            return self.ota_loss(outputs, targets)
+        else:
+            raise NotImplementedError
+            
 
 # build criterion
 def build_criterion(cfg, device, num_classes=80):
