@@ -1,7 +1,7 @@
 import torch.nn as nn
 from utils import weight_init
 
-from ..basic.conv import Conv
+from ..basic.conv import ConvModule
 
 
 # BottleNeck
@@ -15,9 +15,9 @@ class Bottleneck(nn.Module):
         inter_dim = round(in_dim * expand_ratio)
         # ------------------ Network parameters -------------------
         self.branch = nn.Sequential(
-            Conv(in_dim, inter_dim, k=1, act_type=act_type, norm_type=norm_type),
-            Conv(inter_dim, inter_dim, k=3, p=dilation, d=dilation, act_type=act_type, norm_type=norm_type),
-            Conv(inter_dim, in_dim, k=1, act_type=act_type, norm_type=norm_type)
+            ConvModule(in_dim, inter_dim, k=1, act_type=act_type, norm_type=norm_type),
+            ConvModule(inter_dim, inter_dim, k=3, p=dilation, d=dilation, act_type=act_type, norm_type=norm_type),
+            ConvModule(inter_dim, in_dim, k=1, act_type=act_type, norm_type=norm_type)
         )
 
     def forward(self, x):
@@ -35,8 +35,8 @@ class DilatedEncoder(nn.Module):
         # ------------------ Network parameters -------------------
         ## proj layer
         self.projector = nn.Sequential(
-            Conv(in_dim, out_dim, k=1, act_type=None, norm_type=norm_type),
-            Conv(out_dim, out_dim, k=3, p=1, act_type=None, norm_type=norm_type)
+            ConvModule(in_dim, out_dim, k=1, act_type=None, norm_type=norm_type),
+            ConvModule(out_dim, out_dim, k=3, p=1, act_type=None, norm_type=norm_type)
         )
         ## encoder layers
         self.encoders = nn.Sequential(

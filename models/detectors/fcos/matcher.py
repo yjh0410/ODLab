@@ -237,7 +237,8 @@ class SimOtaMatcher(object):
                  fpn_strides, 
                  anchors, 
                  pred_cls, 
-                 pred_box, 
+                 pred_box,
+                 pred_iou,
                  gt_labels,
                  gt_bboxes):
         # [M,]
@@ -274,12 +275,13 @@ class SimOtaMatcher(object):
 
         # ----------------------------------- classification cost -----------------------------------
         ## select the predicted scores corresponded to the gt_labels
-        pairwise_pred_scores = pred_cls.permute(1, 0)  # [M, C] -> [C, M]
-        pairwise_pred_scores = pairwise_pred_scores[gt_labels.long(), :].float()   # [N, M]
+        pred_scores = torch.sqrt(pred_cls.sigmoid() * pred_iou.sigmoid())
+        pred_scores = pred_scores.permute(1, 0)  # [M, C] -> [C, M]
+        pairwise_pred_scores = pred_scores[gt_labels.long(), :].float()   # [N, M]
         ## scale factor
-        scale_factor = (pair_wise_ious - pairwise_pred_scores.sigmoid()).abs().pow(2.0)
+        scale_factor = (pair_wise_ious - pairwise_pred_scores).abs().pow(2.0)
         ## cls cost
-        pair_wise_cls_loss = F.binary_cross_entropy_with_logits(
+        pair_wise_cls_loss = F.binary_cross_entropy(
             pairwise_pred_scores, pair_wise_ious,
             reduction="none") * scale_factor # [N, M]
             
@@ -305,8 +307,8 @@ class SimOtaMatcher(object):
         assigned_bboxes = gt_bboxes.new_full(pred_box.shape, 0)        # [M, 4]
         assigned_bboxes[fg_mask_inboxes] = gt_bboxes[matched_gt_inds]  # [M, 4]
 
-        assign_metrics = gt_bboxes.new_full(pred_cls[..., 0].shape, 0) # [M, 4]
-        assign_metrics[fg_mask_inboxes] = matched_pred_ious            # [M, 4]
+        assign_metrics = gt_bboxes.new_full(pred_cls[..., 0].shape, 0) # [M,]
+        assign_metrics[fg_mask_inboxes] = matched_pred_ious            # [M,]
 
         assigned_dict = dict(
             assigned_labels=assigned_labels,

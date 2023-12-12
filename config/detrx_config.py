@@ -24,9 +24,8 @@ detrx_cfg = {
         ## FPN Neck
         'neck': 'detrx_pafpn',
         'depth': 3,
-        'fpn_p6_feat': False,
-        'fpn_p7_feat': False,
-        'fpn_p6_from_c5': False,
+        'fpn_act': 'silu',
+        'fpn_act': 'GN',
         'fpn_depthwise': False,
         ## Transformer Decoder
         'transformer_decoder': 'detrx_decoder',

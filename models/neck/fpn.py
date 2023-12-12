@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from .spp import SPPF
+from ..basic.conv import ConvModule, CSPResBlock, ELANBlock
 from utils import weight_init
 
 
@@ -83,72 +84,13 @@ class BasicFPN(nn.Module):
 
 
 # ------------------ Path Aggregation Feature Pyramid Network for our DETRX ------------------
-class ConvGnRelu(nn.Module):
-    def __init__(self, c1, c2, k=1, p=0, s=1, depthwise=False):
-        super(ConvGnRelu, self).__init__()
-        if not depthwise:
-            self.convs = nn.Sequential(
-                nn.Conv2d(c1, c2, kernel_size=k, padding=p, stride=s, bias=False),
-                nn.GroupNorm(32, c2),
-                nn.ReLU(inplace=True)
-            )
-        else:
-            self.convs = nn.Sequential(
-                nn.Conv2d(c1, c1, kernel_size=k, padding=p, stride=s, groups=c1, bias=False),
-                nn.GroupNorm(32, c1),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(c1, c2, kernel_size=1, padding=0, stride=1, bias=False),
-                nn.GroupNorm(32, c2),
-                nn.ReLU(inplace=True),
-            )            
-
-    def forward(self, x):
-        return self.convs(x)
-
-class Bottleneck(nn.Module):
-    def __init__(self,
-                 in_dim       :int,
-                 out_dim      :int,
-                 shortcut     :bool  = False,
-                 depthwise    :bool  = False):
-        super(Bottleneck, self).__init__()
-        self.cv1 = ConvGnRelu(in_dim, out_dim, k=1)
-        self.cv2 = ConvGnRelu(out_dim, out_dim, k=3, p=1, s=1, depthwise=depthwise)
-        self.shortcut = shortcut and in_dim == out_dim
-
-    def forward(self, x):
-        h = self.cv2(self.cv1(x))
-
-        return x + h if self.shortcut else h
-
-class CSPResBlock(nn.Module):
-    def __init__(self,
-                 in_dim    :int,
-                 out_dim   :int,
-                 depth     :int  = 1,
-                 shortcut  :bool = False,
-                 depthwise :bool = False
-                 ):
-        super(CSPResBlock, self).__init__()
-        self.cv1 = ConvGnRelu(in_dim, out_dim, k=1)
-        self.cv2 = ConvGnRelu(in_dim, out_dim, k=1)
-        self.cv3 = ConvGnRelu(out_dim, out_dim, k=1)
-        self.m = nn.Sequential(*[
-            Bottleneck(out_dim, out_dim, shortcut=shortcut, depthwise=depthwise)
-                       for _ in range(depth)
-                       ])
-
-    def forward(self, x):
-        x1 = self.cv1(x)
-        x2 = self.m(self.cv2(x))
-
-        return self.cv3(x1 + x2)
-    
-class DETRXPaFPN(nn.Module):
+class DetrxPaFPN(nn.Module):
     def __init__(self, 
                  in_dims=[512, 1024, 2048], # [..., C3, C4, C5, ...]
                  out_dim   :int  = 256,
                  depth     :int  = 1,
+                 act_type  :str  = "relu",
+                 norm_type :str  = "BN",
                  depthwise :bool = False,
                  ):
         super().__init__()
@@ -163,14 +105,14 @@ class DETRXPaFPN(nn.Module):
         self.top_down_smooth_layers = nn.ModuleList()
         for i in range(self.num_fpn_feats):
             self.top_down_smooth_layers.append(
-                CSPResBlock(out_dim, out_dim, depth, shortcut=False, depthwise=depthwise))
+                CSPResBlock(out_dim, out_dim, depth, shortcut=False, act_type=act_type, norm_type=norm_type, depthwise=depthwise))
 
         # Bottom up smooth layers
         self.bottom_up_smooth_layers = nn.ModuleList()
         self.bottom_up_downsample_layers = nn.ModuleList()
         for i in range(self.num_fpn_feats):
             self.bottom_up_smooth_layers.append(
-                CSPResBlock(out_dim, out_dim, depth, shortcut=False, depthwise=depthwise))
+                CSPResBlock(out_dim, out_dim, depth, shortcut=False, act_type=act_type, norm_type=norm_type, depthwise=depthwise))
             
             if i > 0:
                 self.bottom_up_downsample_layers.append(
@@ -224,94 +166,51 @@ class DETRXPaFPN(nn.Module):
 
 
 # ------------------ Path Aggregation Feature Pyramid Network for our RT-FCOS ------------------
-class ConvBnSilu(nn.Module):
-    def __init__(self, c1, c2, k=1, p=0, s=1, depthwise=False):
-        super(ConvBnSilu, self).__init__()
-        if not depthwise:
-            self.convs = nn.Sequential(
-                nn.Conv2d(c1, c2, kernel_size=k, padding=p, stride=s, bias=False),
-                nn.BatchNorm2d(c2),
-                nn.SiLU(inplace=True)
-            )
-        else:
-            self.convs = nn.Sequential(
-                nn.Conv2d(c1, c1, kernel_size=k, padding=p, stride=s, groups=c1, bias=False),
-                nn.BatchNorm2d(c1),
-                nn.SiLU(inplace=True),
-                nn.Conv2d(c1, c2, kernel_size=1, padding=0, stride=1, bias=False),
-                nn.BatchNorm2d(c2),
-                nn.SiLU(inplace=True),
-            )            
-
-    def forward(self, x):
-        return self.convs(x)
-
-class ELANBlock(nn.Module):
-    def __init__(self,
-                 in_dim    :int,
-                 out_dim   :int,
-                 depth     :int  = 1,
-                 shortcut  :bool = False,
-                 depthwise :bool = False
-                 ):
-        super(ELANBlock, self).__init__()
-        self.inter_dim = out_dim // 2
-        self.cv1 = ConvBnSilu(in_dim, out_dim, k=1)
-        self.m = nn.Sequential(*[
-            Bottleneck(self.inter_dim, self.inter_dim, shortcut=shortcut, depthwise=depthwise)
-                       for _ in range(depth)
-                       ])
-        self.cv2 = ConvBnSilu((2 + depth) * self.inter_dim, out_dim, k=1)
-
-    def forward(self, x):
-        # Input proj
-        x1, x2 = torch.chunk(self.cv1(x), 2, dim=1)
-        out = list([x1, x2])
-
-        # Bottlenecl
-        out.extend(m(out[-1]) for m in self.m)
-
-        # Output proj
-        out = self.cv2(torch.cat(out, dim=1))
-
-        return out
-    
 class FcosRTPaFPN(nn.Module):
     def __init__(self,
-                 cfg,
                  in_dims=[512, 1024, 2048], # [C3, C4, C5]
                  out_dim   :int  = 256,
                  depth     :int  = 1,
-                 use_spp   :bool = False,
+                 spp_block = None,
+                 act_type  :str  = "relu",
+                 norm_type :str  = "BN",
                  depthwise :bool = False,
                  ):
         super().__init__()
-        self.use_spp = use_spp
         self.num_fpn_feats = len(in_dims)
-        self.spp_block = SPPF(cfg, out_dim, out_dim, expand_ratio=0.5) if use_spp else None
+        self.spp_block = spp_block
 
         # Input projection layers
         self.input_projs = nn.ModuleList()
         
         for in_dim in in_dims:
-            self.input_projs.append(ConvBnSilu(in_dim, out_dim, k=1))
+            self.input_projs.append(ConvModule(in_dim, out_dim, k=1, act_type=act_type, norm_type=norm_type))
 
         # Top down smooth layers
         self.top_down_smooth_layers = nn.ModuleList()
         for i in range(self.num_fpn_feats):
-            self.top_down_smooth_layers.append(
-                ELANBlock(out_dim*2, out_dim, depth, shortcut=False, depthwise=depthwise))
+            if i == 0:
+                self.top_down_smooth_layers.append(
+                    ELANBlock(out_dim, out_dim, depth, shortcut=False, act_type=act_type, norm_type=norm_type, depthwise=depthwise))
+            else:
+                self.top_down_smooth_layers.append(
+                    ELANBlock(out_dim*2, out_dim, depth, shortcut=False, act_type=act_type, norm_type=norm_type, depthwise=depthwise))
 
         # Bottom up smooth layers
         self.bottom_up_smooth_layers = nn.ModuleList()
         self.bottom_up_downsample_layers = nn.ModuleList()
         for i in range(self.num_fpn_feats):
-            self.bottom_up_smooth_layers.append(
-                ELANBlock(out_dim*2, out_dim, depth, shortcut=False, depthwise=depthwise))
-            
+            ## Smooth layer
+            if i == 0:
+                self.bottom_up_smooth_layers.append(
+                    ELANBlock(out_dim, out_dim, depth, shortcut=False, act_type=act_type, norm_type=norm_type, depthwise=depthwise))
+            else:
+                self.bottom_up_smooth_layers.append(
+                    ELANBlock(out_dim*2, out_dim, depth, shortcut=False, act_type=act_type, norm_type=norm_type, depthwise=depthwise))
+            ## Downsample layer
             if i > 0:
                 self.bottom_up_downsample_layers.append(
-                    ConvBnSilu(out_dim, out_dim, k=3, p=1, s=2, depthwise=depthwise))
+                    ConvModule(out_dim, out_dim, k=3, p=1, s=2, act_type=act_type, norm_type=norm_type, depthwise=depthwise))
 
         self._init_weight()
 
@@ -324,21 +223,18 @@ class FcosRTPaFPN(nn.Module):
         """
             feats: (List of Tensor) [C3, C4, C5], C_i ∈ R^(B x C_i x H_i x W_i)
         """
-        # SPP block
-        if self.use_spp:
-            feats[-1] = self.spp_block(feats[-1])
-
         # Input proj
         in_feats = []
-        for idx, (feat, layer) in enumerate(zip(feats, self.input_projs)):
-            if idx == self.num_fpn_feats - 1 and self.use_spp:
-                in_feats.append(self.spp_block(layer(feat)))
-            else:
-                in_feats.append(layer(feat))
+        for feat, layer in zip(feats, self.input_projs):
+            in_feats.append(layer(feat))
 
+        # Spp block
+        if self.spp_block is not None:
+            in_feats[-1] = self.spp_block(in_feats[-1])
+            
         # --------------------- Top down fpn ---------------------
         inter_feats = []
-        in_feats = in_feats[::-1]    # [..., C3, C4, C5, ...] -> [..., C5, C4, C3, ...]
+        in_feats = in_feats[::-1]    # [C3, C4, C5] -> [C5, C4, C3]
         top_level_feat = in_feats[0]
         prev_feat = top_level_feat
         ## inter_feats: [P3_inter, P4_inter, P5_inter]
@@ -349,7 +245,8 @@ class FcosRTPaFPN(nn.Module):
             top_down_feat = F.interpolate(prev_feat, size=feat.shape[2:], mode='nearest')
             # fusion
             prev_feat = torch.cat([feat, top_down_feat], dim=1)
-            inter_feats.insert(0, smooth(prev_feat))
+            prev_feat = smooth(prev_feat)
+            inter_feats.insert(0, prev_feat)
 
         # --------------------- Bottom up fpn ---------------------
         out_feats = []
@@ -363,7 +260,8 @@ class FcosRTPaFPN(nn.Module):
             bottom_up_feat = downsample(prev_feat)
             ## fusion
             prev_feat = torch.cat([inter_feat, bottom_up_feat], dim=1)
-            out_feats.append(smooth(prev_feat))
+            prev_feat = smooth(prev_feat)
+            out_feats.append(prev_feat)
 
         return out_feats
     

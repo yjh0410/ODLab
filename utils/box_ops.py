@@ -146,8 +146,10 @@ def box_iou(boxes1, boxes2):
     inter = wh[:, :, 0] * wh[:, :, 1]  # [N,M]
 
     union = area1[:, None] + area2 - inter
+    union[union == 0.0] = 1.0
 
     iou = inter / union
+    
     return iou, union
 
 

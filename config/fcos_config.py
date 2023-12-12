@@ -484,9 +484,12 @@ fcos_cfg = {
         ## Neck
         'neck': 'fcos_rt_pafpn',
         'use_spp': True,
+        'spp_pooling_size': 5,
         'spp_act': 'silu',
-        'spp_norm': 'BN',
+        'spp_norm': 'GN',
         'depth': 3,
+        'fpn_act': 'silu',
+        'fpn_norm': 'GN',
         'fpn_depthwise': False,
         ## Head
         'head': 'fcos_head',
@@ -494,7 +497,7 @@ fcos_cfg = {
         'num_cls_head': 4,
         'num_reg_head': 4,
         'head_act': 'silu',
-        'head_norm': 'BN',
+        'head_norm': 'GN',
         ## Post-process
         'train_topk': 1000,
         'train_conf_thresh': 0.05,
@@ -505,8 +508,8 @@ fcos_cfg = {
         'nms_class_agnostic': True,  # We prefer to use class-agnostic NMS in the demo.
         # ----------------- Label Assignment -----------------
         'matcher': 'simota',
-        'matcher_hpy':{'center_sampling_radius': 1.5,
-                       'object_sizes_of_interest': [[-1, 64], [64, 128], [128, float('inf')]]
+        'matcher_hpy':{'soft_center_radius': 2.5,
+                       'topk_candidates': 13,
                        },
         # ----------------- Loss weight -----------------
         ## Loss hyper-parameters
@@ -517,7 +520,7 @@ fcos_cfg = {
         'loss_ctn_weight': 0.5,
         # ----------------- Training -----------------
         ## Training scheduler
-        'scheduler': '3x',
+        'scheduler': '4x',
         ## Optimizer
         'optimizer': 'sgd',
         'base_lr': 0.01 / 16,
@@ -546,6 +549,8 @@ fcos_cfg = {
         'detr_style': False,
         'trans_config': [
             {'name': 'RandomHFlip'},
+            {'name': 'RandomSizeCrop', 'min_crop_size': 256, "max_crop_size": 608},
+            {'name': 'RandomShift', 'max_shift': 32},
             {'name': 'RandomResize'},
         ],
         'normalize_coords': False,

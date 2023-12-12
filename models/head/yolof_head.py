@@ -1,7 +1,8 @@
 import math
 import torch
 import torch.nn as nn
-from ..basic.conv import Conv
+
+from ..basic.conv import ConvModule
 
 
 class YOLOFHead(nn.Module):
@@ -31,32 +32,32 @@ class YOLOFHead(nn.Module):
         for i in range(self.num_cls_head):
             if i == 0:
                 cls_heads.append(
-                    Conv(in_dim, self.cls_head_dim, k=3, p=1, s=1, 
-                        act_type=self.act_type,
-                        norm_type=self.norm_type)
-                        )
+                    ConvModule(in_dim, self.cls_head_dim, k=3, p=1, s=1, 
+                               act_type=self.act_type,
+                               norm_type=self.norm_type)
+                               )
             else:
                 cls_heads.append(
-                    Conv(self.cls_head_dim, self.cls_head_dim, k=3, p=1, s=1, 
-                        act_type=self.act_type,
-                        norm_type=self.norm_type)
-                        )
+                    ConvModule(self.cls_head_dim, self.cls_head_dim, k=3, p=1, s=1, 
+                               act_type=self.act_type,
+                               norm_type=self.norm_type)
+                               )
         ## reg head
         reg_heads = []
         self.reg_head_dim = out_dim
         for i in range(self.num_reg_head):
             if i == 0:
                 reg_heads.append(
-                    Conv(in_dim, self.reg_head_dim, k=3, p=1, s=1, 
-                        act_type=self.act_type,
-                        norm_type=self.norm_type)
-                        )
+                    ConvModule(in_dim, self.reg_head_dim, k=3, p=1, s=1, 
+                               act_type=self.act_type,
+                               norm_type=self.norm_type)
+                               )
             else:
                 reg_heads.append(
-                    Conv(self.reg_head_dim, self.reg_head_dim, k=3, p=1, s=1, 
-                        act_type=self.act_type,
-                        norm_type=self.norm_type)
-                        )
+                    ConvModule(self.reg_head_dim, self.reg_head_dim, k=3, p=1, s=1, 
+                               act_type=self.act_type,
+                               norm_type=self.norm_type)
+                               )
         self.cls_heads = nn.Sequential(*cls_heads)
         self.reg_heads = nn.Sequential(*reg_heads)
 
