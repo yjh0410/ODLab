@@ -226,7 +226,7 @@ class FcosMatcher(object):
         return torch.stack(gt_classes), torch.stack(gt_anchors_deltas), torch.stack(gt_centerness)
 
 
-class AlignedSimOtaMatcher(object):
+class SimOtaMatcher(object):
     def __init__(self, num_classes, soft_center_radius=3.0, topk_candidates=13):
         self.num_classes = num_classes
         self.soft_center_radius = soft_center_radius
