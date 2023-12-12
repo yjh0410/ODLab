@@ -181,6 +181,13 @@ class Criterion(nn.Module):
         for batch_idx in range(batch_size):
             tgt_labels = targets[batch_idx]["labels"].to(device)  # [N,]
             tgt_bboxes = targets[batch_idx]["boxes"].to(device)   # [N, 4]
+            # refine target
+            tgt_boxes_wh = tgt_bboxes[..., 2:] - tgt_bboxes[..., :2]
+            min_tgt_size = torch.min(tgt_boxes_wh, dim=-1)[0]
+            keep = (min_tgt_size >= 8)
+            tgt_bboxes = tgt_bboxes[keep]
+            tgt_labels = tgt_labels[keep]
+            # label assignment
             assigned_result = self.matcher(fpn_strides=fpn_strides,
                                            anchors=anchors,
                                            pred_cls=pred_cls[batch_idx].detach(),

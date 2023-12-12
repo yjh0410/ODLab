@@ -538,21 +538,18 @@ fcos_cfg = {
         'lr_epoch': [32, 44],  # 4x
         # ----------------- Input -----------------
         ## Transforms
-        'train_min_size': [256, 288, 320, 352, 384, 416, 448, 480, 512, 544, 576, 608, 640],   # short edge of image
+        'train_min_size': [320, 352, 384, 416, 448, 480, 512, 544, 576, 608, 640],   # short edge of image
+        'train_min_size2': [400, 500, 600],
         'train_max_size': 900,
         'test_min_size': 512,
         'test_max_size': 736,
+        'random_crop_size': [320, 608],
         ## Pixel mean & std
         'pixel_mean': [0.485, 0.456, 0.406],
         'pixel_std':  [0.229, 0.224, 0.225],
         ## Transforms
-        'detr_style': False,
-        'trans_config': [
-            {'name': 'RandomHFlip'},
-            {'name': 'RandomSizeCrop', 'min_crop_size': 256, "max_crop_size": 608},
-            {'name': 'RandomShift', 'max_shift': 32},
-            {'name': 'RandomResize'},
-        ],
+        'detr_style': True,
+        'trans_config': None,
         'normalize_coords': False,
     },
 
