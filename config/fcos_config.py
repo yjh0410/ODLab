@@ -792,7 +792,7 @@ fcos_cfg = {
         'backbone_norm': 'FrozeBN',
         'res5_dilation': False,
         'pretrained': True,
-        'pretrained_weight': 'imagenet1k_v2',
+        'pretrained_weight': 'imagenet1k_v1',
         'max_stride': 32,
         'out_stride': [8, 16, 32],
         ## Neck
