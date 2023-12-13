@@ -127,6 +127,7 @@ if __name__ == "__main__":
         'pixel_mean': [0.485, 0.456, 0.406],
         'pixel_std':  [0.229, 0.224, 0.225],
         # trans config
+        'detr_style': False,
         'trans_config': [
             {'name': 'RandomResize', 'random_sizes': [400, 500, 600, 700, 800], 'max_size': 1333},
             {'name': 'RandomHFlip'},

@@ -26,9 +26,7 @@ Our `FCOS-R50-1x` baseline on COCO-val:
 | FCOS_R18_3x       |  800,1333  |       |          38.0          |        56.0       | [ckpt](https://github.com/yjh0410/ODLab/releases/download/detection_weights/fcos_r18_3x_coco.pth) | [Logs](https://github.com/yjh0410/ODLab/releases/download/detection_weights/FCOS-R18-3x.txt) |
 | FCOS_R50_3x       |  800,1333  |       |                        |                   |        |  |
 | FCOS_R101_3x      |  800,1333  |       |                        |                   |        |  |
-| FCOS_RT_R18_3x    |  512,736   |       |                        |                   |        |  |
-| FCOS_RT_R50_3x    |  512,736   |       |                        |                   |        |  |
-| FCOS_RT_R101_3x   |  512,736   |       |                        |                   |        |  |
+| FCOS_RT_R50_4x    |  512,736   |       |          43.9          |        60.2       |        |  |
 
 - ImageNet-1K_V2 pretrained
 

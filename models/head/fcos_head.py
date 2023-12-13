@@ -118,8 +118,8 @@ class FCOSHead(nn.Module):
         
     def decode_boxes(self, pred_deltas, anchors):
         """
-            anchors:  (List[Tensor]) [1, M, 2] or [M, 2]
-            pred_reg: (List[Tensor]) [B, M, 4] or [M, 4] (l, t, r, b)
+            pred_deltas: (List[Tensor]) [B, M, 4] or [M, 4] (l, t, r, b)
+            anchors:     (List[Tensor]) [1, M, 2] or [M, 2]
         """
         # x1 = x_anchor - l, x2 = x_anchor + r
         # y1 = y_anchor - t, y2 = y_anchor + b
