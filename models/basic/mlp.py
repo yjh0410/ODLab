@@ -16,8 +16,6 @@ def get_activation(act_type=None):
         return nn.Identity()
 
 class MLP(nn.Module):
-    """ Very simple multi-layer perceptron (also called FFN)"""
-
     def __init__(self, in_dim, hidden_dim, out_dim, num_layers):
         super().__init__()
         self.num_layers = num_layers
@@ -30,13 +28,13 @@ class MLP(nn.Module):
         return x
 
 class FFN(nn.Module):
-    def __init__(self, d_model=256, mlp_ratio=4.0, dropout=0., act_type='relu'):
+    def __init__(self, d_model=256, ffn_dim=1024, dropout=0., act_type='relu'):
         super().__init__()
-        self.fpn_dim = round(d_model * mlp_ratio)
-        self.linear1 = nn.Linear(d_model, self.fpn_dim)
+        self.ffn_dim = ffn_dim
+        self.linear1 = nn.Linear(d_model, self.ffn_dim)
         self.activation = get_activation(act_type)
         self.dropout2 = nn.Dropout(dropout)
-        self.linear2 = nn.Linear(self.fpn_dim, d_model)
+        self.linear2 = nn.Linear(self.ffn_dim, d_model)
         self.dropout3 = nn.Dropout(dropout)
         self.norm = nn.LayerNorm(d_model)
 

@@ -1,5 +1,5 @@
 from .dilated_encoder import DilatedEncoder
-from .fpn import BasicFPN, FcosRTPaFPN, DetrxPaFPN
+from .fpn import BasicFPN, FcosRTPaFPN, HybridEncoder
 from .spp import SPPF
 
 
@@ -36,7 +36,9 @@ def build_neck(cfg, in_dim, out_dim):
                          )
     elif cfg['neck'] == 'fcos_rt_pafpn':
         if cfg['use_spp']:
-            spp_block = SPPF(out_dim, out_dim, expand_ratio=0.5, pooling_size=cfg["spp_pooling_size"], act_type=cfg["spp_act"], norm_type=cfg["spp_norm"])
+            spp_block = SPPF(out_dim, out_dim,
+                             expand_ratio=0.5, pooling_size=cfg["spp_pooling_size"],
+                             act_type=cfg["spp_act"], norm_type=cfg["spp_norm"])
         else:
             spp_block = None
         model = FcosRTPaFPN(in_dims = in_dim,
@@ -47,15 +49,21 @@ def build_neck(cfg, in_dim, out_dim):
                             norm_type = cfg['fpn_norm'],
                             depthwise = cfg['fpn_depthwise']
                             )
-    elif cfg['neck'] == 'detrx_pafpn':
-        model = DetrxPaFPN(in_dims = in_dim,
-                           out_dim = out_dim,
-                           depth   = cfg['depth'],
-                           act_type  = cfg['fpn_act'],
-                           norm_type = cfg['fpn_norm'],
-                           depthwise = cfg['fpn_depthwise']
-                           )
+    elif cfg['fpn'] == 'hybrid_encoder':
+        model = HybridEncoder(in_dims     = in_dim,
+                              out_dim     = out_dim,
+                              num_blocks  = cfg['fpn_num_blocks'],
+                              act_type    = cfg['fpn_act'],
+                              norm_type   = cfg['fpn_norm'],
+                              depthwise   = cfg['fpn_depthwise'],
+                              num_heads   = cfg['en_num_heads'],
+                              num_layers  = cfg['en_num_layers'],
+                              ffn_dim     = cfg['en_ffn_dim'],
+                              dropout     = cfg['en_dropout'],
+                              pe_temperature = cfg['pe_temperature'],
+                              en_act_type    = cfg['en_act'],
+                              )
     else:
-        raise NotImplementedError
+        raise NotImplementedError("Unknown PaFPN: <{}>".format(cfg['fpn']))
         
     return model
