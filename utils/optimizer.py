@@ -53,7 +53,7 @@ def build_detr_optimizer(optimizer_cfg, model, resume=None):
     print('--weight_decay: {}'.format(optimizer_cfg['weight_decay']))
 
     # ------------- Divide model's parameters -------------
-    param_dicts = [], [], [], [], [], []
+    param_dicts = [], [], [], [], [], [], []
     norm_names = ["norm"] + ["norm{}".format(i) for i in range(10000)]
     for n, p in model.named_parameters():
         # Non-Backbone's learnable parameters
@@ -63,28 +63,31 @@ def build_detr_optimizer(optimizer_cfg, model, resume=None):
             else:
                 if n.split(".")[-2] in norm_names:
                     param_dicts[1].append(p)  # no weight decay for all NormLayers' weight
+                elif "cpb_mlp1" in n.split(".") or "cpb_mlp2" in n.split("."):
+                    param_dicts[2].append(p)  # no weight decay for plain-detr cpb_mlp weight
                 else:
-                    param_dicts[2].append(p)  # weight decay for all Non-NormLayers' weight
+                    param_dicts[3].append(p)  # weight decay for all Non-NormLayers' weight
         # Backbone's learnable parameters
         elif "backbone" in n and p.requires_grad:
             if "bias" == n.split(".")[-1]:
-                param_dicts[3].append(p)      # no weight decay for all layers' bias
+                param_dicts[4].append(p)      # no weight decay for all layers' bias
             else:
                 if n.split(".")[-2] in norm_names:
-                    param_dicts[4].append(p)  # no weight decay for all NormLayers' weight
+                    param_dicts[5].append(p)  # no weight decay for all NormLayers' weight
                 else:
-                    param_dicts[5].append(p)  # weight decay for all Non-NormLayers' weight
+                    param_dicts[6].append(p)  # weight decay for all Non-NormLayers' weight
 
     # Non-Backbone's learnable parameters
     optimizer = torch.optim.AdamW(param_dicts[0], lr=optimizer_cfg['base_lr'], weight_decay=0.0)
     optimizer.add_param_group({"params": param_dicts[1], "weight_decay": 0.0})
-    optimizer.add_param_group({"params": param_dicts[2], "weight_decay": optimizer_cfg['weight_decay']})
+    optimizer.add_param_group({"params": param_dicts[2], "weight_decay": 0.0})
+    optimizer.add_param_group({"params": param_dicts[3], "weight_decay": optimizer_cfg['weight_decay']})
 
     # Backbone's learnable parameters
     backbone_lr = optimizer_cfg['base_lr'] * optimizer_cfg['backbone_lr_ratio']
-    optimizer.add_param_group({"params": param_dicts[3], "lr": backbone_lr, "weight_decay": 0.0})
     optimizer.add_param_group({"params": param_dicts[4], "lr": backbone_lr, "weight_decay": 0.0})
-    optimizer.add_param_group({"params": param_dicts[5], "lr": backbone_lr, "weight_decay": optimizer_cfg['weight_decay']})
+    optimizer.add_param_group({"params": param_dicts[5], "lr": backbone_lr, "weight_decay": 0.0})
+    optimizer.add_param_group({"params": param_dicts[6], "lr": backbone_lr, "weight_decay": optimizer_cfg['weight_decay']})
 
     start_epoch = 0
     if resume is not None:
