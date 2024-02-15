@@ -18,6 +18,8 @@ model_urls = {
     'resnet34':  ResNet34_Weights,
     'resnet50':  ResNet50_Weights,
     'resnet101': ResNet101_Weights,
+}
+spark_model_urls = {
     # SparK's IN1K-MAE pretrained weights
     'spark_resnet18': None,
     'spark_resnet34': None,
@@ -167,10 +169,10 @@ class SparkResNet(nn.Module):
 
 
 # build backbone
-def build_resnet(cfg, use_pretrained=False, pretrained_weight=None, mae_pretrained=False):
+def build_resnet(cfg, pretrained_weight=None):
     # ResNet series
-    if mae_pretrained:
-        backbone = SparkResNet(cfg['backbone'], cfg['res5_dilation'], cfg['backbone_norm'], use_pretrained)
+    if pretrained_weight in spark_model_urls.keys():
+        backbone = SparkResNet(cfg['backbone'], cfg['res5_dilation'], cfg['backbone_norm'])
     else:
         backbone = ResNet(cfg['backbone'], cfg['res5_dilation'], cfg['backbone_norm'], pretrained_weight)
 

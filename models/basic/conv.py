@@ -86,20 +86,20 @@ class BasicConv(nn.Module):
                  kernel_size=1,            # kernel size 
                  padding=0,                # padding
                  stride=1,                 # padding
+                 dilation=1,               # dilation
                  act_type  :str = 'lrelu', # activation
                  norm_type :str = 'BN',    # normalization
                  depthwise :bool = False
                 ):
         super(BasicConv, self).__init__()
-        add_bias = False if norm_type else True
         self.depthwise = depthwise
         if not depthwise:
-            self.conv = get_conv2d(in_dim, out_dim, k=kernel_size, p=padding, s=stride, g=1, bias=add_bias)
+            self.conv = get_conv2d(in_dim, out_dim, k=kernel_size, p=padding, s=stride, d=dilation, g=1)
             self.norm = get_norm(norm_type, out_dim)
         else:
-            self.conv1 = get_conv2d(in_dim, in_dim, k=kernel_size, p=padding, s=stride, g=1, bias=add_bias)
+            self.conv1 = get_conv2d(in_dim, in_dim, k=kernel_size, p=padding, s=stride, d=dilation, g=in_dim)
             self.norm1 = get_norm(norm_type, in_dim)
-            self.conv2 = get_conv2d(in_dim, out_dim, k=kernel_size, p=padding, s=stride, g=1, bias=add_bias)
+            self.conv2 = get_conv2d(in_dim, out_dim, k=kernel_size, p=padding, s=stride, d=dilation, g=1)
             self.norm2 = get_norm(norm_type, out_dim)
         self.act  = get_activation(act_type)
 

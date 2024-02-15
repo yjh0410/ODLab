@@ -1,14 +1,15 @@
 # Plain DETR
 
 plain_detr_cfg = {
-    'rtpdetr_r50':{
+    'plain_detr_r50':{
         # ---------------- Model config ----------------
         ## Model scale
         # Backbone
         'backbone': 'resnet50',
         'backbone_norm': 'FrozeBN',
+        'res5_dilation': False,
         'pretrained': True,
-        'mae_pretrained': True,
+        'pretrained_weight': 'spark_resnet50',
         'max_stride': 32,
         'out_stride': 16,
         # Transformer Ecndoer
@@ -32,6 +33,13 @@ plain_detr_cfg = {
         'proposal_tgt_strides': [8, 16, 32],
         'num_queries_one2one': 300,
         'num_queries_one2many': 1500,
+        'train_topk': 300,
+        'train_conf_thresh': 0.05,
+        'train_nms_thresh': 0.6,
+        'test_topk': 300,
+        'test_conf_thresh': 0.3,
+        'test_nms_thresh': 0.45,
+        'nms_class_agnostic': True,  # We prefer to use class-agnostic NMS in the demo.
         # ---------------- Assignment config ----------------
         'matcher_hpy': {'cost_class': 2.0,
                         'cost_bbox': 1.0,

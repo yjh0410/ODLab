@@ -18,7 +18,5 @@ def build_config(args):
     # PlainDETR
     elif args.model in plain_detr_cfg.keys():
         return plain_detr_cfg[args.model]
-    
     else:
-        print('Unknown Model: {}'.format(args.model))
-        exit(0)
+        raise NotImplementedError('Unknown Model: {}'.format(args.model))

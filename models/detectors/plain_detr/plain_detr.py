@@ -134,56 +134,29 @@ class PlainDETR(nn.Module):
         return pos_embed
 
     def post_process(self, box_pred, cls_pred):
-        # xywh -> xyxy
-        box_preds_x1y1 = box_pred[..., :2] - 0.5 * box_pred[..., 2:]
-        box_preds_x2y2 = box_pred[..., :2] + 0.5 * box_pred[..., 2:]
-        box_pred = torch.cat([box_preds_x1y1, box_preds_x2y2], dim=-1)
-
         cls_pred = cls_pred[0]
         box_pred = box_pred[0]
-        if self.no_multi_labels:
-            # [M,]
-            scores, labels = torch.max(cls_pred.sigmoid(), dim=1)
+        # Top-k select
+        cls_pred = cls_pred.flatten().sigmoid_()
+        box_pred = box_pred
 
-            # Keep top k top scoring indices only.
-            num_topk = min(self.num_topk, box_pred.size(0))
+        # Keep top k top scoring indices only.
+        num_topk = min(self.num_topk, box_pred.size(0))
 
-            # Topk candidates
-            predicted_prob, topk_idxs = scores.sort(descending=True)
-            topk_scores = predicted_prob[:num_topk]
-            topk_idxs = topk_idxs[:num_topk]
+        # Topk candidates
+        predicted_prob, topk_idxs = cls_pred.sort(descending=True)
+        topk_scores = predicted_prob[:num_topk]
+        topk_idxs = topk_idxs[:self.num_topk]
 
-            # Filter out the proposals with low confidence score
-            keep_idxs = topk_scores > self.conf_thresh
-            topk_idxs = topk_idxs[keep_idxs]
+        # Filter out the proposals with low confidence score
+        keep_idxs = topk_scores > self.conf_thresh
+        topk_scores = topk_scores[keep_idxs]
+        topk_idxs = topk_idxs[keep_idxs]
+        topk_box_idxs = torch.div(topk_idxs, self.num_classes, rounding_mode='floor')
 
-            # Top-k results
-            topk_scores = topk_scores[keep_idxs]
-            topk_labels = labels[topk_idxs]
-            topk_bboxes = box_pred[topk_idxs]
-
-        else:
-            # Top-k select
-            cls_pred = cls_pred.flatten().sigmoid_()
-            box_pred = box_pred
-
-            # Keep top k top scoring indices only.
-            num_topk = min(self.num_topk, box_pred.size(0))
-
-            # Topk candidates
-            predicted_prob, topk_idxs = cls_pred.sort(descending=True)
-            topk_scores = predicted_prob[:num_topk]
-            topk_idxs = topk_idxs[:self.num_topk]
-
-            # Filter out the proposals with low confidence score
-            keep_idxs = topk_scores > self.conf_thresh
-            topk_scores = topk_scores[keep_idxs]
-            topk_idxs = topk_idxs[keep_idxs]
-            topk_box_idxs = torch.div(topk_idxs, self.num_classes, rounding_mode='floor')
-
-            ## Top-k results
-            topk_labels = topk_idxs % self.num_classes
-            topk_bboxes = box_pred[topk_box_idxs]
+        ## Top-k results
+        topk_labels = topk_idxs % self.num_classes
+        topk_bboxes = box_pred[topk_box_idxs]
 
         topk_scores = topk_scores.cpu().numpy()
         topk_labels = topk_labels.cpu().numpy()
