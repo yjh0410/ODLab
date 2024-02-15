@@ -44,4 +44,3 @@ class FFN(nn.Module):
         src = self.norm(src)
         
         return src
-    

@@ -13,11 +13,16 @@ from torchvision.models.resnet import (ResNet18_Weights,
                                        ResNet101_Weights)
 
 model_urls = {
-    # imagenet pretrain weights
+    # IN1K-Cls pretrained weights
     'resnet18':  ResNet18_Weights,
     'resnet34':  ResNet34_Weights,
     'resnet50':  ResNet50_Weights,
     'resnet101': ResNet101_Weights,
+    # SparK's IN1K-MAE pretrained weights
+    'spark_resnet18': None,
+    'spark_resnet34': None,
+    'spark_resnet50': "https://github.com/yjh0410/RT-ODLab/releases/download/backbone_weight/resnet50_in1k_spark_pretrained_timm_style.pth",
+    'spark_resnet101': None,
 }
 
 
@@ -62,7 +67,7 @@ class FrozenBatchNorm2d(torch.nn.Module):
 
 # -------------------- ResNet series --------------------
 class ResNet(nn.Module):
-    """ResNet backbone with frozen BatchNorm."""
+    """Standard ResNet backbone."""
     def __init__(self, name: str, res5_dilation: bool, norm_type: str, pretrained_weights: str = "imagenet1k_v1"):
         super().__init__()
         # Pretrained
@@ -103,11 +108,71 @@ class ResNet(nn.Module):
 
         return fmp_list
 
+class SparkResNet(nn.Module):
+    """ResNet backbone with SparK pretrained."""
+    def __init__(self, name: str, res5_dilation: bool, norm_type: str, pretrained: bool = False):
+        super().__init__()
+        # Norm layer
+        if norm_type == 'BN':
+            norm_layer = nn.BatchNorm2d
+        elif norm_type == 'FrozeBN':
+            norm_layer = FrozenBatchNorm2d
+        # Backbone
+        backbone = getattr(torchvision.models, name)(
+            replace_stride_with_dilation=[False, False, res5_dilation], norm_layer=norm_layer)
+        return_layers = {"layer2": "0", "layer3": "1", "layer4": "2"}
+        self.body = IntermediateLayerGetter(backbone, return_layers=return_layers)
+        self.feat_dims = [128, 256, 512] if name in ('resnet18', 'resnet34') else [512, 1024, 2048]
+
+        # Load pretrained
+        if pretrained:
+            self.load_pretrained(name)
+
+        # Freeze
+        for name, parameter in backbone.named_parameters():
+            if 'layer2' not in name and 'layer3' not in name and 'layer4' not in name:
+                parameter.requires_grad_(False)
+
+    def load_pretrained(self, name):
+        url = model_urls["spark_" + name]
+        if url is not None:
+            print('Loading pretrained weight from : {}'.format(url))
+            # checkpoint state dict
+            checkpoint_state_dict = torch.hub.load_state_dict_from_url(
+                url=url, map_location="cpu", check_hash=True)
+            # model state dict
+            model_state_dict = self.body.state_dict()
+            # check
+            for k in list(checkpoint_state_dict.keys()):
+                if k in model_state_dict:
+                    shape_model = tuple(model_state_dict[k].shape)
+                    shape_checkpoint = tuple(checkpoint_state_dict[k].shape)
+                    if shape_model != shape_checkpoint:
+                        checkpoint_state_dict.pop(k)
+                else:
+                    checkpoint_state_dict.pop(k)
+                    print('Unused key: ', k)
+            # load the weight
+            self.body.load_state_dict(checkpoint_state_dict)
+        else:
+            print('No backbone pretrained for {}.'.format(name))
+
+    def forward(self, x):
+        xs = self.body(x)
+        fmp_list = []
+        for name, fmp in xs.items():
+            fmp_list.append(fmp)
+
+        return fmp_list
+
 
 # build backbone
-def build_resnet(cfg, pretrained_weight=None):
+def build_resnet(cfg, use_pretrained=False, pretrained_weight=None, mae_pretrained=False):
     # ResNet series
-    backbone = ResNet(cfg['backbone'], cfg['res5_dilation'], cfg['backbone_norm'], pretrained_weight)
+    if mae_pretrained:
+        backbone = SparkResNet(cfg['backbone'], cfg['res5_dilation'], cfg['backbone_norm'], use_pretrained)
+    else:
+        backbone = ResNet(cfg['backbone'], cfg['res5_dilation'], cfg['backbone_norm'], pretrained_weight)
 
     return backbone, backbone.feat_dims
 

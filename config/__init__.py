@@ -2,6 +2,7 @@
 from .retinanet_config import retinanet_cfg
 from .fcos_config import fcos_cfg
 from .yolof_config import yolof_cfg
+from .plain_detr_config import plain_detr_cfg
 
 
 def build_config(args):
@@ -14,6 +15,9 @@ def build_config(args):
     # YOLOF
     elif args.model in yolof_cfg.keys():
         return yolof_cfg[args.model]
+    # PlainDETR
+    elif args.model in plain_detr_cfg.keys():
+        return plain_detr_cfg[args.model]
     
     else:
         print('Unknown Model: {}'.format(args.model))

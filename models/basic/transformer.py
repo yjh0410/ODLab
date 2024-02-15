@@ -1,13 +1,43 @@
 import math
 import copy
+import warnings
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.utils.checkpoint as checkpoint
 
 from ..basic.mlp import FFN
+from ..basic.conv import LayerNorm2D
+from ..basic.attn import GlobalCrossAttention
 
 
+# ----------------- Basic Ops -----------------
+def trunc_normal_(tensor, mean=0., std=1., a=-2., b=2.):
+    """Copy from timm"""
+    with torch.no_grad():
+        """Copy from timm"""
+        def norm_cdf(x):
+            return (1. + math.erf(x / math.sqrt(2.))) / 2.
+
+        if (mean < a - 2 * std) or (mean > b + 2 * std):
+            warnings.warn("mean is more than 2 std from [a, b] in nn.init.trunc_normal_. "
+                        "The distribution of values may be incorrect.",
+                        stacklevel=2)
+
+        l = norm_cdf((a - mean) / std)
+        u = norm_cdf((b - mean) / std)
+
+        tensor.uniform_(2 * l - 1, 2 * u - 1)
+        tensor.erfinv_()
+
+        tensor.mul_(std * math.sqrt(2.))
+        tensor.add_(mean)
+
+        tensor.clamp_(min=a, max=b)
+
+        return tensor
+    
 def get_clones(module, N):
     if N <= 0:
         return None
@@ -18,191 +48,28 @@ def inverse_sigmoid(x, eps=1e-5):
     x = x.clamp(min=0., max=1.)
     return torch.log(x.clamp(min=eps) / (1 - x).clamp(min=eps))
 
-
-# ----------------- Basic Transformer Ops -----------------
-def multi_scale_deformable_attn_pytorch(
-    value: torch.Tensor,
-    value_spatial_shapes: torch.Tensor,
-    sampling_locations: torch.Tensor,
-    attention_weights: torch.Tensor,
-) -> torch.Tensor:
-
-    bs, _, num_heads, embed_dims = value.shape
-    _, num_queries, num_heads, num_levels, num_points, _ = sampling_locations.shape
+def build_transformer(cfg, return_intermediate=False):
+    if cfg['transformer'] == 'plain_detr_transformer':
+        return PlainDETRTransformer(d_model             = cfg['hidden_dim'],
+                                    num_heads           = cfg['de_num_heads'],
+                                    ffn_dim             = cfg['de_ffn_dim'],
+                                    dropout             = cfg['de_dropout'],
+                                    act_type            = cfg['de_act'],
+                                    pre_norm            = cfg['de_pre_norm'],
+                                    rpe_hidden_dim      = cfg['rpe_hidden_dim'],
+                                    feature_stride      = cfg['out_stride'],
+                                    num_layers          = cfg['de_num_layers'],
+                                    return_intermediate = return_intermediate,
+                                    use_checkpoint      = cfg['use_checkpoint'],
+                                    num_queries_one2one = cfg['num_queries_one2one'],
+                                    num_queries_one2many    = cfg['num_queries_one2many'],
+                                    proposal_feature_levels = cfg['proposal_feature_levels'],
+                                    proposal_in_stride      = cfg['out_stride'],
+                                    proposal_tgt_strides    = cfg['proposal_tgt_strides'],
+                                    )
     
-    value_list = value.split([H_ * W_ for H_, W_ in value_spatial_shapes], dim=1)
-    sampling_grids = 2 * sampling_locations - 1
-    sampling_value_list = []
-    for level, (H_, W_) in enumerate(value_spatial_shapes):
-        # bs, H_*W_, num_heads, embed_dims ->
-        # bs, H_*W_, num_heads*embed_dims ->
-        # bs, num_heads*embed_dims, H_*W_ ->
-        # bs*num_heads, embed_dims, H_, W_
-        value_l_ = (
-            value_list[level].flatten(2).transpose(1, 2).reshape(bs * num_heads, embed_dims, H_, W_)
-        )
-        # bs, num_queries, num_heads, num_points, 2 ->
-        # bs, num_heads, num_queries, num_points, 2 ->
-        # bs*num_heads, num_queries, num_points, 2
-        sampling_grid_l_ = sampling_grids[:, :, :, level].transpose(1, 2).flatten(0, 1)
-        # bs*num_heads, embed_dims, num_queries, num_points
-        sampling_value_l_ = F.grid_sample(
-            value_l_, sampling_grid_l_, mode="bilinear", padding_mode="zeros", align_corners=False
-        )
-        sampling_value_list.append(sampling_value_l_)
-    # (bs, num_queries, num_heads, num_levels, num_points) ->
-    # (bs, num_heads, num_queries, num_levels, num_points) ->
-    # (bs, num_heads, 1, num_queries, num_levels*num_points)
-    attention_weights = attention_weights.transpose(1, 2).reshape(
-        bs * num_heads, 1, num_queries, num_levels * num_points
-    )
-    output = (
-        (torch.stack(sampling_value_list, dim=-2).flatten(-2) * attention_weights)
-        .sum(-1)
-        .view(bs, num_heads * embed_dims, num_queries)
-    )
-    return output.transpose(1, 2).contiguous()
 
-class MSDeformableAttention(nn.Module):
-    def __init__(self,
-                 embed_dim=256,
-                 num_heads=8,
-                 num_levels=4,
-                 num_points=4):
-        """
-        Multi-Scale Deformable Attention Module
-        """
-        super(MSDeformableAttention, self).__init__()
-        self.embed_dim = embed_dim
-        self.num_heads = num_heads
-        self.num_levels = num_levels
-        self.num_points = num_points
-        self.total_points = num_heads * num_levels * num_points
-
-        self.head_dim = embed_dim // num_heads
-        assert self.head_dim * num_heads == self.embed_dim, "embed_dim must be divisible by num_heads"
-
-        self.sampling_offsets = nn.Linear(embed_dim, self.total_points * 2)
-        self.attention_weights = nn.Linear(embed_dim, self.total_points)
-        self.value_proj = nn.Linear(embed_dim, embed_dim)
-        self.output_proj = nn.Linear(embed_dim, embed_dim)
-        
-        try:
-            # use cuda op
-            from deformable_detr_ops import ms_deformable_attn
-            self.ms_deformable_attn_core = ms_deformable_attn
-        except:
-            # use torch func
-            self.ms_deformable_attn_core = multi_scale_deformable_attn_pytorch
-
-        self._reset_parameters()
-
-    def _reset_parameters(self):
-        """
-        Default initialization for Parameters of Module.
-        """
-        nn.init.constant_(self.sampling_offsets.weight.data, 0.0)
-        thetas = torch.arange(self.num_heads, dtype=torch.float32) * (
-            2.0 * math.pi / self.num_heads
-        )
-        grid_init = torch.stack([thetas.cos(), thetas.sin()], -1)
-        grid_init = (
-            (grid_init / grid_init.abs().max(-1, keepdim=True)[0])
-            .view(self.num_heads, 1, 1, 2)
-            .repeat(1, self.num_levels, self.num_points, 1)
-        )
-        for i in range(self.num_points):
-            grid_init[:, :, i, :] *= i + 1
-        with torch.no_grad():
-            self.sampling_offsets.bias = nn.Parameter(grid_init.view(-1))
-
-        # attention weight
-        nn.init.constant_(self.attention_weights.weight, 0.0)
-        nn.init.constant_(self.attention_weights.bias, 0.0)
-
-        # proj
-        nn.init.xavier_uniform_(self.value_proj.weight)
-        nn.init.constant_(self.value_proj.bias, 0.0)
-        nn.init.xavier_uniform_(self.output_proj.weight)
-        nn.init.constant_(self.output_proj.bias, 0.0)
-
-    def forward(self,
-                query,
-                reference_points,
-                value,
-                value_spatial_shapes,
-                value_mask=None):
-        """
-        Args:
-            query (Tensor): [bs, query_length, C]
-            reference_points (Tensor): [bs, query_length, n_levels, 2], range in [0, 1], top-left (0,0),
-                bottom-right (1, 1), including padding area
-            value (Tensor): [bs, value_length, C]
-            value_spatial_shapes (Tensor): [n_levels, 2], [(H_0, W_0), (H_1, W_1), ..., (H_{L-1}, W_{L-1})]
-            value_mask (Tensor): [bs, value_length], True for non-padding elements, False for padding elements
-
-        Returns:
-            output (Tensor): [bs, Length_{query}, C]
-        """
-        bs, num_query = query.shape[:2]
-        num_value = value.shape[1]
-        assert sum([s[0] * s[1] for s in value_spatial_shapes]) == num_value
-
-        # Value projection
-        value = self.value_proj(value)
-        # fill "0" for the padding part
-        if value_mask is not None:
-            value_mask = value_mask.astype(value.dtype).unsqueeze(-1)
-            value *= value_mask
-        # [bs, all_hw, 256] -> [bs, all_hw, num_head, head_dim]
-        value = value.reshape([bs, num_value, self.num_heads, -1])
-
-        # [bs, all_hw, num_head, nun_level, num_sample_point, num_offset]
-        sampling_offsets = self.sampling_offsets(query).reshape(
-            [bs, num_query, self.num_heads, self.num_levels, self.num_points, 2])
-        # [bs, all_hw, num_head, nun_level*num_sample_point]
-        attention_weights = self.attention_weights(query).reshape(
-            [bs, num_query, self.num_heads, self.num_levels * self.num_points])
-        # [bs, all_hw, num_head, nun_level, num_sample_point]
-        attention_weights = attention_weights.softmax(-1).reshape(
-            [bs, num_query, self.num_heads, self.num_levels, self.num_points])
-
-        # [bs, num_query, num_heads, num_levels, num_points, 2]
-        if reference_points.shape[-1] == 2:
-            # reference_points   [bs, all_hw, num_sample_point, 2] -> [bs, all_hw, 1, num_sample_point, 1, 2]
-            # sampling_offsets   [bs, all_hw, nun_head, num_level, num_sample_point, 2]
-            # offset_normalizer  [4, 2] -> [1, 1, 1, num_sample_point, 1, 2]
-            # references_points + sampling_offsets
-            offset_normalizer = value_spatial_shapes.flip([1]).reshape(
-                [1, 1, 1, self.num_levels, 1, 2])
-            sampling_locations = (
-                reference_points[:, :, None, :, None, :]
-                + sampling_offsets / offset_normalizer
-            )
-        elif reference_points.shape[-1] == 4:
-            sampling_locations = (
-                reference_points[:, :, None, :, None, :2]
-                + sampling_offsets
-                / self.num_points
-                * reference_points[:, :, None, :, None, 2:]
-                * 0.5)
-        else:
-            raise ValueError(
-                "Last dim of reference_points must be 2 or 4, but get {} instead.".
-                format(reference_points.shape[-1]))
-
-        # Multi-scale Deformable attention
-        output = self.ms_deformable_attn_core(
-            value, value_spatial_shapes, sampling_locations, attention_weights)
-        
-        # Output project
-        output = self.output_proj(output)
-
-        return output
-
-
-# ----------------- Transformer modules -----------------
-## Transformer Encoder layer
+# ----------------- Transformer Encoder modules -----------------
 class TransformerEncoderLayer(nn.Module):
     def __init__(self,
                  d_model         :int   = 256,
@@ -250,7 +117,6 @@ class TransformerEncoderLayer(nn.Module):
         
         return src
 
-## Transformer Encoder
 class TransformerEncoder(nn.Module):
     def __init__(self,
                  d_model        :int   = 256,
@@ -330,130 +196,574 @@ class TransformerEncoder(nn.Module):
 
         return src
 
-## Transformer Decoder layer
-class DeformableTransformerDecoderLayer(nn.Module):
+
+# ----------------- PlainDETR's Transformer Decoder -----------------
+class GlobalDecoderLayer(nn.Module):
     def __init__(self,
-                 d_model     :int   = 256,
-                 num_heads   :int   = 8,
-                 num_levels  :int   = 3,
-                 num_points  :int   = 4,
-                 ffn_dim     :int   = 1024,
-                 dropout     :float = 0.1,
-                 act_type    :str   = "relu",
-                 ):
+                 d_model    :int   = 256,
+                 num_heads  :int   = 8,
+                 ffn_dim    :int = 1024,
+                 dropout    :float = 0.1,
+                 act_type   :str   = "relu",
+                 pre_norm   :bool  = False,
+                 rpe_hidden_dim :int = 512,
+                 feature_stride :int = 16,
+                 ) -> None:
         super().__init__()
-        # ----------- Basic parameters -----------
+        # ------------ Basic parameters ------------
         self.d_model = d_model
         self.num_heads = num_heads
-        self.num_levels = num_levels
-        self.num_points = num_points
+        self.rpe_hidden_dim = rpe_hidden_dim
         self.ffn_dim = ffn_dim
-        self.dropout = dropout
         self.act_type = act_type
-        # ---------------- Network parameters ----------------
+        self.pre_norm = pre_norm
+
+        # ------------ Network parameters ------------
         ## Multi-head Self-Attn
-        self.self_attn  = nn.MultiheadAttention(d_model, num_heads, dropout=dropout, batch_first=True)
+        self.self_attn = nn.MultiheadAttention(d_model, num_heads, dropout=dropout)
         self.dropout1 = nn.Dropout(dropout)
         self.norm1 = nn.LayerNorm(d_model)
-        ## CrossAttention
-        self.cross_attn = MSDeformableAttention(d_model, num_heads, num_levels, num_points)
+
+        ## Box-reparam Global Cross-Attn
+        self.cross_attn = GlobalCrossAttention(d_model, num_heads, rpe_hidden_dim=rpe_hidden_dim, feature_stride=feature_stride)
         self.dropout2 = nn.Dropout(dropout)
         self.norm2 = nn.LayerNorm(d_model)
-        ## FFN
-        self.ffn = FFN(d_model, ffn_dim, dropout, act_type)
 
-    def with_pos_embed(self, tensor, pos):
+        ## FFN
+        self.ffn = FFN(d_model, ffn_dim, dropout, act_type, pre_norm)
+
+    @staticmethod
+    def with_pos_embed(tensor, pos):
         return tensor if pos is None else tensor + pos
 
-    def forward(self,
-                tgt,
-                reference_points,
-                memory,
-                memory_spatial_shapes,
-                attn_mask=None,
-                memory_mask=None,
-                query_pos_embed=None):
-        # ---------------- MSHA for Object Query -----------------
-        q = k = self.with_pos_embed(tgt, query_pos_embed)
-        tgt2 = self.self_attn(q, k, value=tgt, attn_mask=attn_mask)[0]
-        tgt = tgt + self.dropout1(tgt2)
-        tgt = self.norm1(tgt)
+    def forward_pre_norm(self,
+                         tgt,
+                         query_pos,
+                         reference_points,
+                         src,
+                         src_pos_embed,
+                         src_spatial_shapes,
+                         src_padding_mask=None,
+                         self_attn_mask=None,
+                         ):
+        # ----------- Multi-head self attention -----------
+        tgt1 = self.norm1(tgt)
+        q = k = self.with_pos_embed(tgt1, query_pos)
+        tgt1 = self.self_attn(q.transpose(0, 1),        # [B, N, C] -> [N, B, C], batch_first = False
+                              k.transpose(0, 1),        # [B, N, C] -> [N, B, C], batch_first = False
+                              tgt1.transpose(0, 1),     # [B, N, C] -> [N, B, C], batch_first = False
+                              attn_mask=self_attn_mask,
+                              )[0].transpose(0, 1)      # [N, B, C] -> [B, N, C]
+        tgt = tgt + self.dropout1(tgt1)
 
-        # ---------------- CMHA for Object Query and Image-feature -----------------
-        tgt2 = self.cross_attn(self.with_pos_embed(tgt, query_pos_embed),
+        # ----------- Global corss attention -----------
+        tgt1 = self.norm2(tgt)
+        tgt1 = self.cross_attn(self.with_pos_embed(tgt1, query_pos),
                                reference_points,
-                               memory,
-                               memory_spatial_shapes,
-                               memory_mask)
-        tgt = tgt + self.dropout2(tgt2)
-        tgt = self.norm2(tgt)
+                               self.with_pos_embed(src, src_pos_embed),
+                               src,
+                               src_spatial_shapes,
+                               src_padding_mask,
+                               )
+        tgt = tgt + self.dropout2(tgt1)
 
-        # ---------------- FeedForward Network -----------------
+        # ----------- FeedForward Network -----------
         tgt = self.ffn(tgt)
 
         return tgt
 
-## Transformer Decoder
-class DeformableTransformerDecoder(nn.Module):
-    def __init__(self,
-                 d_model        :int   = 256,
-                 num_heads      :int   = 8,
-                 num_layers     :int   = 1,
-                 num_levels     :int   = 3,
-                 num_points     :int   = 4,
-                 ffn_dim        :int   = 1024,
-                 dropout        :float = 0.1,
-                 act_type       :str   = "relu",
-                 return_intermediate :bool = False,
-                 ):
-        super().__init__()
-        # ----------- Basic parameters -----------
-        self.d_model = d_model
-        self.num_heads = num_heads
-        self.num_layers = num_layers
-        self.ffn_dim = ffn_dim
-        self.dropout = dropout
-        self.act_type = act_type
-        self.pos_embed = None
-        # ----------- Network parameters -----------
-        self.decoder_layers = get_clones(
-            DeformableTransformerDecoderLayer(d_model, num_heads, num_levels, num_points, ffn_dim, dropout, act_type), num_layers)
-        self.num_layers = num_layers
-        self.return_intermediate = return_intermediate
+    def forward_post_norm(self,
+                          tgt,
+                          query_pos,
+                          reference_points,
+                          src,
+                          src_pos_embed,
+                          src_spatial_shapes,
+                          src_padding_mask=None,
+                          self_attn_mask=None,
+                          ):
+        # ----------- Multi-head self attention -----------
+        q = k = self.with_pos_embed(tgt, query_pos)
+        tgt1 = self.self_attn(q.transpose(0, 1),        # [B, N, C] -> [N, B, C], batch_first = False
+                              k.transpose(0, 1),        # [B, N, C] -> [N, B, C], batch_first = False
+                              tgt.transpose(0, 1),     # [B, N, C] -> [N, B, C], batch_first = False
+                              attn_mask=self_attn_mask,
+                              )[0].transpose(0, 1)      # [N, B, C] -> [B, N, C]
+        tgt = tgt + self.dropout1(tgt1)
+        tgt = self.norm1(tgt)
+
+        # ----------- Global corss attention -----------
+        tgt1 = self.cross_attn(self.with_pos_embed(tgt, query_pos),
+                               reference_points,
+                               self.with_pos_embed(src, src_pos_embed),
+                               src,
+                               src_spatial_shapes,
+                               src_padding_mask,
+                               )
+        tgt = tgt + self.dropout2(tgt1)
+        tgt = self.norm2(tgt)
+
+        # ----------- FeedForward Network -----------
+        tgt = self.ffn(tgt)
+
+        return tgt
 
     def forward(self,
                 tgt,
-                ref_points_unact,
-                memory,
-                memory_spatial_shapes,
-                bbox_head,
-                score_head,
-                query_pos_head,
-                attn_mask=None,
-                memory_mask=None):
+                query_pos,
+                reference_points,
+                src,
+                src_pos_embed,
+                src_spatial_shapes,
+                src_padding_mask=None,
+                self_attn_mask=None,
+                ):
+        if self.pre_norm:
+            return self.forward_pre_norm(tgt, query_pos, reference_points, src, src_pos_embed, src_spatial_shapes,
+                                         src_padding_mask, self_attn_mask)
+        else:
+            return self.forward_post_norm(tgt, query_pos, reference_points, src, src_pos_embed, src_spatial_shapes,
+                                          src_padding_mask, self_attn_mask)
+
+class GlobalDecoder(nn.Module):
+    def __init__(self,
+                 # Decoder layer params
+                 d_model    :int   = 256,
+                 num_heads  :int   = 8,
+                 ffn_dim    :int = 1024,
+                 dropout    :float = 0.1,
+                 act_type   :str   = "relu",
+                 pre_norm   :bool  = False,
+                 rpe_hidden_dim :int = 512,
+                 feature_stride :int = 16,
+                 num_layers     :int = 6,
+                 # Decoder params
+                 return_intermediate :bool = False,
+                 use_checkpoint      :bool = False,
+                 ):
+        super().__init__()
+        # ------------ Basic parameters ------------
+        self.d_model = d_model
+        self.num_heads = num_heads
+        self.rpe_hidden_dim = rpe_hidden_dim
+        self.ffn_dim = ffn_dim
+        self.act_type = act_type
+        self.num_layers = num_layers
+        self.return_intermediate = return_intermediate
+        self.use_checkpoint = use_checkpoint
+
+        # ------------ Network parameters ------------
+        decoder_layer = GlobalDecoderLayer(
+            d_model, num_heads, ffn_dim, dropout, act_type, pre_norm, rpe_hidden_dim, feature_stride,)
+        self.layers = get_clones(decoder_layer, num_layers)
+        self.bbox_embed = None
+        self.class_embed = None
+
+        if pre_norm:
+            self.final_layer_norm = nn.LayerNorm(d_model)
+        else:
+            self.final_layer_norm = None
+
+    def _reset_parameters(self):            
+        # stolen from Swin Transformer
+        def _init_weights(m):
+            if isinstance(m, nn.Linear):
+                trunc_normal_(m.weight, std=0.02)
+                if isinstance(m, nn.Linear) and m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.LayerNorm):
+                nn.init.constant_(m.bias, 0)
+                nn.init.constant_(m.weight, 1.0)
+
+        self.apply(_init_weights)
+
+    def inverse_sigmoid(self, x, eps=1e-5):
+        x = x.clamp(min=0, max=1)
+        x1 = x.clamp(min=eps)
+        x2 = (1 - x).clamp(min=eps)
+
+        return torch.log(x1 / x2)
+
+    def box_xyxy_to_cxcywh(self, x):
+        x0, y0, x1, y1 = x.unbind(-1)
+        b = [(x0 + x1) / 2, (y0 + y1) / 2, (x1 - x0), (y1 - y0)]
+        
+        return torch.stack(b, dim=-1)
+
+    def delta2bbox(self, proposals,
+                   deltas,
+                   max_shape=None,
+                   wh_ratio_clip=16 / 1000,
+                   clip_border=True,
+                   add_ctr_clamp=False,
+                   ctr_clamp=32):
+
+        dxy = deltas[..., :2]
+        dwh = deltas[..., 2:]
+
+        # Compute width/height of each roi
+        pxy = proposals[..., :2]
+        pwh = proposals[..., 2:]
+
+        dxy_wh = pwh * dxy
+        wh_ratio_clip = torch.as_tensor(wh_ratio_clip)
+        max_ratio = torch.abs(torch.log(wh_ratio_clip)).item()
+        
+        if add_ctr_clamp:
+            dxy_wh = torch.clamp(dxy_wh, max=ctr_clamp, min=-ctr_clamp)
+            dwh = torch.clamp(dwh, max=max_ratio)
+        else:
+            dwh = dwh.clamp(min=-max_ratio, max=max_ratio)
+
+        gxy = pxy + dxy_wh
+        gwh = pwh * dwh.exp()
+        x1y1 = gxy - (gwh * 0.5)
+        x2y2 = gxy + (gwh * 0.5)
+        bboxes = torch.cat([x1y1, x2y2], dim=-1)
+        if clip_border and max_shape is not None:
+            bboxes[..., 0::2].clamp_(min=0).clamp_(max=max_shape[1])
+            bboxes[..., 1::2].clamp_(min=0).clamp_(max=max_shape[0])
+
+        return bboxes
+
+    def forward(self,
+                tgt,
+                reference_points,
+                src,
+                src_pos_embed,
+                src_spatial_shapes,
+                query_pos=None,
+                src_padding_mask=None,
+                self_attn_mask=None,
+                max_shape=None,
+                ):
         output = tgt
-        dec_out_bboxes = []
-        dec_out_logits = []
-        ref_points_detach = F.sigmoid(ref_points_unact)
-        for i, layer in enumerate(self.decoder_layers):
-            ref_points_input = ref_points_detach.unsqueeze(2)
-            query_pos_embed = query_pos_head(ref_points_detach)
 
-            output = layer(output, ref_points_input, memory,
-                           memory_spatial_shapes, attn_mask,
-                           memory_mask, query_pos_embed)
-
-            inter_ref_bbox = F.sigmoid(bbox_head[i](output) + inverse_sigmoid(ref_points_detach))
-
-            dec_out_logits.append(score_head[i](output))
-            if i == 0:
-                dec_out_bboxes.append(inter_ref_bbox)
+        intermediate = []
+        intermediate_reference_points = []
+        for lid, layer in enumerate(self.layers):
+            reference_points_input = reference_points[:, :, None]
+            if self.use_checkpoint:
+                output = checkpoint.checkpoint(
+                    layer,
+                    output,
+                    query_pos,
+                    reference_points_input,
+                    src,
+                    src_pos_embed,
+                    src_spatial_shapes,
+                    src_padding_mask,
+                    self_attn_mask,
+                )
             else:
-                dec_out_bboxes.append(
-                    F.sigmoid(bbox_head[i](output) + inverse_sigmoid(ref_points)))
+                output = layer(
+                    output,
+                    query_pos,
+                    reference_points_input,
+                    src,
+                    src_pos_embed,
+                    src_spatial_shapes,
+                    src_padding_mask,
+                    self_attn_mask,
+                )
 
-            ref_points = inter_ref_bbox
-            ref_points_detach = inter_ref_bbox.detach() if self.training else inter_ref_bbox
+            if self.final_layer_norm is not None:
+                output_after_norm = self.final_layer_norm(output)
+            else:
+                output_after_norm = output
 
-        return torch.stack(dec_out_bboxes), torch.stack(dec_out_logits)
+            # hack implementation for iterative bounding box refinement
+            if self.bbox_embed is not None:
+                tmp = self.bbox_embed[lid](output_after_norm)
+                new_reference_points = self.box_xyxy_to_cxcywh(
+                    self.delta2bbox(reference_points, tmp, max_shape)) 
+                reference_points = new_reference_points.detach()
 
+            if self.return_intermediate:
+                intermediate.append(output_after_norm)
+                intermediate_reference_points.append(new_reference_points)
+
+        if self.return_intermediate:
+            return torch.stack(intermediate), torch.stack(intermediate_reference_points)
+
+        return output_after_norm, reference_points
+
+
+# ----------------- PlainDETR's Transformer -----------------
+class PlainDETRTransformer(nn.Module):
+    def __init__(self,
+                 # Decoder layer params
+                 d_model        :int   = 256,
+                 num_heads      :int   = 8,
+                 ffn_dim        :int   = 1024,
+                 dropout        :float = 0.1,
+                 act_type       :str   = "relu",
+                 pre_norm       :bool  = False,
+                 rpe_hidden_dim :int   = 512,
+                 feature_stride :int   = 16,
+                 num_layers     :int   = 6,
+                 # Decoder params
+                 return_intermediate     :bool = False,
+                 use_checkpoint          :bool = False,
+                 num_queries_one2one     :int  = 300,
+                 num_queries_one2many    :int  = 1500,
+                 proposal_feature_levels :int  = 3,
+                 proposal_in_stride      :int  = 16,
+                 proposal_tgt_strides    :int  = [8, 16, 32],
+                 ):
+        super().__init__()
+        # ------------ Basic setting ------------
+        ## Model
+        self.d_model = d_model
+        self.num_heads = num_heads
+        self.rpe_hidden_dim = rpe_hidden_dim
+        self.ffn_dim = ffn_dim
+        self.act_type = act_type
+        self.num_layers = num_layers
+        self.return_intermediate = return_intermediate
+        ## Trick
+        self.use_checkpoint = use_checkpoint
+        self.num_queries_one2one = num_queries_one2one
+        self.num_queries_one2many = num_queries_one2many
+        self.proposal_feature_levels = proposal_feature_levels
+        self.proposal_tgt_strides = proposal_tgt_strides
+        self.proposal_in_stride = proposal_in_stride
+        self.proposal_min_size = 50
+
+        # --------------- Network setting ---------------
+        ## Global Decoder
+        self.decoder = GlobalDecoder(d_model, num_heads, ffn_dim, dropout, act_type, pre_norm,
+                                     rpe_hidden_dim, feature_stride, num_layers, return_intermediate,
+                                     use_checkpoint,)
+        
+        ## Two stage
+        self.enc_output = nn.Linear(d_model, d_model)
+        self.enc_output_norm = nn.LayerNorm(d_model)
+        self.pos_trans = nn.Linear(d_model * 2, d_model * 2)
+        self.pos_trans_norm = nn.LayerNorm(d_model * 2)
+
+        ## Expand layers
+        if proposal_feature_levels > 1:
+            assert len(proposal_tgt_strides) == proposal_feature_levels
+
+            self.enc_output_proj = nn.ModuleList([])
+            for stride in proposal_tgt_strides:
+                if stride == proposal_in_stride:
+                    self.enc_output_proj.append(nn.Identity())
+                elif stride > proposal_in_stride:
+                    scale = int(math.log2(stride / proposal_in_stride))
+                    layers = []
+                    for _ in range(scale - 1):
+                        layers += [
+                            nn.Conv2d(d_model, d_model, kernel_size=2, stride=2),
+                            LayerNorm2D(d_model),
+                            nn.GELU()
+                        ]
+                    layers.append(nn.Conv2d(d_model, d_model, kernel_size=2, stride=2))
+                    self.enc_output_proj.append(nn.Sequential(*layers))
+                else:
+                    scale = int(math.log2(proposal_in_stride / stride))
+                    layers = []
+                    for _ in range(scale - 1):
+                        layers += [
+                            nn.ConvTranspose2d(d_model, d_model, kernel_size=2, stride=2),
+                            LayerNorm2D(d_model),
+                            nn.GELU()
+                        ]
+                    layers.append(nn.ConvTranspose2d(d_model, d_model, kernel_size=2, stride=2))
+                    self.enc_output_proj.append(nn.Sequential(*layers))
+
+        self._reset_parameters()
+
+    def _reset_parameters(self):
+        for p in self.parameters():
+            if p.dim() > 1:
+                nn.init.xavier_uniform_(p)
+
+        if hasattr(self.decoder, '_reset_parameters'):
+            print('decoder re-init')
+            self.decoder._reset_parameters()
+
+    def get_proposal_pos_embed(self, proposals):
+        num_pos_feats = self.d_model // 2
+        temperature = 10000
+        scale = 2 * torch.pi
+
+        dim_t = torch.arange(
+            num_pos_feats, dtype=torch.float32, device=proposals.device
+        )
+        dim_t = temperature ** (2 * (dim_t // 2) / num_pos_feats)
+        # N, L, 4
+        proposals = proposals * scale
+        # N, L, 4, 128
+        pos = proposals[:, :, :, None] / dim_t
+        # N, L, 4, 64, 2
+        pos = torch.stack(
+            (pos[:, :, :, 0::2].sin(), pos[:, :, :, 1::2].cos()), dim=4
+        ).flatten(2)
+
+        return pos
+
+    def get_valid_ratio(self, mask):
+        _, H, W = mask.shape
+        valid_H = torch.sum(~mask[:, :, 0], 1)
+        valid_W = torch.sum(~mask[:, 0, :], 1)
+        valid_ratio_h = valid_H.float() / H
+        valid_ratio_w = valid_W.float() / W
+        valid_ratio = torch.stack([valid_ratio_w, valid_ratio_h], -1)
+
+        return valid_ratio
+
+    def expand_encoder_output(self, memory, memory_padding_mask, spatial_shapes):
+        assert spatial_shapes.size(0) == 1, f'Get encoder output of shape {spatial_shapes}, not sure how to expand'
+
+        bs, _, c = memory.shape
+        h, w = spatial_shapes[0]
+
+        _out_memory = memory.view(bs, h, w, c).permute(0, 3, 1, 2)
+        _out_memory_padding_mask = memory_padding_mask.view(bs, h, w)
+
+        out_memory, out_memory_padding_mask, out_spatial_shapes = [], [], []
+        for i in range(self.proposal_feature_levels):
+            mem = self.enc_output_proj[i](_out_memory)
+            mask = F.interpolate(
+                _out_memory_padding_mask[None].float(), size=mem.shape[-2:]
+            ).to(torch.bool)
+
+            out_memory.append(mem)
+            out_memory_padding_mask.append(mask.squeeze(0))
+            out_spatial_shapes.append(mem.shape[-2:])
+
+        out_memory = torch.cat([mem.flatten(2).transpose(1, 2) for mem in out_memory], dim=1)
+        out_memory_padding_mask = torch.cat([mask.flatten(1) for mask in out_memory_padding_mask], dim=1)
+        out_spatial_shapes = torch.as_tensor(out_spatial_shapes, dtype=torch.long, device=out_memory.device)
+        
+        return out_memory, out_memory_padding_mask, out_spatial_shapes
+
+    def gen_encoder_output_proposals(self, memory, memory_padding_mask, spatial_shapes):
+        if self.proposal_feature_levels > 1:
+            memory, memory_padding_mask, spatial_shapes = self.expand_encoder_output(
+                memory, memory_padding_mask, spatial_shapes
+            )
+        N_, S_, C_ = memory.shape
+        # base_scale = 4.0
+        proposals = []
+        _cur = 0
+        for lvl, (H_, W_) in enumerate(spatial_shapes):
+            stride = self.proposal_tgt_strides[lvl]
+
+            grid_y, grid_x = torch.meshgrid(
+                torch.linspace(0, H_ - 1, H_, dtype=torch.float32, device=memory.device),
+                torch.linspace(0, W_ - 1, W_, dtype=torch.float32, device=memory.device),
+            )
+            grid = torch.cat([grid_x.unsqueeze(-1), grid_y.unsqueeze(-1)], -1)
+            grid = (grid.unsqueeze(0).expand(N_, -1, -1, -1) + 0.5) * stride
+            wh = torch.ones_like(grid) * self.proposal_min_size * (2.0 ** lvl)
+            proposal = torch.cat((grid, wh), -1).view(N_, -1, 4)
+            proposals.append(proposal)
+            _cur += H_ * W_
+        output_proposals = torch.cat(proposals, 1)
+
+        H_, W_ = spatial_shapes[0]
+        stride = self.proposal_tgt_strides[0]
+        mask_flatten_ = memory_padding_mask[:, :H_*W_].view(N_, H_, W_, 1)
+        valid_H = torch.sum(~mask_flatten_[:, :, 0, 0], 1, keepdim=True) * stride
+        valid_W = torch.sum(~mask_flatten_[:, 0, :, 0], 1, keepdim=True) * stride
+        img_size = torch.cat([valid_W, valid_H, valid_W, valid_H], dim=-1)
+        img_size = img_size.unsqueeze(1) # [BS, 1, 4]
+
+        output_proposals_valid = (
+            (output_proposals > 0.01 * img_size) & (output_proposals < 0.99 * img_size)
+        ).all(-1, keepdim=True)
+        output_proposals = output_proposals.masked_fill(
+            memory_padding_mask.unsqueeze(-1).repeat(1, 1, 1),
+            max(H_, W_) * stride,
+        )
+        output_proposals = output_proposals.masked_fill(
+            ~output_proposals_valid,
+            max(H_, W_) * stride,
+        )
+
+        output_memory = memory
+        output_memory = output_memory.masked_fill(memory_padding_mask.unsqueeze(-1), float(0))
+        output_memory = output_memory.masked_fill(~output_proposals_valid, float(0))
+        output_memory = self.enc_output_norm(self.enc_output(output_memory))
+
+        max_shape = (valid_H[:, None, :], valid_W[:, None, :])
+        return output_memory, output_proposals, max_shape
+    
+    def get_reference_points(self, memory, mask_flatten, spatial_shapes):
+        output_memory, output_proposals, max_shape = self.gen_encoder_output_proposals(
+            memory, mask_flatten, spatial_shapes
+        )
+
+        # hack implementation for two-stage Deformable DETR
+        enc_outputs_class = self.decoder.class_embed[self.decoder.num_layers](output_memory)
+        enc_outputs_delta = self.decoder.bbox_embed[self.decoder.num_layers](output_memory)
+        enc_outputs_coord_unact = self.decoder.box_xyxy_to_cxcywh(self.decoder.delta2bbox(
+            output_proposals,
+            enc_outputs_delta,
+            max_shape
+        ))
+
+        topk = self.two_stage_num_proposals
+        topk_proposals = torch.topk(enc_outputs_class.max(-1)[0], topk, dim=1)[1]
+        topk_coords_unact = torch.gather(
+            enc_outputs_coord_unact, 1, topk_proposals.unsqueeze(-1).repeat(1, 1, 4)
+        )
+        topk_coords_unact = topk_coords_unact.detach()
+        reference_points = topk_coords_unact
+        
+        return (reference_points, max_shape, enc_outputs_class,
+                enc_outputs_coord_unact, enc_outputs_delta, output_proposals)
+
+    def forward(self, src, mask, pos_embed, query_embed=None, self_attn_mask=None):
+        # Prepare input for encoder
+        bs, c, h, w = src.shape
+        src_flatten = src.flatten(2).transpose(1, 2)
+        mask_flatten = mask.flatten(1)
+        pos_embed_flatten = pos_embed.flatten(2).transpose(1, 2)
+        spatial_shapes = torch.as_tensor([(h, w)], dtype=torch.long, device=src_flatten.device)
+
+        # Prepare input for decoder
+        memory = src_flatten
+        bs, _, c = memory.shape
+
+        # Two stage trick
+        if self.training:
+            self.two_stage_num_proposals = self.num_queries_one2one + self.num_queries_one2many
+        else:
+            self.two_stage_num_proposals = self.num_queries_one2one
+        (reference_points, max_shape, enc_outputs_class,
+        enc_outputs_coord_unact, enc_outputs_delta, output_proposals) \
+            = self.get_reference_points(memory, mask_flatten, spatial_shapes)
+        init_reference_out = reference_points
+        pos_trans_out = torch.zeros((bs, self.two_stage_num_proposals, 2*c), device=init_reference_out.device)
+        pos_trans_out = self.pos_trans_norm(self.pos_trans(self.get_proposal_pos_embed(reference_points)))
+
+        # Mixed selection trick
+        tgt = query_embed.unsqueeze(0).expand(bs, -1, -1)
+        query_embed, _ = torch.split(pos_trans_out, c, dim=2)
+
+        # Decoder
+        hs, inter_references = self.decoder(tgt,
+                                            reference_points,
+                                            memory,
+                                            pos_embed_flatten,
+                                            spatial_shapes,
+                                            query_embed,
+                                            mask_flatten,
+                                            self_attn_mask,
+                                            max_shape
+                                            )
+        inter_references_out = inter_references
+
+        return (hs,
+                init_reference_out,
+                inter_references_out,
+                enc_outputs_class,
+                enc_outputs_coord_unact,
+                enc_outputs_delta,
+                output_proposals,
+                max_shape
+                )
