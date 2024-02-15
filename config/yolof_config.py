@@ -83,6 +83,7 @@ yolof_cfg = {
             {'name': 'RandomResize'},
             {'name': 'RandomShift', 'max_shift': 32},
         ],
+        'box_format': 'xyxy',
         'normalize_coords': False,
     },
 
@@ -165,6 +166,7 @@ yolof_cfg = {
             {'name': 'RandomResize'},
             {'name': 'RandomShift', 'max_shift': 32},
         ],
+        'box_format': 'xyxy',
         'normalize_coords': False,
     },
 
@@ -247,6 +249,7 @@ yolof_cfg = {
             {'name': 'RandomResize'},
             {'name': 'RandomShift', 'max_shift': 32},
         ],
+        'box_format': 'xyxy',
         'normalize_coords': False,
     },
 
@@ -330,6 +333,7 @@ yolof_cfg = {
             {'name': 'RandomResize'},
             {'name': 'RandomShift', 'max_shift': 32},
         ],
+        'box_format': 'xyxy',
         'normalize_coords': False,
     },
 
@@ -412,6 +416,7 @@ yolof_cfg = {
             {'name': 'RandomResize'},
             {'name': 'RandomShift', 'max_shift': 32},
         ],
+        'box_format': 'xyxy',
         'normalize_coords': False,
     },
 
@@ -497,6 +502,7 @@ yolof_cfg = {
             {'name': 'RandomResize'},
             {'name': 'RandomShift', 'max_shift': 32},
         ],
+        'box_format': 'xyxy',
         'normalize_coords': False,
     },
 
@@ -579,6 +585,7 @@ yolof_cfg = {
             {'name': 'RandomResize'},
             {'name': 'RandomShift', 'max_shift': 32},
         ],
+        'box_format': 'xyxy',
         'normalize_coords': False,
     },
 
@@ -662,6 +669,7 @@ yolof_cfg = {
             {'name': 'RandomResize'},
             {'name': 'RandomShift', 'max_shift': 32},
         ],
+        'box_format': 'xyxy',
         'normalize_coords': False,
     },
 
@@ -744,6 +752,7 @@ yolof_cfg = {
             {'name': 'RandomResize'},
             {'name': 'RandomShift', 'max_shift': 32},
         ],
+        'box_format': 'xyxy',
         'normalize_coords': False,
     },
 

@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 # -------------------------- For Detection Task --------------------------
 ## visualize the input data during the training stage
-def vis_data(images, targets, masks=None, class_labels=None, normalized_coord=False):
+def vis_data(images, targets, masks=None, class_labels=None, normalized_coord=False, box_format='xyxy'):
     """
         images: (tensor) [B, 3, H, W]
         masks: (Tensor) [B, H, W]
@@ -33,17 +33,20 @@ def vis_data(images, targets, masks=None, class_labels=None, normalized_coord=Fa
         image = image[:, :, (2, 1, 0)].astype(np.uint8)
         image = image.copy()
 
-        tgt_boxes = target['boxes']
-        tgt_labels = target['labels']
+        tgt_boxes = target['boxes'].float()
+        tgt_labels = target['labels'].long()
         for box, label in zip(tgt_boxes, tgt_labels):
             box_ = box.clone()
             if normalized_coord:
                 box_[..., [0, 2]] *= img_w
                 box_[..., [1, 3]] *= img_h
-            x1, y1, x2, y2 = box_
-            cls_id = int(label)
-            x1, y1 = int(x1), int(y1)
-            x2, y2 = int(x2), int(y2)
+            if box_format == 'xywh':
+                box_x1y1 = box_[..., :2] - box_[..., 2:] * 0.5
+                box_x2y2 = box_[..., :2] + box_[..., 2:] * 0.5
+                box_ = torch.cat([box_x1y1, box_x2y2], dim=-1)
+            x1, y1, x2, y2 = box_.long().cpu().numpy()
+            
+            cls_id = label.item()
             color = class_colors[cls_id]
             # draw box
             cv2.rectangle(image, (x1, y1), (x2, y2), color, 2)
@@ -53,7 +56,7 @@ def vis_data(images, targets, masks=None, class_labels=None, normalized_coord=Fa
                 t_size = cv2.getTextSize(class_name, 0, fontScale=1, thickness=2)[0]
                 cv2.rectangle(image, (x1, y1-t_size[1]), (int(x1 + t_size[0] * 0.4), y1), color, -1)
                 # put the test on the title bbox
-                cv2.putText(image, class_name, (int(x1), int(y1 - 5)), 0, 0.4, (0, 0, 0), 1, lineType=cv2.LINE_AA)
+                cv2.putText(image, class_name, (x1, y1 - 5), 0, 0.4, (0, 0, 0), 1, lineType=cv2.LINE_AA)
 
         cv2.imshow('train target', image)
         cv2.waitKey(0)

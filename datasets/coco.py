@@ -133,6 +133,7 @@ if __name__ == "__main__":
             {'name': 'RandomHFlip'},
             {'name': 'RandomShift', 'max_shift': 100}
         ],
+        'box_format': 'xywh',
         'normalize_coords': False,
     }
 
@@ -155,6 +156,10 @@ if __name__ == "__main__":
             if cfg['normalize_coords']:
                 box[..., [0, 2]] *= orig_w
                 box[..., [1, 3]] *= orig_h
+            if cfg['box_format'] == 'xywh':
+                box_x1y1 = box[..., :2] - box[..., 2:] * 0.5
+                box_x2y2 = box[..., :2] + box[..., 2:] * 0.5
+                box = torch.cat([box_x1y1, box_x2y2], dim=-1)
             # get box target
             x1, y1, x2, y2 = box.long()
             # get class label

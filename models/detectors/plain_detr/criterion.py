@@ -69,10 +69,10 @@ class Criterion(nn.Module):
         target_classes_onehot = target_classes_onehot[..., :-1]
 
         # focal loss
-        loss_cls = sigmoid_focal_loss(src_logits, target_classes_onehot, num_boxes, self.alpha, self.gamma)
+        loss_cls = sigmoid_focal_loss(src_logits, target_classes_onehot, self.alpha, self.gamma)
 
         losses = {}
-        losses['loss_cls'] = loss_cls * src_logits.shape[1]
+        losses['loss_cls'] = loss_cls.sum() / num_boxes
 
         return losses
 
@@ -88,7 +88,6 @@ class Criterion(nn.Module):
         target_boxes = torch.cat([t['boxes'][i] for t, (_, i) in zip(targets, indices)], dim=0).to(src_boxes.device)
         
         # compute L1 loss
-        loss_bbox = F.l1_loss(src_boxes, box_xyxy_to_cxcywh(target_boxes), reduction='none')
         src_deltas = outputs["pred_deltas"][idx]
         src_boxes_old = outputs["pred_boxes_old"][idx]
         target_deltas = bbox2delta(src_boxes_old, target_boxes)
@@ -143,7 +142,6 @@ class Criterion(nn.Module):
         for loss in self.losses:
             kwargs = {}
             l_dict = self.get_loss(loss, outputs, targets, indices, num_boxes, **kwargs)
-            l_dict = {k: l_dict[k] * self.weight_dict[k] for k in l_dict if k in self.weight_dict}
             losses.update(l_dict)
 
         # In case of auxiliary losses, we repeat this process with the output of each intermediate layer.
@@ -153,7 +151,6 @@ class Criterion(nn.Module):
                 for loss in self.losses:
                     kwargs = {}
                     l_dict = self.get_loss(loss, aux_outputs, targets, indices, num_boxes, **kwargs)
-                    l_dict = {k: l_dict[k] * self.weight_dict[k] for k in l_dict if k in self.weight_dict}
                     l_dict = {k + f"_{i}": v for k, v in l_dict.items()}
                     losses.update(l_dict)
 
@@ -166,7 +163,6 @@ class Criterion(nn.Module):
             for loss in self.losses:
                 kwargs = {}
                 l_dict = self.get_loss(loss, enc_outputs, bin_targets, indices, num_boxes, **kwargs)
-                l_dict = {k: l_dict[k] * self.weight_dict[k] for k in l_dict if k in self.weight_dict}
                 l_dict = {k + "_enc": v for k, v in l_dict.items()}
                 losses.update(l_dict)
 

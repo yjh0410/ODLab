@@ -54,7 +54,7 @@ def train_one_epoch(cfg,
 
         # Visualize train targets
         if vis_target:
-            vis_data(images, targets, masks, class_labels, cfg['normalize_coords'])
+            vis_data(images, targets, masks, class_labels, cfg['normalize_coords'], cfg['box_format'])
 
         # Inference
         outputs = model(images, masks)

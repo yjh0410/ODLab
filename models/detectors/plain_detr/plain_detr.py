@@ -42,7 +42,7 @@ class PlainDETR(nn.Module):
         self.backbone, feat_dims = build_backbone(cfg, pretrained=cfg['pretrained']&self.training)
 
         ## Input projection
-        self.input_proj = BasicConv(feat_dims[-1], cfg['hidden_dim'], kernel_size=1, act_type=None, norm_type='BN')
+        self.input_proj = BasicConv(feat_dims[-1], cfg['hidden_dim'], kernel_size=1, act_type=None, norm_type='GN')
 
         ## Transformer Encoder
         self.transformer_encoder = TransformerEncoder(d_model    = cfg['hidden_dim'],
@@ -50,7 +50,8 @@ class PlainDETR(nn.Module):
                                                       num_layers = cfg['en_num_layers'],
                                                       ffn_dim    = cfg['en_ffn_dim'],
                                                       dropout    = cfg['en_dropout'],
-                                                      act_type   = cfg['en_act']
+                                                      act_type   = cfg['en_act'],
+                                                      pre_norm   = cfg['en_pre_norm'],
                                                       )
 
         ## Upsample layer
@@ -134,11 +135,9 @@ class PlainDETR(nn.Module):
         return pos_embed
 
     def post_process(self, box_pred, cls_pred):
-        cls_pred = cls_pred[0]
-        box_pred = box_pred[0]
         # Top-k select
-        cls_pred = cls_pred.flatten().sigmoid_()
-        box_pred = box_pred
+        cls_pred = cls_pred[0].flatten().sigmoid_()
+        box_pred = box_pred[0]
 
         # Keep top k top scoring indices only.
         num_topk = min(self.num_topk, box_pred.size(0))
@@ -200,8 +199,8 @@ class PlainDETR(nn.Module):
         # ----------- Prepare inputs for Transformer -----------
         mask = self.resize_mask(src)
         pos_embed = self.get_posembed(src.shape[1], mask, normalize=False)
-        self_attn_mask = None
         query_embeds = self.query_embed.weight[:self.num_queries_one2one]
+        self_attn_mask = None
 
         # -----------Transformer -----------
         (
@@ -265,11 +264,11 @@ class PlainDETR(nn.Module):
         # ----------- Prepare inputs for Transformer -----------
         mask = self.resize_mask(src, src_mask)
         pos_embed = self.get_posembed(src.shape[1], mask, normalize=False)
+        query_embeds = self.query_embed.weight
         self_attn_mask = torch.zeros(
             [self.num_queries, self.num_queries, ]).bool().to(src.device)
         self_attn_mask[self.num_queries_one2one:, 0: self.num_queries_one2one, ] = True
         self_attn_mask[0: self.num_queries_one2one, self.num_queries_one2one:, ] = True
-        query_embeds = self.query_embed.weight
 
         # -----------Transformer -----------
         (
@@ -286,11 +285,11 @@ class PlainDETR(nn.Module):
         # ----------- Process outputs -----------
         outputs_classes_one2one = []
         outputs_coords_one2one = []
-        outputs_classes_one2many = []
-        outputs_coords_one2many = []
-
         outputs_coords_old_one2one = []
         outputs_deltas_one2one = []
+
+        outputs_classes_one2many = []
+        outputs_coords_one2many = []
         outputs_coords_old_one2many = []
         outputs_deltas_one2many = []
 

@@ -19,6 +19,7 @@ plain_detr_cfg = {
         'en_ffn_dim': 2048,
         'en_dropout': 0.1,
         'en_act': 'gelu',
+        'en_pre_norm': True,
         # Transformer Decoder
         'transformer': 'plain_detr_transformer',
         'de_num_heads': 8,
@@ -81,6 +82,7 @@ plain_detr_cfg = {
         ## Transforms
         'detr_style': True,
         'trans_config': None,
+        'box_format': 'xywh',
         'normalize_coords': False,
     },
 

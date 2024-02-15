@@ -78,6 +78,7 @@ fcos_cfg = {
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
         ],
+        'box_format': 'xyxy',
         'normalize_coords': False,
     },
 
@@ -156,6 +157,7 @@ fcos_cfg = {
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
         ],
+        'box_format': 'xyxy',
         'normalize_coords': False,
     },
 
@@ -234,6 +236,7 @@ fcos_cfg = {
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
         ],
+        'box_format': 'xyxy',
         'normalize_coords': False,
     },
 
@@ -312,6 +315,7 @@ fcos_cfg = {
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
         ],
+        'box_format': 'xyxy',
         'normalize_coords': False,
     },
 
@@ -390,6 +394,7 @@ fcos_cfg = {
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
         ],
+        'box_format': 'xyxy',
         'normalize_coords': False,
     },
 
@@ -468,6 +473,7 @@ fcos_cfg = {
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
         ],
+        'box_format': 'xyxy',
         'normalize_coords': False,
     },
 
@@ -547,6 +553,7 @@ fcos_cfg = {
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
         ],
+        'box_format': 'xyxy',
         'normalize_coords': False,
     },
 
@@ -625,6 +632,7 @@ fcos_cfg = {
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
         ],
+        'box_format': 'xyxy',
         'normalize_coords': False,
     },
 
@@ -703,6 +711,7 @@ fcos_cfg = {
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
         ],
+        'box_format': 'xyxy',
         'normalize_coords': False,
     },
 
@@ -781,6 +790,7 @@ fcos_cfg = {
             {'name': 'RandomHFlip'},
             {'name': 'RandomResize'},
         ],
+        'box_format': 'xyxy',
         'normalize_coords': False,
     },
 

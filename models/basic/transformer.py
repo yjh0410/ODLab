@@ -72,11 +72,12 @@ def build_transformer(cfg, return_intermediate=False):
 # ----------------- Transformer Encoder modules -----------------
 class TransformerEncoderLayer(nn.Module):
     def __init__(self,
-                 d_model         :int   = 256,
-                 num_heads       :int   = 8,
-                 ffn_dim         :int   = 1024,
-                 dropout         :float = 0.1,
-                 act_type        :str   = "relu",
+                 d_model   :int   = 256,
+                 num_heads :int   = 8,
+                 ffn_dim   :int   = 1024,
+                 dropout   :float = 0.1,
+                 act_type  :str   = "relu",
+                 pre_norm  :bool = False,
                  ):
         super().__init__()
         # ----------- Basic parameters -----------
@@ -85,6 +86,7 @@ class TransformerEncoderLayer(nn.Module):
         self.ffn_dim = ffn_dim
         self.dropout = dropout
         self.act_type = act_type
+        self.pre_norm = pre_norm
         # ----------- Basic parameters -----------
         # Multi-head Self-Attn
         self.self_attn = nn.MultiheadAttention(d_model, num_heads, dropout=dropout, batch_first=True)
@@ -97,7 +99,27 @@ class TransformerEncoderLayer(nn.Module):
     def with_pos_embed(self, tensor, pos):
         return tensor if pos is None else tensor + pos
 
-    def forward(self, src, pos_embed):
+    def forward_pre_norm(self, src, pos_embed):
+        """
+        Input:
+            src:       [torch.Tensor] -> [B, N, C]
+            pos_embed: [torch.Tensor] -> [B, N, C]
+        Output:
+            src:       [torch.Tensor] -> [B, N, C]
+        """
+        src = self.norm(src)
+        q = k = self.with_pos_embed(src, pos_embed)
+
+        # -------------- MHSA --------------
+        src2 = self.self_attn(q, k, value=src)[0]
+        src = src + self.dropout(src2)
+
+        # -------------- FFN --------------
+        src = self.ffn(src)
+        
+        return src
+
+    def forward_post_norm(self, src, pos_embed):
         """
         Input:
             src:       [torch.Tensor] -> [B, N, C]
@@ -117,15 +139,22 @@ class TransformerEncoderLayer(nn.Module):
         
         return src
 
+    def forward(self, src, pos_embed):
+        if self.pre_norm:
+            return self.forward_pre_norm(src, pos_embed)
+        else:
+            return self.forward_post_norm(src, pos_embed)
+
 class TransformerEncoder(nn.Module):
     def __init__(self,
                  d_model        :int   = 256,
                  num_heads      :int   = 8,
                  num_layers     :int   = 1,
                  ffn_dim        :int   = 1024,
-                 pe_temperature : float = 10000.,
+                 pe_temperature :float = 10000.,
                  dropout        :float = 0.1,
                  act_type       :str   = "relu",
+                 pre_norm       :bool  = False,
                  ):
         super().__init__()
         # ----------- Basic parameters -----------
@@ -135,11 +164,12 @@ class TransformerEncoder(nn.Module):
         self.ffn_dim = ffn_dim
         self.dropout = dropout
         self.act_type = act_type
+        self.pre_norm = pre_norm
         self.pe_temperature = pe_temperature
         self.pos_embed = None
         # ----------- Basic parameters -----------
         self.encoder_layers = get_clones(
-            TransformerEncoderLayer(d_model, num_heads, ffn_dim, dropout, act_type), num_layers)
+            TransformerEncoderLayer(d_model, num_heads, ffn_dim, dropout, act_type, pre_norm), num_layers)
 
     def build_2d_sincos_position_embedding(self, device, w, h, embed_dim=256, temperature=10000.):
         assert embed_dim % 4 == 0, \

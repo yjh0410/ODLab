@@ -250,6 +250,26 @@ class Normalize(object):
                 target["boxes"] = boxes
         return image, target
 
+class ConvertBoxFormat(object):
+    def __init__(self, box_format="xyxy"):
+        self.box_format = box_format
+
+    def __call__(self, image, target=None):
+        if self.box_format == "xyxy" or target is None:
+            pass
+        elif self.box_format == "xywh":
+            target = target.copy()
+            if "boxes" in target:
+                boxes_xyxy = target["boxes"]
+                boxes_xywh = torch.zeros_like(boxes_xyxy)
+                boxes_xywh[..., :2] = (boxes_xyxy[..., :2] + boxes_xyxy[..., 2:]) * 0.5   # cxcy
+                boxes_xywh[..., 2:] = boxes_xyxy[..., 2:] - boxes_xyxy[..., :2]           # bwbh
+                target["boxes"] = boxes_xywh
+        else:
+            raise NotImplementedError("Unknown box format: {}".format(self.box_format))
+
+        return image, target
+
 class Compose(object):
     def __init__(self, transforms):
         self.transforms = transforms
@@ -287,7 +307,8 @@ def build_transform(cfg=None, is_train=False):
                     transforms.append(RandomShift(max_shift=t['max_shift']))
             transforms.extend([
                 ToTensor(),
-                Normalize(cfg['pixel_mean'], cfg['pixel_std'], cfg['normalize_coords'])
+                Normalize(cfg['pixel_mean'], cfg['pixel_std'], cfg['normalize_coords']),
+                ConvertBoxFormat(cfg['box_format'])
             ])
         # build transform for DETR-style detector
         else:
@@ -302,7 +323,8 @@ def build_transform(cfg=None, is_train=False):
                     ])
                 ),
                 ToTensor(),
-                Normalize(cfg['pixel_mean'], cfg['pixel_std'], cfg['normalize_coords'])
+                Normalize(cfg['pixel_mean'], cfg['pixel_std'], cfg['normalize_coords']),
+                ConvertBoxFormat(cfg['box_format'])
             ]
 
     # ---------------- Transform for Evaluating ----------------
@@ -310,7 +332,8 @@ def build_transform(cfg=None, is_train=False):
         transforms = [
             RandomResize([cfg['test_min_size']], max_size=cfg['test_max_size']),
             ToTensor(),
-            Normalize(cfg['pixel_mean'], cfg['pixel_std'], cfg['normalize_coords'])
+            Normalize(cfg['pixel_mean'], cfg['pixel_std'], cfg['normalize_coords']),
+            ConvertBoxFormat(cfg['box_format'])
         ]
     
     return Compose(transforms)
