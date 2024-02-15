@@ -561,6 +561,7 @@ class PlainDETRTransformer(nn.Module):
         self.proposal_min_size = 50
 
         # --------------- Network setting ---------------
+        self.level_embed = nn.Parameter(torch.Tensor(1, d_model))
         ## Global Decoder
         self.decoder = GlobalDecoder(d_model, num_heads, ffn_dim, dropout, act_type, pre_norm,
                                      rpe_hidden_dim, feature_stride, num_layers, return_intermediate,
@@ -609,6 +610,7 @@ class PlainDETRTransformer(nn.Module):
         for p in self.parameters():
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
+        nn.init.normal_(self.level_embed)
 
         if hasattr(self.decoder, '_reset_parameters'):
             print('decoder re-init')
@@ -752,7 +754,7 @@ class PlainDETRTransformer(nn.Module):
         bs, c, h, w = src.shape
         src_flatten = src.flatten(2).transpose(1, 2)
         mask_flatten = mask.flatten(1)
-        pos_embed_flatten = pos_embed.flatten(2).transpose(1, 2)
+        pos_embed_flatten = pos_embed.flatten(2).transpose(1, 2)  + self.level_embed[0].view(1, 1, -1)
         spatial_shapes = torch.as_tensor([(h, w)], dtype=torch.long, device=src_flatten.device)
 
         # Prepare input for decoder
