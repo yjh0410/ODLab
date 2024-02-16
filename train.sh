@@ -1,10 +1,9 @@
-# Dataset setting
-DATASET="coco"
-DATA_ROOT="/data/datasets/COCO/"
-# DATA_ROOT="/Users/liuhaoran/Desktop/python_work/object-detection/dataset/COCO/"
-
-# MODEL setting
-MODEL="fcos_r18_3x"
+# Args setting
+MODEL=$1
+DATASET=$2
+DATA_ROOT=$3
+WORLD_SIZE=$4
+MASTER_PORT=$5
 if [[ $MODEL == *"yolof"* ]]; then
     # Epoch setting
     BATCH_SIZE=64
@@ -28,14 +27,12 @@ elif [[ $MODEL == *"plain_detr"* ]]; then
 fi
 
 # -------------------------- Train Pipeline --------------------------
-WORLD_SIZE=4
-MASTER_PORT=1663
 if [ $WORLD_SIZE == 1 ]; then
     python main.py \
         --cuda \
         --dataset ${DATASET}  \
         --root ${DATA_ROOT} \
-        -m ${MODEL} \
+        --model ${MODEL} \
         --batch_size ${BATCH_SIZE} \
         --eval_epoch ${EVAL_EPOCH} \
         --optimizer_type ${OPTIM_TYPE}
@@ -46,7 +43,7 @@ elif [[ $WORLD_SIZE -gt 1 && $WORLD_SIZE -le 8 ]]; then
         -dist \
         --dataset ${DATASET}  \
         --root ${DATA_ROOT} \
-        -m ${MODEL} \
+        --model ${MODEL} \
         --batch_size ${BATCH_SIZE} \
         --eval_epoch ${EVAL_EPOCH} \
         --optimizer_type ${OPTIM_TYPE} \
