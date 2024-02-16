@@ -76,8 +76,8 @@ plain_detr_cfg = {
         'lr_epoch': [11],     # 1x
         # ----------------- Input -----------------
         ## Transforms
-        'train_min_size': [320],   # short edge of image
-        'train_min_size2': [200,],
+        'train_min_size': [800],   # short edge of image
+        'train_min_size2': [400, 500, 600],
         'train_max_size': 1333,
         'test_min_size': 800,
         'test_max_size': 1333,
