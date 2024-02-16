@@ -2,7 +2,7 @@ import torch
 from torch import optim
 
 
-def build_optimizer(optimizer_cfg, model, resume=None):
+def build_optimizer(optimizer_cfg, model, param_dicts=None, resume=None):
     print('==============================')
     print('Optimizer: {}'.format(optimizer_cfg['optimizer']))
     print('--base_lr: {}'.format(optimizer_cfg['base_lr']))
@@ -10,13 +10,14 @@ def build_optimizer(optimizer_cfg, model, resume=None):
     print('--momentum: {}'.format(optimizer_cfg['momentum']))
     print('--weight_decay: {}'.format(optimizer_cfg['weight_decay']))
 
-    param_dicts = [
-        {"params": [p for n, p in model.named_parameters() if "backbone" not in n and p.requires_grad]},
-        {
-            "params": [p for n, p in model.named_parameters() if "backbone" in n and p.requires_grad],
-            "lr": optimizer_cfg['base_lr'] * optimizer_cfg['backbone_lr_ratio'],
-        },
-    ]
+    if param_dicts is None:
+        param_dicts = [
+            {"params": [p for n, p in model.named_parameters() if "backbone" not in n and p.requires_grad]},
+            {
+                "params": [p for n, p in model.named_parameters() if "backbone" in n and p.requires_grad],
+                "lr": optimizer_cfg['base_lr'] * optimizer_cfg['backbone_lr_ratio'],
+            },
+        ]
 
     if optimizer_cfg['optimizer'] == 'sgd':
         optimizer = optim.SGD(

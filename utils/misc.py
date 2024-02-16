@@ -241,6 +241,14 @@ def collate_fn(batch):
 
 
 # ---------------------------- For Model ----------------------------
+def match_name_keywords(n, name_keywords):
+    out = False
+    for b in name_keywords:
+        if b in n:
+            out = True
+            break
+    return out
+
 ## fuse Conv & BN layer
 def fuse_conv_bn(module):
     """Recursively fuse conv and bn in a module.
@@ -331,6 +339,93 @@ def get_total_grad_norm(parameters, norm_type=2):
                             norm_type)
     return total_norm
 
+## param Dict
+def get_param_dict(model, cfg, return_name=False):
+    # sanity check: a variable could not match backbone_names and linear_proj_names at the same time
+    cfg['lr_backbone'] = cfg['base_lr'] * cfg['backbone_lr_ratio']
+    for n, p in model.named_parameters():
+        if match_name_keywords(n, cfg['lr_backbone_names']) and match_name_keywords(n, cfg['lr_linear_proj_names']):
+            raise ValueError
+
+    param_dicts = [
+        {
+            "params": [
+                p if not return_name else n
+                for n, p in model.named_parameters()
+                if not match_name_keywords(n, cfg['lr_backbone_names'])
+                and not match_name_keywords(n, cfg['lr_linear_proj_names'])
+                and not match_name_keywords(n, cfg['wd_norm_names'])
+                and p.requires_grad
+            ],
+            "lr": cfg['base_lr'],
+            "weight_decay": cfg['weight_decay'],
+        },
+        {
+            "params": [
+                p if not return_name else n
+                for n, p in model.named_parameters()
+                if match_name_keywords(n, cfg['lr_backbone_names'])
+                and not match_name_keywords(n, cfg['lr_linear_proj_names'])
+                and not match_name_keywords(n, cfg['wd_norm_names'])
+                and p.requires_grad
+            ],
+            "lr": cfg['lr_backbone'],
+            "weight_decay": cfg['weight_decay'],
+        },
+        {
+            "params": [
+                p if not return_name else n
+                for n, p in model.named_parameters()
+                if not match_name_keywords(n, cfg['lr_backbone_names'])
+                and match_name_keywords(n, cfg['lr_linear_proj_names'])
+                and not match_name_keywords(n, cfg['wd_norm_names'])
+                and p.requires_grad
+            ],
+            "lr": cfg['base_lr'] * cfg['lr_linear_proj_mult'],
+            "weight_decay": cfg['weight_decay'],
+        },
+        {
+            "params": [
+                p if not return_name else n
+                for n, p in model.named_parameters()
+                if not match_name_keywords(n, cfg['lr_backbone_names'])
+                and not match_name_keywords(n, cfg['lr_linear_proj_names'])
+                and match_name_keywords(n, cfg['wd_norm_names'])
+                and p.requires_grad
+            ],
+            "lr": cfg['base_lr'],
+            "weight_decay": cfg['weight_decay'] * cfg['wd_norm_mult'],
+        },
+        {
+            "params": [
+                p if not return_name else n
+                for n, p in model.named_parameters()
+                if match_name_keywords(n, cfg['lr_backbone_names'])
+                and not match_name_keywords(n, cfg['lr_linear_proj_names'])
+                and match_name_keywords(n, cfg['wd_norm_names'])
+                and p.requires_grad
+            ],
+            "lr": cfg['lr_backbone'],
+            "weight_decay": cfg['weight_decay'] * cfg['wd_norm_mult'],
+        },
+        {
+            "params": [
+                p if not return_name else n
+                for n, p in model.named_parameters()
+                if not match_name_keywords(n, cfg['lr_backbone_names'])
+                and match_name_keywords(n, cfg['lr_linear_proj_names'])
+                and match_name_keywords(n, cfg['wd_norm_names'])
+                and p.requires_grad
+            ],
+            "lr": cfg['base_lr'] * cfg['lr_linear_proj_mult'],
+            "weight_decay": cfg['weight_decay'] * cfg['wd_norm_mult'],
+        },
+    ]
+
+    return param_dicts
+
+
+# ---------------------------- For Loss ----------------------------
 ## focal loss
 def sigmoid_focal_loss(inputs, targets, alpha: float = 0.25, gamma: float = 2):
     """

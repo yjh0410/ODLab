@@ -11,6 +11,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 
 from utils import distributed_utils
 from utils.misc import compute_flops, collate_fn
+from utils.misc import get_param_dict
 from utils.optimizer import build_optimizer, build_detr_optimizer
 from utils.lr_scheduler import build_wp_lr_scheduler, build_lr_scheduler
 
@@ -39,6 +40,9 @@ def parse_args():
                         help='load pretrained weight')
     parser.add_argument('-r', '--resume', default=None, type=str,
                         help='keep training')
+    # Optimizer
+    parser.add_argument('--optimizer_type', default='cnn', choices=['cnn', 'detr'],
+                        help='cnn: for CNN-based detector; detr: for DETR series detector')
     # Dataset
     parser.add_argument('--root', default='/Users/liuhaoran/Desktop/python_work/object-detection/dataset/COCO/',
                         help='data root')
@@ -146,12 +150,13 @@ def main():
     if args.distributed:
         dist.barrier()
 
+
     # ---------------------------- Build Optimizer ----------------------------
     cfg['base_lr'] = cfg['base_lr'] * args.batch_size
-    if "detr" in args.model:
-        optimizer, start_epoch = build_detr_optimizer(cfg, model_without_ddp, args.resume)
-    else:
-        optimizer, start_epoch = build_optimizer(cfg, model_without_ddp, args.resume)
+    param_dicts = None
+    if args.optimizer_type == 'detr':
+        param_dicts = get_param_dict(model_without_ddp, cfg)
+    optimizer, start_epoch = build_optimizer(cfg, model_without_ddp, param_dicts, args.resume)
 
 
     # ---------------------------- Build LR Scheduler ----------------------------

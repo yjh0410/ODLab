@@ -9,18 +9,22 @@ if [[ $MODEL == *"yolof"* ]]; then
     # Epoch setting
     BATCH_SIZE=64
     EVAL_EPOCH=2
+    OPTIM_TYPE="cnn"
 elif [[ $MODEL == *"fcos"* ]]; then
     # Epoch setting
     BATCH_SIZE=16
     EVAL_EPOCH=2
+    OPTIM_TYPE="cnn"
 elif [[ $MODEL == *"retinanet"* ]]; then
     # Epoch setting
     BATCH_SIZE=16
     EVAL_EPOCH=2
-elif [[ $MODEL == *"detrx"* ]]; then
+    OPTIM_TYPE="cnn"
+elif [[ $MODEL == *"plain_detr"* ]]; then
     # Epoch setting
     BATCH_SIZE=16
     EVAL_EPOCH=2
+    OPTIM_TYPE="detr"
 fi
 
 # -------------------------- Train Pipeline --------------------------
@@ -33,7 +37,8 @@ if [ $WORLD_SIZE == 1 ]; then
         --root ${DATA_ROOT} \
         -m ${MODEL} \
         --batch_size ${BATCH_SIZE} \
-        --eval_epoch ${EVAL_EPOCH}
+        --eval_epoch ${EVAL_EPOCH} \
+        --optimizer_type ${OPTIM_TYPE}
 elif [[ $WORLD_SIZE -gt 1 && $WORLD_SIZE -le 8 ]]; then
     python -m torch.distributed.run --nproc_per_node=$WORLD_SIZE --master_port ${MASTER_PORT}  \
         main.py \
@@ -44,6 +49,7 @@ elif [[ $WORLD_SIZE -gt 1 && $WORLD_SIZE -le 8 ]]; then
         -m ${MODEL} \
         --batch_size ${BATCH_SIZE} \
         --eval_epoch ${EVAL_EPOCH} \
+        --optimizer_type ${OPTIM_TYPE} \
         --find_unused_parameters
 else
     echo "The WORLD_SIZE is set to a value greater than 8, indicating the use of multi-machine \
