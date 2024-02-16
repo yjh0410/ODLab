@@ -57,7 +57,7 @@ def train_one_epoch(cfg,
             vis_data(images, targets, masks, class_labels, cfg['normalize_coords'], cfg['box_format'])
 
         # Inference
-        outputs = model(images, masks)
+        outputs = model(images, masks, targets)
 
         # Compute loss
         loss_dict = criterion(outputs, targets)

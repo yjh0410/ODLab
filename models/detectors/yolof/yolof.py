@@ -107,17 +107,17 @@ class YOLOF(nn.Module):
 
         return bboxes, scores, labels
 
-    def forward(self, x, mask=None):
+    def forward(self, src, src_mask=None, targets=None):
         if not self.trainable:
-            return self.inference_single_image(x)
+            return self.inference_single_image(src)
         else:
             # ---------------- Backbone ----------------
-            pyramid_feats = self.backbone(x)
+            pyramid_feats = self.backbone(src)
 
             # ---------------- Neck ----------------
             feat = self.neck(pyramid_feats[-1])
 
             # ---------------- Heads ----------------
-            outputs = self.head(feat, mask)
+            outputs = self.head(feat, src_mask)
 
             return outputs 

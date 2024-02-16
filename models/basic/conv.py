@@ -147,8 +147,10 @@ class UpSampleWrapper(nn.Module):
 class RepVggBlock(nn.Module):
     def __init__(self, in_dim, out_dim, act_type='relu', norm_type='BN'):
         super().__init__()
+        # ----------------- Basic parameters -----------------
         self.in_dim = in_dim
         self.out_dim = out_dim
+        # ----------------- Network parameters -----------------
         self.conv1 = BasicConv(in_dim, out_dim, kernel_size=3, padding=1, act_type=None, norm_type=norm_type)
         self.conv2 = BasicConv(in_dim, out_dim, kernel_size=1, padding=0, act_type=None, norm_type=norm_type)
         self.act   = get_activation(act_type) 
@@ -196,16 +198,18 @@ class RepVggBlock(nn.Module):
         t = (gamma / std).reshape(-1, 1, 1, 1)
         return kernel * t, beta - running_mean * gamma / std
 
-class CSPRepLayer(nn.Module):
+class RepCSPLayer(nn.Module):
     def __init__(self,
-                 in_dim,
-                 out_dim,
-                 num_blocks=3,
-                 expansion=1.0,
-                 act_type="silu",
-                 norm_type="BN",):
-        super(CSPRepLayer, self).__init__()
+                 in_dim     :int   = 256,
+                 out_dim    :int   = 256,
+                 num_blocks :int   = 3,
+                 expansion  :float = 1.0,
+                 act_type   :str   = "relu",
+                 norm_type  :str   = "GN",):
+        super(RepCSPLayer, self).__init__()
+        # ----------------- Basic parameters -----------------
         inter_dim = int(out_dim * expansion)
+        # ----------------- Network parameters -----------------
         self.conv1 = BasicConv(in_dim, inter_dim, kernel_size=1, act_type=act_type, norm_type=norm_type)
         self.conv2 = BasicConv(in_dim, inter_dim, kernel_size=1, act_type=act_type, norm_type=norm_type)
         self.bottlenecks = nn.Sequential(*[

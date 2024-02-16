@@ -3,6 +3,7 @@ from .retinanet_config import retinanet_cfg
 from .fcos_config import fcos_cfg
 from .yolof_config import yolof_cfg
 from .plain_detr_config import plain_detr_cfg
+from .rtdetr_config import rtdetr_cfg
 
 
 def build_config(args):
@@ -18,5 +19,8 @@ def build_config(args):
     # PlainDETR
     elif args.model in plain_detr_cfg.keys():
         return plain_detr_cfg[args.model]
+    # RT-DETR
+    elif args.model in rtdetr_cfg.keys():
+        return rtdetr_cfg[args.model]
     else:
         raise NotImplementedError('Unknown Model: {}'.format(args.model))

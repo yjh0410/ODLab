@@ -136,7 +136,7 @@ class SparkResNet(nn.Module):
                 parameter.requires_grad_(False)
 
     def load_pretrained(self, name):
-        url = model_urls["spark_" + name]
+        url = spark_model_urls["spark_" + name]
         if url is not None:
             print('Loading pretrained weight from : {}'.format(url))
             # checkpoint state dict
@@ -169,12 +169,12 @@ class SparkResNet(nn.Module):
 
 
 # build backbone
-def build_resnet(cfg, pretrained_weight=None):
+def build_resnet(cfg):
     # ResNet series
-    if pretrained_weight in spark_model_urls.keys():
-        backbone = SparkResNet(cfg['backbone'], cfg['res5_dilation'], cfg['backbone_norm'])
+    if cfg['pretrained_weight'] in spark_model_urls.keys():
+        backbone = SparkResNet(cfg['backbone'], cfg['res5_dilation'], cfg['backbone_norm'], cfg['pretrained'])
     else:
-        backbone = ResNet(cfg['backbone'], cfg['res5_dilation'], cfg['backbone_norm'], pretrained_weight)
+        backbone = ResNet(cfg['backbone'], cfg['res5_dilation'], cfg['backbone_norm'], cfg['pretrained_weight'])
 
     return backbone, backbone.feat_dims
 

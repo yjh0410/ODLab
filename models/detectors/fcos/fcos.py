@@ -123,17 +123,17 @@ class FCOS(nn.Module):
 
         return bboxes, scores, labels
 
-    def forward(self, x, mask=None):
+    def forward(self, src, src_mask=None, targets=None):
         if not self.trainable:
-            return self.inference_single_image(x)
+            return self.inference_single_image(src)
         else:
             # ---------------- Backbone ----------------
-            pyramid_feats = self.backbone(x)
+            pyramid_feats = self.backbone(src)
 
             # ---------------- Neck ----------------
             pyramid_feats = self.fpn(pyramid_feats)
 
             # ---------------- Heads ----------------
-            outputs = self.head(pyramid_feats, mask)
+            outputs = self.head(pyramid_feats, src_mask)
 
             return outputs 

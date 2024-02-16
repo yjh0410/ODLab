@@ -34,6 +34,7 @@ plain_detr_cfg = {
         'proposal_tgt_strides': [8, 16, 32],
         'num_queries_one2one': 300,
         'num_queries_one2many': 1500,
+        # Post process
         'train_topk': 300,
         'train_conf_thresh': 0.05,
         'train_nms_thresh': 0.6,
@@ -75,8 +76,8 @@ plain_detr_cfg = {
         'lr_epoch': [11],     # 1x
         # ----------------- Input -----------------
         ## Transforms
-        'train_min_size': [800],   # short edge of image
-        'train_min_size2': [400, 500, 600],
+        'train_min_size': [320],   # short edge of image
+        'train_min_size2': [200,],
         'train_max_size': 1333,
         'test_min_size': 800,
         'test_max_size': 1333,

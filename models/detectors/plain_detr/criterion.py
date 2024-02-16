@@ -6,10 +6,17 @@ import torch.nn.functional as F
 from .matcher import HungarianMatcher
 
 from utils.misc import sigmoid_focal_loss
-from utils.box_ops import box_cxcywh_to_xyxy, box_xyxy_to_cxcywh, generalized_box_iou, bbox2delta
+from utils.box_ops import box_cxcywh_to_xyxy, generalized_box_iou, bbox2delta
 from utils.distributed_utils import is_dist_avail_and_initialized, get_world_size
 
 
+# build criterion
+def build_criterion(cfg, num_classes, aux_loss=True):
+    criterion = Criterion(cfg, num_classes, aux_loss)
+
+    return criterion
+    
+    
 class Criterion(nn.Module):
     def __init__(self, cfg, num_classes=80, aux_loss=False):
         super().__init__()
@@ -29,9 +36,21 @@ class Criterion(nn.Module):
                                         cost_giou  = cfg['matcher_hpy']['cost_giou']
                                         )
         # ------------- Loss weight -------------
-        self.weight_dict = {'loss_cls':  cfg['loss_coeff']['class'],
-                            'loss_box':  cfg['loss_coeff']['bbox'],
-                            'loss_giou': cfg['loss_coeff']['giou']}
+        weight_dict = {'loss_cls':  cfg['loss_coeff']['class'],
+                       'loss_box':  cfg['loss_coeff']['bbox'],
+                       'loss_giou': cfg['loss_coeff']['giou']}
+        if aux_loss:
+            aux_weight_dict = {}
+            for i in range(cfg['de_num_layers'] - 1):
+                aux_weight_dict.update({k + f"_{i}": v for k, v in weight_dict.items()})
+            aux_weight_dict.update({k + "_enc": v for k, v in weight_dict.items()})
+            weight_dict.update(aux_weight_dict)
+        new_dict = dict()
+        for key, value in weight_dict.items():
+            new_dict[key] = value
+            new_dict[key + "_one2many"] = value
+        self.weight_dict = new_dict
+
 
     def _get_src_permutation_idx(self, indices):
         # permute predictions following indices
@@ -191,10 +210,3 @@ class Criterion(nn.Module):
                     loss_dict[k + "_one2many"] = v * self.lambda_one2many
 
         return loss_dict
-
-# build criterion
-def build_criterion(cfg, num_classes, aux_loss=True):
-    criterion = Criterion(cfg, num_classes, aux_loss)
-
-    return criterion
-    

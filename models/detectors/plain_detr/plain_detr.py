@@ -39,7 +39,7 @@ class PlainDETR(nn.Module):
 
         # ---------------- Network setting ----------------
         ## Backbone Network
-        self.backbone, feat_dims = build_backbone(cfg, pretrained=cfg['pretrained']&self.training)
+        self.backbone, feat_dims = build_backbone(cfg)
 
         ## Input projection
         self.input_proj = BasicConv(feat_dims[-1], cfg['hidden_dim'], kernel_size=1, act_type=None, norm_type='GN')
@@ -241,16 +241,14 @@ class PlainDETR(nn.Module):
         
         # post-process
         bboxes, scores, labels = self.post_process(box_pred, cls_pred)
+        # normalize bbox
+        bboxes[..., 0::2] /= x.shape[-1]
+        bboxes[..., 1::2] /= x.shape[-2]
+        bboxes = bboxes.clip(0., 1.)
 
-        outputs = {
-            "scores": scores,
-            "labels": labels,
-            "bboxes": bboxes,
-        }
-
-        return outputs
+        return bboxes, scores, labels
         
-    def forward(self, x, src_mask=None):
+    def forward(self, x, src_mask=None, targets=None):
         if not self.training:
             return self.inference_single_image(x)
 

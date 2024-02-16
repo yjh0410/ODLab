@@ -1,10 +1,11 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 import torch
 
-from .retinanet.build import build_retinanet
-from .fcos.build import build_fcos
-from .yolof.build import build_yolof
+from .retinanet.build  import build_retinanet
+from .fcos.build       import build_fcos
+from .yolof.build      import build_yolof
 from .plain_detr.build import build_plain_detr
+from .rtdetr.build     import build_rtdetr
 
 
 # build object detector
@@ -21,6 +22,9 @@ def build_model(args, cfg, device, num_classes=80, trainable=False):
     # PlainDETR    
     elif 'plain_detr' in args.model:
         model, criterion = build_plain_detr(cfg, device, num_classes, trainable)
+    # RT-DETR    
+    elif 'rtdetr' in args.model:
+        model, criterion = build_rtdetr(cfg, device, num_classes, trainable)
         
     if trainable:
         # Load pretrained weight

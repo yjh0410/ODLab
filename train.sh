@@ -24,6 +24,11 @@ elif [[ $MODEL == *"plain_detr"* ]]; then
     BATCH_SIZE=16
     EVAL_EPOCH=2
     OPTIM_TYPE="detr"
+elif [[ $MODEL == *"rtdetr"* ]]; then
+    # Epoch setting
+    BATCH_SIZE=16
+    EVAL_EPOCH=2
+    OPTIM_TYPE="detr"
 fi
 
 # -------------------------- Train Pipeline --------------------------
