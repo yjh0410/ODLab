@@ -180,12 +180,13 @@ rtdetr_cfg = {
         'lr_epoch': [33],     # 1x
         # ----------------- Input -----------------
         ## Transforms
-        'train_min_size': [640, 640],   # short edge of image
+        'train_min_size': [[640, 640]],   # short edge of image
         'train_min_size2': [[400, 400], [500, 500], [600, 600]],
         'train_max_size': 640,
-        'test_min_size': [640, 640],
+        'test_min_size': [[640, 640]],
         'test_max_size': 640,
         'random_crop_size': [320, 600],
+        'random_size': [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800],
         ## Pixel mean & std
         'pixel_mean': [0.485, 0.456, 0.406],
         'pixel_std':  [0.229, 0.224, 0.225],

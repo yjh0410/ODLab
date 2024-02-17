@@ -9,7 +9,7 @@ plain_detr_cfg = {
         'backbone_norm': 'FrozeBN',
         'res5_dilation': False,
         'pretrained': True,
-        'pretrained_weight': 'spark_resnet50',
+        'pretrained_weight': 'spark_resnet50',  # Cls: imagenet1k_v2; MIM: spark_resnet50
         'max_stride': 32,
         'out_stride': 16,
         # Transformer Ecndoer
