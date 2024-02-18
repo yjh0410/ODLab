@@ -67,6 +67,8 @@ rtdetr_cfg = {
         'momentum': None,
         'weight_decay': 0.0001,
         'clip_max_norm': 0.1,
+        ## Params dict
+        'param_dict_type': 'detr',
         'lr_backbone_names': ['backbone',],
         'lr_linear_proj_names': ["reference_points", "sampling_offsets",],  # These two names are not required by PlainDETR
         'lr_linear_proj_mult': 0.1,
@@ -175,6 +177,8 @@ rtdetr_cfg = {
         'momentum': None,
         'weight_decay': 0.0001,
         'clip_max_norm': 0.1,
+        ## Params dict
+        'param_dict_type': 'detr',
         'lr_backbone_names': ['backbone',],
         'lr_linear_proj_names': ["reference_points", "sampling_offsets",],  # These two names are not required by PlainDETR
         'lr_linear_proj_mult': 0.1,

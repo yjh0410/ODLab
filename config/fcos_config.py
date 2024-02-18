@@ -56,6 +56,7 @@ fcos_cfg = {
         'momentum': 0.9,
         'weight_decay': 1e-4,
         'clip_max_norm': -1.0,
+        'param_dict_type': 'default',
         ## LR Scheduler
         'lr_scheduler': 'step',
         'warmup': 'linear',
@@ -136,6 +137,7 @@ fcos_cfg = {
         'momentum': 0.9,
         'weight_decay': 1e-4,
         'clip_max_norm': -1.0,
+        'param_dict_type': 'default',
         ## LR Scheduler
         'lr_scheduler': 'step',
         'warmup': 'linear',
@@ -216,6 +218,7 @@ fcos_cfg = {
         'momentum': 0.9,
         'weight_decay': 1e-4,
         'clip_max_norm': -1.0,
+        'param_dict_type': 'default',
         ## LR Scheduler
         'lr_scheduler': 'step',
         'warmup': 'linear',
@@ -296,6 +299,7 @@ fcos_cfg = {
         'momentum': 0.9,
         'weight_decay': 1e-4,
         'clip_max_norm': -1.0,
+        'param_dict_type': 'default',
         ## LR Scheduler
         'lr_scheduler': 'step',
         'warmup': 'linear',
@@ -376,6 +380,7 @@ fcos_cfg = {
         'momentum': 0.9,
         'weight_decay': 1e-4,
         'clip_max_norm': -1.0,
+        'param_dict_type': 'default',
         ## LR Scheduler
         'lr_scheduler': 'step',
         'warmup': 'linear',
@@ -456,6 +461,7 @@ fcos_cfg = {
         'momentum': 0.9,
         'weight_decay': 1e-4,
         'clip_max_norm': -1.0,
+        'param_dict_type': 'default',
         ## LR Scheduler
         'lr_scheduler': 'step',
         'warmup': 'linear',
@@ -537,6 +543,7 @@ fcos_cfg = {
         'momentum': 0.9,
         'weight_decay': 1e-4,
         'clip_max_norm': -1.0,
+        'param_dict_type': 'default',
         ## LR Scheduler
         'lr_scheduler': 'step',
         'warmup': 'linear',
@@ -617,6 +624,7 @@ fcos_cfg = {
         'momentum': 0.9,
         'weight_decay': 1e-4,
         'clip_max_norm': -1.0,
+        'param_dict_type': 'default',
         ## LR Scheduler
         'lr_scheduler': 'step',
         'warmup': 'linear',
@@ -697,6 +705,7 @@ fcos_cfg = {
         'momentum': 0.9,
         'weight_decay': 1e-4,
         'clip_max_norm': -1.0,
+        'param_dict_type': 'default',
         ## LR Scheduler
         'lr_scheduler': 'step',
         'warmup': 'linear',
@@ -777,6 +786,7 @@ fcos_cfg = {
         'momentum': 0.9,
         'weight_decay': 1e-4,
         'clip_max_norm': -1.0,
+        'param_dict_type': 'default',
         ## LR Scheduler
         'lr_scheduler': 'step',
         'warmup': 'linear',

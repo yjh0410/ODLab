@@ -42,9 +42,6 @@ def parse_args():
                         help='keep training')
     parser.add_argument('--ema', default=None, type=str,
                         help='use Model EMA trick.')
-    # Optimizer
-    parser.add_argument('--optimizer_type', default='cnn', choices=['cnn', 'detr'],
-                        help='cnn: for CNN-based detector; detr: for DETR series detector')
     # Dataset
     parser.add_argument('--root', default='/Users/liuhaoran/Desktop/python_work/object-detection/dataset/COCO/',
                         help='data root')
@@ -156,14 +153,15 @@ def main():
     # ---------------------------- Build Optimizer ----------------------------
     cfg['base_lr'] = cfg['base_lr'] * args.batch_size
     param_dicts = None
-    if args.optimizer_type == 'detr':
+    if cfg['param_dict_type'] != 'default':
+        print("- Param dict type: {}".format(cfg['param_dict_type']))
         param_dicts = get_param_dict(model_without_ddp, cfg)
     optimizer, start_epoch = build_optimizer(cfg, model_without_ddp, param_dicts, args.resume)
 
 
     # ---------------------------- Build Model EMA ----------------------------
     model_ema = None
-    if hasattr(cfg, 'use_ema') and cfg['use_ema']:
+    if 'use_ema' in cfg.keys() and cfg['use_ema']:
         print("Build Model EMA for {}".format(args.model))
         model_ema = ModelEMA(cfg, model, start_epoch * len(train_loader))
 
