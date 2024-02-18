@@ -69,7 +69,7 @@ rtdetr_cfg = {
         'lr_backbone_names': ['backbone',],
         'lr_linear_proj_names': ["reference_points", "sampling_offsets",],  # These two names are not required by PlainDETR
         'lr_linear_proj_mult': 0.1,
-        'wd_norm_names': ["norm", "bias", "rpb_mlp", "cpb_mlp", "level_embed",],
+        'wd_norm_names': ["norm", "bias", "level_embed",],
         'wd_norm_mult': 0.0,
         ## LR Scheduler
         'lr_scheduler': 'step',
