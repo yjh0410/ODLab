@@ -22,7 +22,7 @@ elif [[ $MODEL == *"plain_detr"* ]]; then
     EVAL_EPOCH=2
 elif [[ $MODEL == *"rtdetr"* ]]; then
     # Epoch setting
-    BATCH_SIZE=16
+    BATCH_SIZE=1
     EVAL_EPOCH=2
 fi
 
