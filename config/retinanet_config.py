@@ -11,6 +11,7 @@ retinanet_cfg = {
         'res5_dilation': False,
         'pretrained': True,
         'pretrained_weight': 'imagenet1k_v1',
+        'freeze_at': 1,  # freeze stem layer + layer1 of the backbone        
         'max_stride': 128,
         'out_stride': [8, 16, 32, 64, 128],
         ## Neck
@@ -94,6 +95,7 @@ retinanet_cfg = {
         'res5_dilation': False,
         'pretrained': True,
         'pretrained_weight': 'imagenet1k_v1',
+        'freeze_at': 1,  # freeze stem layer + layer1 of the backbone        
         'max_stride': 128,
         'out_stride': [8, 16, 32, 64, 128],
         ## Neck
@@ -177,6 +179,7 @@ retinanet_cfg = {
         'res5_dilation': False,
         'pretrained': True,
         'pretrained_weight': 'imagenet1k_v1',
+        'freeze_at': 1,  # freeze stem layer + layer1 of the backbone        
         'max_stride': 128,
         'out_stride': [8, 16, 32, 64, 128],
         ## Neck
@@ -260,6 +263,7 @@ retinanet_cfg = {
         'res5_dilation': False,
         'pretrained': True,
         'pretrained_weight': 'imagenet1k_v1',
+        'freeze_at': 1,  # freeze stem layer + layer1 of the backbone        
         'max_stride': 128,
         'out_stride': [8, 16, 32, 64, 128],
         ## Neck
@@ -343,6 +347,7 @@ retinanet_cfg = {
         'res5_dilation': False,
         'pretrained': True,
         'pretrained_weight': 'imagenet1k_v1',
+        'freeze_at': 1,  # freeze stem layer + layer1 of the backbone        
         'max_stride': 128,
         'out_stride': [8, 16, 32, 64, 128],
         ## Neck
@@ -426,6 +431,7 @@ retinanet_cfg = {
         'res5_dilation': False,
         'pretrained': True,
         'pretrained_weight': 'imagenet1k_v1',
+        'freeze_at': 1,  # freeze stem layer + layer1 of the backbone        
         'max_stride': 128,
         'out_stride': [8, 16, 32, 64, 128],
         ## Neck

@@ -34,7 +34,7 @@ class YOLOF(nn.Module):
 
         # ---------------------- Network Parameters ----------------------
         ## Backbone
-        self.backbone, feat_dims = build_backbone(cfg, trainable&cfg['pretrained'])
+        self.backbone, feat_dims = build_backbone(cfg)
 
         ## Neck
         self.neck = build_neck(cfg, feat_dims[-1], cfg['head_dim'])
@@ -85,39 +85,26 @@ class YOLOF(nn.Module):
 
         return bboxes, scores, labels
 
-    @torch.no_grad()
-    def inference_single_image(self, x):
+    def forward(self, src, src_mask=None, targets=None):
         # ---------------- Backbone ----------------
-        pyramid_feats = self.backbone(x)
+        pyramid_feats = self.backbone(src)
 
         # ---------------- Neck ----------------
         feat = self.neck(pyramid_feats[-1])
 
         # ---------------- Heads ----------------
-        outputs = self.head(feat)
+        outputs = self.head(feat, src_mask)
 
-        # ---------------- PostProcess ----------------
-        cls_pred = outputs["pred_cls"]
-        box_pred = outputs["pred_box"]
-        bboxes, scores, labels = self.post_process(cls_pred, box_pred)
-        # normalize bbox
-        bboxes[..., 0::2] /= x.shape[-1]
-        bboxes[..., 1::2] /= x.shape[-2]
-        bboxes = bboxes.clip(0., 1.)
+        if not self.training:
+            # ---------------- PostProcess ----------------
+            cls_pred = outputs["pred_cls"]
+            box_pred = outputs["pred_box"]
+            bboxes, scores, labels = self.post_process(cls_pred, box_pred)
+            # normalize bbox
+            bboxes[..., 0::2] /= src.shape[-1]
+            bboxes[..., 1::2] /= src.shape[-2]
+            bboxes = bboxes.clip(0., 1.)
 
-        return bboxes, scores, labels
+            return bboxes, scores, labels
 
-    def forward(self, src, src_mask=None, targets=None):
-        if not self.trainable:
-            return self.inference_single_image(src)
-        else:
-            # ---------------- Backbone ----------------
-            pyramid_feats = self.backbone(src)
-
-            # ---------------- Neck ----------------
-            feat = self.neck(pyramid_feats[-1])
-
-            # ---------------- Heads ----------------
-            outputs = self.head(feat, src_mask)
-
-            return outputs 
+        return outputs 

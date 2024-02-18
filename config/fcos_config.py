@@ -10,6 +10,7 @@ fcos_cfg = {
         'backbone_norm': 'FrozeBN',
         'res5_dilation': False,
         'pretrained': True,
+        'freeze_at': 1,  # freeze stem layer + layer1 of the backbone
         'pretrained_weight': 'imagenet1k_v1',
         'max_stride': 128,
         'out_stride': [8, 16, 32, 64, 128],
@@ -89,6 +90,7 @@ fcos_cfg = {
         'backbone_norm': 'FrozeBN',
         'res5_dilation': False,
         'pretrained': True,
+        'freeze_at': 1,  # freeze stem layer + layer1 of the backbone
         'pretrained_weight': 'imagenet1k_v1',
         'max_stride': 128,
         'out_stride': [8, 16, 32, 64, 128],
@@ -168,6 +170,7 @@ fcos_cfg = {
         'backbone_norm': 'FrozeBN',
         'res5_dilation': False,
         'pretrained': True,
+        'freeze_at': 1,  # freeze stem layer + layer1 of the backbone
         'pretrained_weight': 'imagenet1k_v1',
         'max_stride': 128,
         'out_stride': [8, 16, 32, 64, 128],
@@ -247,6 +250,7 @@ fcos_cfg = {
         'backbone_norm': 'FrozeBN',
         'res5_dilation': False,
         'pretrained': True,
+        'freeze_at': 1,  # freeze stem layer + layer1 of the backbone
         'pretrained_weight': 'imagenet1k_v1',
         'max_stride': 128,
         'out_stride': [8, 16, 32, 64, 128],
@@ -326,6 +330,7 @@ fcos_cfg = {
         'backbone_norm': 'FrozeBN',
         'res5_dilation': False,
         'pretrained': True,
+        'freeze_at': 1,  # freeze stem layer + layer1 of the backbone
         'pretrained_weight': 'imagenet1k_v1',
         'max_stride': 128,
         'out_stride': [8, 16, 32, 64, 128],
@@ -405,6 +410,7 @@ fcos_cfg = {
         'backbone_norm': 'FrozeBN',
         'res5_dilation': False,
         'pretrained': True,
+        'freeze_at': 1,  # freeze stem layer + layer1 of the backbone
         'pretrained_weight': 'imagenet1k_v1',
         'max_stride': 128,
         'out_stride': [8, 16, 32, 64, 128],
@@ -485,6 +491,7 @@ fcos_cfg = {
         'backbone_norm': 'FrozeBN',
         'res5_dilation': False,
         'pretrained': True,
+        'freeze_at': 1,  # freeze stem layer + layer1 of the backbone
         'pretrained_weight': 'imagenet1k_v2',
         'max_stride': 128,
         'out_stride': [8, 16, 32, 64, 128],
@@ -564,6 +571,7 @@ fcos_cfg = {
         'backbone_norm': 'FrozeBN',
         'res5_dilation': False,
         'pretrained': True,
+        'freeze_at': 1,  # freeze stem layer + layer1 of the backbone
         'pretrained_weight': 'imagenet1k_v2',
         'max_stride': 128,
         'out_stride': [8, 16, 32, 64, 128],
@@ -643,6 +651,7 @@ fcos_cfg = {
         'backbone_norm': 'FrozeBN',
         'res5_dilation': False,
         'pretrained': True,
+        'freeze_at': 1,  # freeze stem layer + layer1 of the backbone
         'pretrained_weight': 'imagenet1k_v2',
         'max_stride': 128,
         'out_stride': [8, 16, 32, 64, 128],
@@ -722,6 +731,7 @@ fcos_cfg = {
         'backbone_norm': 'FrozeBN',
         'res5_dilation': False,
         'pretrained': True,
+        'freeze_at': 1,  # freeze stem layer + layer1 of the backbone
         'pretrained_weight': 'imagenet1k_v2',
         'max_stride': 128,
         'out_stride': [8, 16, 32, 64, 128],

@@ -12,6 +12,7 @@ yolof_cfg = {
         'res5_dilation': False,
         'pretrained': True,
         'pretrained_weight': 'imagenet1k_v1',
+        'freeze_at': 1,  # freeze stem layer + layer1 of the backbone
         'max_stride': 32,
         'out_stride': 32,
         ## Neck
@@ -95,6 +96,7 @@ yolof_cfg = {
         'res5_dilation': False,
         'pretrained': True,
         'pretrained_weight': 'imagenet1k_v1',
+        'freeze_at': 1,  # freeze stem layer + layer1 of the backbone
         'max_stride': 32,
         'out_stride': 32,
         ## Neck
@@ -178,6 +180,7 @@ yolof_cfg = {
         'res5_dilation': False,
         'pretrained': True,
         'pretrained_weight': 'imagenet1k_v1',
+        'freeze_at': 1,  # freeze stem layer + layer1 of the backbone
         'max_stride': 32,
         'out_stride': 32,
         ## Neck
@@ -262,6 +265,7 @@ yolof_cfg = {
         'res5_dilation': True,
         'pretrained': True,
         'pretrained_weight': 'imagenet1k_v1',
+        'freeze_at': 1,  # freeze stem layer + layer1 of the backbone
         'max_stride': 16,
         'out_stride': 16,
         ## Neck
@@ -345,6 +349,7 @@ yolof_cfg = {
         'res5_dilation': True,
         'pretrained': True,
         'pretrained_weight': 'imagenet1k_v1',
+        'freeze_at': 1,  # freeze stem layer + layer1 of the backbone
         'max_stride': 16,
         'out_stride': 16,
         ## Neck
@@ -431,6 +436,7 @@ yolof_cfg = {
         'res5_dilation': False,
         'pretrained': True,
         'pretrained_weight': 'imagenet1k_v2',
+        'freeze_at': 1,  # freeze stem layer + layer1 of the backbone
         'max_stride': 32,
         'out_stride': 32,
         ## Neck
@@ -514,6 +520,7 @@ yolof_cfg = {
         'res5_dilation': False,
         'pretrained': True,
         'pretrained_weight': 'imagenet1k_v2',
+        'freeze_at': 1,  # freeze stem layer + layer1 of the backbone
         'max_stride': 32,
         'out_stride': 32,
         ## Neck
@@ -598,6 +605,7 @@ yolof_cfg = {
         'res5_dilation': True,
         'pretrained': True,
         'pretrained_weight': 'imagenet1k_v2',
+        'freeze_at': 1,  # freeze stem layer + layer1 of the backbone
         'max_stride': 16,
         'out_stride': 16,
         ## Neck
@@ -681,6 +689,7 @@ yolof_cfg = {
         'res5_dilation': True,
         'pretrained': True,
         'pretrained_weight': 'imagenet1k_v2',
+        'freeze_at': 1,  # freeze stem layer + layer1 of the backbone
         'max_stride': 16,
         'out_stride': 16,
         ## Neck

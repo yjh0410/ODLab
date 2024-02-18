@@ -10,6 +10,7 @@ plain_detr_cfg = {
         'res5_dilation': False,
         'pretrained': True,
         'pretrained_weight': 'spark_resnet50',  # Cls: imagenet1k_v2; MIM: spark_resnet50
+        'freeze_at': 1,  # freeze stem layer + layer1 of the backbone
         'max_stride': 32,
         'out_stride': 16,
         # Transformer Ecndoer
@@ -36,11 +37,11 @@ plain_detr_cfg = {
         'num_queries_one2many': 1500,
         # Post process
         'train_topk': 300,
-        'train_conf_thresh': 0.05,
-        'train_nms_thresh': 0.6,
+        'train_conf_thresh': 0.001,
+        'train_nms_thresh': 0.5,
         'test_topk': 300,
-        'test_conf_thresh': 0.3,
-        'test_nms_thresh': 0.45,
+        'test_conf_thresh': 0.001,
+        'test_nms_thresh': 0.5,
         'nms_class_agnostic': True,  # We prefer to use class-agnostic NMS in the demo.
         # ---------------- Assignment config ----------------
         'matcher_hpy': {'cost_class': 2.0,

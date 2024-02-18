@@ -13,6 +13,7 @@ def build_plain_detr(cfg, device, num_classes=80, trainable=False):
                       conf_thresh = cfg['train_conf_thresh'] if trainable else cfg['test_conf_thresh'],
                       nms_thresh  = cfg['train_nms_thresh']  if trainable else cfg['test_nms_thresh'],
                       topk        = cfg['train_topk']        if trainable else cfg['test_topk'],
+                      use_nms     = False,
                       )
             
     # -------------- Build criterion --------------

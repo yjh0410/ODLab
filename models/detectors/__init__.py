@@ -8,26 +8,28 @@ from .plain_detr.build import build_plain_detr
 from .rtdetr.build     import build_rtdetr
 
 
-# build object detector
 def build_model(args, cfg, device, num_classes=80, trainable=False):
-    # RetinaNet    
+    # ------------ build object detector ------------
+    ## RetinaNet    
     if 'retinanet' in args.model:
         model, criterion = build_retinanet(cfg, device, num_classes, trainable)
-    # FCOS    
+    ## FCOS    
     elif 'fcos' in args.model:
         model, criterion = build_fcos(cfg, device, num_classes, trainable)
-    # YOLOF    
+    ## YOLOF    
     elif 'yolof' in args.model:
         model, criterion = build_yolof(cfg, device, num_classes, trainable)
-    # PlainDETR    
+    ## PlainDETR    
     elif 'plain_detr' in args.model:
         model, criterion = build_plain_detr(cfg, device, num_classes, trainable)
-    # RT-DETR    
+    ## RT-DETR    
     elif 'rtdetr' in args.model:
         model, criterion = build_rtdetr(cfg, device, num_classes, trainable)
-        
+    else:
+        raise NotImplementedError("Unknown detector: {}".args.model)
+    
     if trainable:
-        # Load pretrained weight
+        # ------------ Load pretrained weight ------------
         if args.pretrained is not None:
             print('Loading pretrained weight ...')
             checkpoint = torch.load(args.pretrained, map_location='cpu')
@@ -49,7 +51,7 @@ def build_model(args, cfg, device, num_classes=80, trainable=False):
 
             model.load_state_dict(checkpoint_state_dict, strict=False)
 
-        # keep training
+        # ------------ Keep training from the given weight ------------
         if args.resume is not None:
             print('keep training: ', args.resume)
             checkpoint = torch.load(args.resume, map_location='cpu')

@@ -100,39 +100,26 @@ class RetinaNet(nn.Module):
 
         return bboxes, scores, labels
 
-    @torch.no_grad()
-    def inference_single_image(self, x):
+    def forward(self, src, src_mask=None, targets=None):
         # ---------------- Backbone ----------------
-        pyramid_feats = self.backbone(x)
+        pyramid_feats = self.backbone(src)
 
         # ---------------- Neck ----------------
         pyramid_feats = self.fpn(pyramid_feats)
 
         # ---------------- Heads ----------------
-        outputs = self.head(pyramid_feats)
+        outputs = self.head(pyramid_feats, src_mask)
 
-        # ---------------- PostProcess ----------------
-        cls_pred = outputs["pred_cls"]
-        box_pred = outputs["pred_box"]
-        bboxes, scores, labels = self.post_process(cls_pred, box_pred)
-        # normalize bbox
-        bboxes[..., 0::2] /= x.shape[-1]
-        bboxes[..., 1::2] /= x.shape[-2]
-        bboxes = bboxes.clip(0., 1.)
+        if not self.training:
+            # ---------------- PostProcess ----------------
+            cls_pred = outputs["pred_cls"]
+            box_pred = outputs["pred_box"]
+            bboxes, scores, labels = self.post_process(cls_pred, box_pred)
+            # normalize bbox
+            bboxes[..., 0::2] /= src.shape[-1]
+            bboxes[..., 1::2] /= src.shape[-2]
+            bboxes = bboxes.clip(0., 1.)
 
-        return bboxes, scores, labels
+            return bboxes, scores, labels
 
-    def forward(self, src, src_mask=None, targets=None):
-        if not self.trainable:
-            return self.inference_single_image(src)
-        else:
-            # ---------------- Backbone ----------------
-            pyramid_feats = self.backbone(src)
-
-            # ---------------- Neck ----------------
-            pyramid_feats = self.fpn(pyramid_feats)
-
-            # ---------------- Heads ----------------
-            outputs = self.head(pyramid_feats, src_mask)
-
-            return outputs 
+        return outputs 
