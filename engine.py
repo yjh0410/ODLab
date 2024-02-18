@@ -24,6 +24,7 @@ def train_one_epoch(cfg,
                     vis_target  : bool,
                     warmup_lr_scheduler,
                     class_labels = None,
+                    model_ema    = None,
                     debug       :bool = False
                     ):
     model.train()
@@ -84,6 +85,10 @@ def train_one_epoch(cfg,
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
         optimizer.step()
         iteration += 1
+
+        # ema
+        if model_ema is not None:
+            model_ema.update(model)
 
         metric_logger.update(loss=loss_value, **loss_dict_reduced_scaled)
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])

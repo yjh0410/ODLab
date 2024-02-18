@@ -45,7 +45,7 @@ elif [[ $WORLD_SIZE -gt 1 && $WORLD_SIZE -le 8 ]]; then
     python -m torch.distributed.run --nproc_per_node=$WORLD_SIZE --master_port ${MASTER_PORT}  \
         main.py \
         --cuda \
-        -dist \
+        --distributed \
         --dataset ${DATASET}  \
         --root ${DATA_ROOT} \
         --model ${MODEL} \

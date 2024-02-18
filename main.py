@@ -11,8 +11,8 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 
 from utils import distributed_utils
 from utils.misc import compute_flops, collate_fn
-from utils.misc import get_param_dict
-from utils.optimizer import build_optimizer, build_detr_optimizer
+from utils.misc import get_param_dict, ModelEMA
+from utils.optimizer import build_optimizer
 from utils.lr_scheduler import build_wp_lr_scheduler, build_lr_scheduler
 
 from config import build_config
@@ -40,6 +40,8 @@ def parse_args():
                         help='load pretrained weight')
     parser.add_argument('-r', '--resume', default=None, type=str,
                         help='keep training')
+    parser.add_argument('--ema', default=None, type=str,
+                        help='use Model EMA trick.')
     # Optimizer
     parser.add_argument('--optimizer_type', default='cnn', choices=['cnn', 'detr'],
                         help='cnn: for CNN-based detector; detr: for DETR series detector')
@@ -159,6 +161,13 @@ def main():
     optimizer, start_epoch = build_optimizer(cfg, model_without_ddp, param_dicts, args.resume)
 
 
+    # ---------------------------- Build Model EMA ----------------------------
+    model_ema = None
+    if hasattr(cfg, 'use_ema') and cfg['use_ema']:
+        print("Build Model EMA for {}".format(args.model))
+        model_ema = ModelEMA(cfg, model, start_epoch * len(train_loader))
+
+
     # ---------------------------- Build LR Scheduler ----------------------------
     wp_lr_scheduler = build_wp_lr_scheduler(cfg, cfg['base_lr'])
     lr_scheduler    = build_lr_scheduler(cfg, optimizer, args.resume)
@@ -182,20 +191,32 @@ def main():
             train_loader.batch_sampler.sampler.set_epoch(epoch)
 
         # Train one epoch
-        train_one_epoch(cfg, model, criterion, train_loader, optimizer, device, epoch,
-                        cfg['max_epoch'], cfg['clip_max_norm'], args.vis_tgt, wp_lr_scheduler,
-                        dataset_info['class_labels'], debug=args.debug)
+        train_one_epoch(cfg,
+                        model,
+                        criterion,
+                        train_loader,
+                        optimizer,
+                        device,
+                        epoch,
+                        cfg['max_epoch'],
+                        cfg['clip_max_norm'],
+                        args.vis_tgt,
+                        wp_lr_scheduler,
+                        dataset_info['class_labels'],
+                        model_ema=model_ema,
+                        debug=args.debug)
         
         # LR Scheduler
         lr_scheduler.step()
 
         # Evaluate
         if distributed_utils.is_main_process():
+            model_eval = model_ema.ema if model_ema is not None else model_without_ddp
             if (epoch % args.eval_epoch) == 0 or (epoch == cfg['max_epoch'] - 1):
                 if evaluator is None:
                     cur_map = 0.
                 else:
-                    evaluator.evaluate(model_without_ddp)
+                    evaluator.evaluate(model_eval)
                     cur_map = evaluator.map
                 # Save model
                 if cur_map > best_map:
@@ -203,7 +224,7 @@ def main():
                     best_map = cur_map
                     # save model
                     print('Saving state, epoch:', epoch + 1)
-                    torch.save({'model':        model_without_ddp.state_dict(),
+                    torch.save({'model':        model_eval.state_dict(),
                                 'optimizer':    optimizer.state_dict(),
                                 'lr_scheduler': lr_scheduler.state_dict(),
                                 'mAP':          round(cur_map*100, 1),

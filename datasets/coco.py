@@ -136,7 +136,7 @@ if __name__ == "__main__":
         'box_format': 'xywh',
         'normalize_coords': False,
     }
-
+    
     # build dataset
     transform = build_transform(cfg, is_train=True)
     dataset = build_coco(args, transform, is_train=args.is_train)

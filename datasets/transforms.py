@@ -10,6 +10,8 @@ import torch
 import torchvision
 import torchvision.transforms as T
 import torchvision.transforms.functional as F
+import torchvision.transforms.v2 as T2
+from torchvision.tv_tensors import BoundingBoxes, BoundingBoxFormat
 
 
 # ----------------- Basic transform functions -----------------
@@ -212,6 +214,45 @@ class RandomShift(object):
 
         return image, target
 
+class RandomZoomOut(object):
+    def __init__(self, fill) -> None:
+        self.transform = T2.RandomZoomOut(fill=fill)
+
+    def __call__(self, img, target=None):
+        boxes_tv_tensor = BoundingBoxes(
+            target['boxes'], 
+            format=BoundingBoxFormat.XYXY, 
+            canvas_size=img.size[::-1]) # h w
+        img, boxes_tv_tensor = self.transform(img, boxes_tv_tensor)
+        target['boxes'] = boxes_tv_tensor[:]
+
+        return img, target
+
+class RandomIoUCrop(object):
+    def __init__(self, min_scale=0.3, max_scale=1, min_aspect_ratio=0.5, max_aspect_ratio=2, sampler_options=None, trials=40, p=0.5):
+        self.p = p
+        self.transform = T2.RandomIoUCrop(min_scale, max_scale, min_aspect_ratio, max_aspect_ratio, sampler_options, trials)
+
+    def __call__(self, img, target=None):
+        if torch.rand(1) <= self.p:
+            boxes_tv_tensor = BoundingBoxes(
+                target['boxes'], 
+                format=BoundingBoxFormat.XYXY, 
+                canvas_size=img.size[::-1]) # h w
+            img, boxes_tv_tensor = self.transform(img, boxes_tv_tensor)
+            target['boxes'] = boxes_tv_tensor
+
+        return img, target
+
+class RandomPhotometricDistort(object):
+    def __init__(self, brightness=(0.875, 1.125), contrast=(0.5, 1.5), saturation=(0.5, 1.5), hue=(-0.05, 0.05), p=0.5):
+        self.transform = T2.RandomPhotometricDistort(brightness, contrast, saturation, hue, p)
+
+    def __call__(self, img, target=None):
+        img = self.transform(img)
+
+        return img, target
+        
 class RandomSelect(object):
     """
     Randomly selects between transforms1 and transforms2,
@@ -250,11 +291,30 @@ class Normalize(object):
                 target["boxes"] = boxes
         return image, target
 
+class RefineBBox(object):
+    def __init__(self, min_box_size=1):
+        self.min_box_size = min_box_size
+
+    def __call__(self, img, target):
+        boxes  = target["boxes"].clone()
+        labels = target["labels"].clone()
+
+        tgt_boxes_wh = boxes[..., 2:] - boxes[..., :2]
+        min_tgt_size = torch.min(tgt_boxes_wh, dim=-1)[0]
+
+        keep = (min_tgt_size >= self.min_box_size)
+
+        target["boxes"] = boxes[keep]
+        target["labels"] = labels[keep]
+
+        return img, target
+
 class ConvertBoxFormat(object):
     def __init__(self, box_format="xyxy"):
         self.box_format = box_format
 
     def __call__(self, image, target=None):
+        # convert box format
         if self.box_format == "xyxy" or target is None:
             pass
         elif self.box_format == "xywh":
@@ -305,6 +365,14 @@ def build_transform(cfg=None, is_train=False):
                     transforms.append(RandomSizeCrop(t['min_crop_size'], max_size=t['max_crop_size']))
                 if t['name'] == 'RandomShift':
                     transforms.append(RandomShift(max_shift=t['max_shift']))
+                if t['name'] == 'RandomZoomOut':
+                    transforms.append(RandomZoomOut(fill=t['fill']))
+                if t['name'] == 'RandomIoUCrop':
+                    transforms.append(RandomIoUCrop(p=t['prob']))
+                if t['name'] == 'RefineBBox':
+                    transforms.append(RefineBBox(min_box_size=t['min_box_size']))
+                if t['name'] == 'RandomPhotometricDistort':
+                    transforms.append(RandomPhotometricDistort(p=t['prob']))
             transforms.extend([
                 ToTensor(),
                 Normalize(cfg['pixel_mean'], cfg['pixel_std'], cfg['normalize_coords']),
