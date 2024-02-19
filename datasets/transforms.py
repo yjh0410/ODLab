@@ -398,7 +398,7 @@ def build_transform(cfg=None, is_train=False):
     # ---------------- Transform for Evaluating ----------------
     else:
         transforms = [
-            RandomResize([cfg['test_min_size']], max_size=cfg['test_max_size']),
+            RandomResize(cfg['test_min_size'], max_size=cfg['test_max_size']),
             ToTensor(),
             Normalize(cfg['pixel_mean'], cfg['pixel_std'], cfg['normalize_coords']),
             ConvertBoxFormat(cfg['box_format'])

@@ -73,7 +73,7 @@ yolof_cfg = {
         ## Transforms
         'train_min_size': [800],   # short edge of image
         'train_max_size': 1333,
-        'test_min_size': 800,
+        'test_min_size': [800],
         'test_max_size': 1333,
         ## Pixel mean & std
         'pixel_mean': [0.485, 0.456, 0.406],
@@ -158,7 +158,7 @@ yolof_cfg = {
         ## Transforms
         'train_min_size': [800],   # short edge of image
         'train_max_size': 1333,
-        'test_min_size': 800,
+        'test_min_size': [800],
         'test_max_size': 1333,
         ## Pixel mean & std
         'pixel_mean': [0.485, 0.456, 0.406],
@@ -243,7 +243,7 @@ yolof_cfg = {
         ## Transforms
         'train_min_size': [800],   # short edge of image
         'train_max_size': 1333,
-        'test_min_size': 800,
+        'test_min_size': [800],
         'test_max_size': 1333,
         ## Pixel mean & std
         'pixel_mean': [0.485, 0.456, 0.406],
@@ -329,7 +329,7 @@ yolof_cfg = {
         ## Transforms
         'train_min_size': [800],   # short edge of image
         'train_max_size': 1333,
-        'test_min_size': 800,
+        'test_min_size': [800],
         'test_max_size': 1333,
         ## Pixel mean & std
         'pixel_mean': [0.485, 0.456, 0.406],
@@ -414,7 +414,7 @@ yolof_cfg = {
         ## Transforms
         'train_min_size': [800],   # short edge of image
         'train_max_size': 1333,
-        'test_min_size': 800,
+        'test_min_size': [800],
         'test_max_size': 1333,
         ## Pixel mean & std
         'pixel_mean': [0.485, 0.456, 0.406],
@@ -502,7 +502,7 @@ yolof_cfg = {
         ## Transforms
         'train_min_size': [800],   # short edge of image
         'train_max_size': 1333,
-        'test_min_size': 800,
+        'test_min_size': [800],
         'test_max_size': 1333,
         ## Pixel mean & std
         'pixel_mean': [0.485, 0.456, 0.406],
@@ -587,7 +587,7 @@ yolof_cfg = {
         ## Transforms
         'train_min_size': [800],   # short edge of image
         'train_max_size': 1333,
-        'test_min_size': 800,
+        'test_min_size': [800],
         'test_max_size': 1333,
         ## Pixel mean & std
         'pixel_mean': [0.485, 0.456, 0.406],
@@ -673,7 +673,7 @@ yolof_cfg = {
         ## Transforms
         'train_min_size': [800],   # short edge of image
         'train_max_size': 1333,
-        'test_min_size': 800,
+        'test_min_size': [800],
         'test_max_size': 1333,
         ## Pixel mean & std
         'pixel_mean': [0.485, 0.456, 0.406],
@@ -758,7 +758,7 @@ yolof_cfg = {
         ## Transforms
         'train_min_size': [800],   # short edge of image
         'train_max_size': 1333,
-        'test_min_size': 800,
+        'test_min_size': [800],
         'test_max_size': 1333,
         ## Pixel mean & std
         'pixel_mean': [0.485, 0.456, 0.406],
