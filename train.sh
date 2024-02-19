@@ -23,7 +23,7 @@ elif [[ $MODEL == *"plain_detr"* ]]; then
 elif [[ $MODEL == *"rtdetr"* ]]; then
     # Epoch setting
     BATCH_SIZE=16
-    EVAL_EPOCH=2
+    EVAL_EPOCH=1
 fi
 
 # -------------------------- Train Pipeline --------------------------
