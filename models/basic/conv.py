@@ -1,4 +1,6 @@
 import math
+from typing import List
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -143,7 +145,7 @@ class UpSampleWrapper(nn.Module):
         return x
 
 
-# ----------------- RepCNN ops -----------------
+# ----------------- RepCNN module -----------------
 class RepVggBlock(nn.Module):
     def __init__(self, in_dim, out_dim, act_type='relu', norm_type='BN'):
         super().__init__()
@@ -226,3 +228,70 @@ class RepCSPLayer(nn.Module):
         x_2 = self.conv2(x)
 
         return self.conv3(x_1 + x_2)
+
+
+# ----------------- CNN module -----------------
+class YoloBottleneck(nn.Module):
+    def __init__(self,
+                 in_dim       :int,
+                 out_dim      :int,
+                 kernel_size  :List  = [1, 3],
+                 expand_ratio :float = 0.5,
+                 shortcut     :bool  = False,
+                 act_type     :str   = 'silu',
+                 norm_type    :str   = 'BN',
+                 depthwise    :bool  = False,
+                 ) -> None:
+        super(YoloBottleneck, self).__init__()
+        inter_dim = int(out_dim * expand_ratio)
+        # ----------------- Network setting -----------------
+        self.conv_layer1 = BasicConv(in_dim, inter_dim,
+                                     kernel_size=kernel_size[0], padding=kernel_size[0]//2, stride=1,
+                                     act_type=act_type, norm_type=norm_type)
+        self.conv_layer2 = BasicConv(inter_dim, out_dim,
+                                     kernel_size=kernel_size[1], padding=kernel_size[1]//2, stride=1,
+                                     act_type=act_type, norm_type=norm_type, depthwise=depthwise)
+        self.shortcut = shortcut and in_dim == out_dim
+
+    def forward(self, x):
+        h = self.conv_layer2(self.conv_layer1(x))
+
+        return x + h if self.shortcut else h
+
+class ELANLayer(nn.Module):
+    def __init__(self,
+                 in_dim,
+                 out_dim,
+                 expand_ratio :float = 0.5,
+                 num_blocks   :int   = 1,
+                 shortcut     :bool  = False,
+                 act_type     :str   = 'silu',
+                 norm_type    :str   = 'BN',
+                 depthwise    :bool  = False,
+                 ) -> None:
+        super(ELANLayer, self).__init__()
+        self.inter_dim = round(out_dim * expand_ratio)
+        self.input_proj  = BasicConv(in_dim, self.inter_dim * 2, kernel_size=1, act_type=act_type, norm_type=norm_type)
+        self.output_proj = BasicConv((2 + num_blocks) * self.inter_dim, out_dim, kernel_size=1, act_type=act_type, norm_type=norm_type)
+        self.module = nn.ModuleList([YoloBottleneck(self.inter_dim,
+                                                    self.inter_dim,
+                                                    kernel_size  = [3, 3],
+                                                    expand_ratio = 1.0,
+                                                    shortcut     = shortcut,
+                                                    act_type     = act_type,
+                                                    norm_type    = norm_type,
+                                                    depthwise    = depthwise)
+                                                    for _ in range(num_blocks)])
+
+    def forward(self, x):
+        # Input proj
+        x1, x2 = torch.chunk(self.input_proj(x), 2, dim=1)
+        out = list([x1, x2])
+
+        # Bottlenecl
+        out.extend(m(out[-1]) for m in self.module)
+
+        # Output proj
+        out = self.output_proj(torch.cat(out, dim=1))
+
+        return out

@@ -1,5 +1,6 @@
 from .dilated_encoder import DilatedEncoder
-from .fpn import BasicFPN, HybridEncoder
+from .hybrid_encoder import HybridEncoder
+from .fpn import BasicFPN
 from .spp import SPPF
 
 

@@ -16,9 +16,6 @@ conda activate odlab
 pip install -r requirements.txt 
 ```
 
-My environment:
-- PyTorch = 1.9.1
-- Torchvision = 0.10.1
-
-At least, please make sure your torch is version 1.x.
-
+My torch environment:
+- PyTorch = 2.2.0+cu121
+- Torchvision = 0.17.0+cu121
