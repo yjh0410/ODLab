@@ -594,7 +594,6 @@ def load_weight(arch, model):
 
     return model
 
-
 def build_swin_transformer(cfg, pretrained=False, **kw):
     assert cfg['backbone'] in ['swin_T_224_1k', 'swin_S_224_22k', 'swin_B_224_22k', 'swin_B_384_22k', 'swin_L_224_22k', 'swin_L_384_22k']
 

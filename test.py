@@ -147,7 +147,7 @@ if __name__ == '__main__':
                      for _ in range(dataset_info['num_classes'])]
 
     # Model
-    model = build_model(args, cfg, device, dataset_info['num_classes'], False)
+    model = build_model(args, cfg, dataset_info['num_classes'], is_val=False)
     model = load_weight(model, args.weight, args.fuse_conv_bn)
     model.to(device).eval()
 

@@ -1,6 +1,6 @@
 from .retinanet_head import RetinaNetHead
-from .yolof_head import YOLOFHead
-from .fcos_head import FCOSHead
+from .yolof_head     import YOLOFHead
+from .fcos_head      import FCOSHead
 
 
 # build head

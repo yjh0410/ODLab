@@ -130,12 +130,9 @@ def main():
 
     # ---------------------------- Build model ----------------------------
     ## Build model
-    model, criterion = build_model(args, cfg, device, dataset_info['num_classes'], True)
+    model, criterion = build_model(args, cfg, dataset_info['num_classes'], is_val=True)
     model.to(device)
     model_without_ddp = model
-    if args.distributed:
-        model = DDP(model, device_ids=[args.gpu], find_unused_parameters=args.find_unused_parameters)
-        model_without_ddp = model.module
     ## Calcute Params & GFLOPs
     if distributed_utils.is_main_process():
         model_copy = deepcopy(model_without_ddp)
@@ -153,10 +150,15 @@ def main():
     # ---------------------------- Build Optimizer ----------------------------
     cfg['base_lr'] = cfg['base_lr'] * args.batch_size
     param_dicts = None
-    if cfg['param_dict_type'] != 'default':
+    if 'param_dict_type' in cfg.keys() and cfg['param_dict_type'] != 'default':
         print("- Param dict type: {}".format(cfg['param_dict_type']))
         param_dicts = get_param_dict(model_without_ddp, cfg)
     optimizer, start_epoch = build_optimizer(cfg, model_without_ddp, param_dicts, args.resume)
+
+
+    # ---------------------------- Build LR Scheduler ----------------------------
+    wp_lr_scheduler = build_wp_lr_scheduler(cfg, cfg['base_lr'])
+    lr_scheduler    = build_lr_scheduler(cfg, optimizer, args.resume)
 
 
     # ---------------------------- Build Model EMA ----------------------------
@@ -166,9 +168,10 @@ def main():
         model_ema = ModelEMA(cfg, model, start_epoch * len(train_loader))
 
 
-    # ---------------------------- Build LR Scheduler ----------------------------
-    wp_lr_scheduler = build_wp_lr_scheduler(cfg, cfg['base_lr'])
-    lr_scheduler    = build_lr_scheduler(cfg, optimizer, args.resume)
+    # ---------------------------- Build DDP model ----------------------------
+    if args.distributed:
+        model = DDP(model, device_ids=[args.gpu], find_unused_parameters=args.find_unused_parameters)
+        model_without_ddp = model.module
 
 
     # ---------------------------- Build Evaluator ----------------------------
@@ -196,8 +199,6 @@ def main():
                         optimizer,
                         device,
                         epoch,
-                        cfg['max_epoch'],
-                        cfg['clip_max_norm'],
                         args.vis_tgt,
                         wp_lr_scheduler,
                         dataset_info['class_labels'],

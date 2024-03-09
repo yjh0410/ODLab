@@ -10,10 +10,10 @@ class LinearWarmUpScheduler(object):
         self.warmup_factor = warmup_factor
 
 
-    def set_lr(self, optimizer, lr, base_lr):
+    def set_lr(self, optimizer, lr):
         for param_group in optimizer.param_groups:
             init_lr = param_group['initial_lr']
-            ratio = init_lr / base_lr
+            ratio = init_lr / self.base_lr
             param_group['lr'] = lr * ratio
 
 
@@ -22,7 +22,7 @@ class LinearWarmUpScheduler(object):
         alpha = iter / self.wp_iter
         warmup_factor = self.warmup_factor * (1 - alpha) + alpha
         tmp_lr = self.base_lr * warmup_factor
-        self.set_lr(optimizer, tmp_lr, self.base_lr)
+        self.set_lr(optimizer, tmp_lr)
         
 ## Build WP LR Scheduler
 def build_wp_lr_scheduler(cfg, base_lr=0.01):

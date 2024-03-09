@@ -10,11 +10,10 @@ from .matcher import FcosMatcher, SimOtaMatcher
 
 
 class Criterion(nn.Module):
-    def __init__(self, cfg, device, num_classes=90):
+    def __init__(self, cfg, num_classes=90):
         super().__init__()
         # ------------- Basic parameters -------------
         self.cfg = cfg
-        self.device = device
         self.num_classes = num_classes
         # ------------- Focal loss -------------
         self.alpha = cfg['focal_loss_alpha']
@@ -259,8 +258,8 @@ class Criterion(nn.Module):
             
 
 # build criterion
-def build_criterion(cfg, device, num_classes=80):
-    criterion = Criterion(cfg=cfg, device=device, num_classes=num_classes)
+def build_criterion(cfg, num_classes=80):
+    criterion = Criterion(cfg=cfg, num_classes=num_classes)
     return criterion
 
 

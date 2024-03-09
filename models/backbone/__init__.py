@@ -1,4 +1,4 @@
-from .resnet import build_resnet
+from .resnet           import build_resnet
 from .swin_transformer import build_swin_transformer
 
 

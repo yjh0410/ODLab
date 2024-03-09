@@ -1,9 +1,8 @@
 # ----------------------- Model Config -----------------------
-from .retinanet_config import retinanet_cfg
-from .fcos_config import fcos_cfg
-from .yolof_config import yolof_cfg
+from .retinanet_config  import retinanet_cfg
+from .fcos_config       import fcos_cfg
+from .yolof_config      import yolof_cfg
 from .plain_detr_config import plain_detr_cfg
-
 
 def build_config(args):
     # RetinaNet

@@ -44,8 +44,7 @@ elif [[ $WORLD_SIZE -gt 1 && $WORLD_SIZE -le 8 ]]; then
         --root ${DATA_ROOT} \
         --model ${MODEL} \
         --batch_size ${BATCH_SIZE} \
-        --eval_epoch ${EVAL_EPOCH} \
-        --find_unused_parameters
+        --eval_epoch ${EVAL_EPOCH}
 else
     echo "The WORLD_SIZE is set to a value greater than 8, indicating the use of multi-machine \
           multi-card training mode, which is currently unsupported."

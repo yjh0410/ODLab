@@ -17,11 +17,10 @@ class Criterion(nn.Module):
     """
         This code referenced to https://github.com/megvii-model/YOLOF/blob/main/playground/detection/coco/yolof/yolof_base/yolof.py
     """
-    def __init__(self, cfg, device, num_classes=80):
+    def __init__(self, cfg, num_classes=80):
         super().__init__()
         # ------------- Basic parameters -------------
         self.cfg = cfg
-        self.device = device
         self.num_classes = num_classes
         # ------------- Focal loss -------------
         self.alpha = cfg['focal_loss_alpha']
@@ -68,6 +67,7 @@ class Criterion(nn.Module):
         pred_cls = outputs['pred_cls'].reshape(-1, self.num_classes)
         anchor_boxes = outputs['anchors']
         masks = ~outputs['mask']
+        device = pred_box.device
         B = len(targets)
 
         # -------------------- Label assignment --------------------
@@ -108,12 +108,12 @@ class Criterion(nn.Module):
         gt_cls = torch.full(pred_cls.shape[:1],
                                 self.num_classes,
                                 dtype=torch.int64,
-                                device=self.device)
+                                device=device)
         gt_cls[ignore_idx] = -1
         tgt_cls_o = torch.cat([t['labels'][J] for t, (_, J) in zip(targets, indices)])
         tgt_cls_o[pos_ignore_idx] = -1
 
-        gt_cls[src_idx] = tgt_cls_o.to(self.device)
+        gt_cls[src_idx] = tgt_cls_o.to(device)
 
         foreground_idxs = (gt_cls >= 0) & (gt_cls != self.num_classes)
         num_foreground = foreground_idxs.sum()
@@ -129,7 +129,7 @@ class Criterion(nn.Module):
         loss_labels = self.loss_labels(pred_cls[valid_idxs], gt_cls_target[valid_idxs], num_foreground)
 
         # -------------------- Regression loss --------------------
-        tgt_boxes = torch.cat([t['boxes'][i] for t, (_, i) in zip(targets, indices)], dim=0).to(self.device)
+        tgt_boxes = torch.cat([t['boxes'][i] for t, (_, i) in zip(targets, indices)], dim=0).to(device)
         tgt_boxes = tgt_boxes[~pos_ignore_idx]
         matched_pred_box = pred_box.reshape(-1, 4)[src_idx[~pos_ignore_idx.cpu()]]
         loss_bboxes = self.loss_bboxes(matched_pred_box, tgt_boxes, num_foreground)
@@ -142,8 +142,8 @@ class Criterion(nn.Module):
         return loss_dict
 
 
-def build_criterion(cfg, device, num_classes=80):
-    criterion = Criterion(cfg=cfg, device=device, num_classes=num_classes)
+def build_criterion(cfg, num_classes=80):
+    criterion = Criterion(cfg=cfg, num_classes=num_classes)
     return criterion
 
     

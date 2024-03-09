@@ -7,46 +7,24 @@ from .yolof.build      import build_yolof
 from .plain_detr.build import build_plain_detr
 
 
-def build_model(args, cfg, device, num_classes=80, trainable=False):
+def build_model(args, cfg, num_classes=80, is_val=False):
     # ------------ build object detector ------------
     ## RetinaNet    
     if 'retinanet' in args.model:
-        model, criterion = build_retinanet(cfg, device, num_classes, trainable)
+        model, criterion = build_retinanet(cfg, num_classes, is_val)
     ## FCOS    
     elif 'fcos' in args.model:
-        model, criterion = build_fcos(cfg, device, num_classes, trainable)
+        model, criterion = build_fcos(cfg, num_classes, is_val)
     ## YOLOF    
     elif 'yolof' in args.model:
-        model, criterion = build_yolof(cfg, device, num_classes, trainable)
+        model, criterion = build_yolof(cfg, num_classes, is_val)
     ## PlainDETR    
     elif 'plain_detr' in args.model:
-        model, criterion = build_plain_detr(cfg, device, num_classes, trainable)
+        model, criterion = build_plain_detr(cfg, num_classes, is_val)
     else:
         raise NotImplementedError("Unknown detector: {}".args.model)
     
-    if trainable:
-        # ------------ Load pretrained weight ------------
-        if args.pretrained is not None:
-            print('Loading pretrained weight ...')
-            checkpoint = torch.load(args.pretrained, map_location='cpu')
-            # checkpoint state dict
-            checkpoint_state_dict = checkpoint.pop("model")
-            # model state dict
-            model_state_dict = model.state_dict()
-            # check
-            for k in list(checkpoint_state_dict.keys()):
-                if k in model_state_dict:
-                    shape_model = tuple(model_state_dict[k].shape)
-                    shape_checkpoint = tuple(checkpoint_state_dict[k].shape)
-                    if shape_model != shape_checkpoint:
-                        checkpoint_state_dict.pop(k)
-                        print(k)
-                else:
-                    checkpoint_state_dict.pop(k)
-                    print(k)
-
-            model.load_state_dict(checkpoint_state_dict, strict=False)
-
+    if is_val:
         # ------------ Keep training from the given weight ------------
         if args.resume is not None:
             print('keep training: ', args.resume)

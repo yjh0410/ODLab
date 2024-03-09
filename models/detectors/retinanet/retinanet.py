@@ -15,7 +15,6 @@ from utils.misc import multiclass_nms
 # ------------------------ RetinaNet ------------------------
 class RetinaNet(nn.Module):
     def __init__(self, 
-                 device, 
                  cfg,
                  num_classes :int   = 80, 
                  conf_thresh :float = 0.05,
@@ -26,7 +25,6 @@ class RetinaNet(nn.Module):
         super(RetinaNet, self).__init__()
         # ---------------------- Basic Parameters ----------------------
         self.cfg = cfg
-        self.device = device
         self.trainable = trainable
         self.topk = topk
         self.num_classes = num_classes

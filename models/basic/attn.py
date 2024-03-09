@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-# ----------------- BoxRPM Attention Ops -----------------
+# ----------------- BoxRPM Cross Attention Ops -----------------
 class GlobalCrossAttention(nn.Module):
     def __init__(
         self,

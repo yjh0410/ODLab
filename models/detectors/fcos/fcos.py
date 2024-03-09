@@ -13,19 +13,15 @@ from utils.misc import multiclass_nms
 # ------------------------ Fully Convolutional One-Stage Detector ------------------------
 class FCOS(nn.Module):
     def __init__(self, 
-                 device, 
                  cfg,
                  num_classes :int   = 80, 
                  conf_thresh :float = 0.05,
                  nms_thresh  :float = 0.6,
                  topk        :int   = 1000,
-                 trainable   :bool  = False,
                  ca_nms      :bool  = False):
         super(FCOS, self).__init__()
         # ---------------------- Basic Parameters ----------------------
         self.cfg = cfg
-        self.device = device
-        self.trainable = trainable
         self.topk = topk
         self.num_classes = num_classes
         self.conf_thresh = conf_thresh

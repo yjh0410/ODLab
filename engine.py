@@ -19,8 +19,6 @@ def train_one_epoch(cfg,
                     optimizer   : torch.optim.Optimizer,
                     device      : torch.device,
                     epoch       : int,
-                    max_epoch   : int,
-                    max_norm    : float,
                     vis_target  : bool,
                     warmup_lr_scheduler,
                     class_labels = None,
@@ -31,8 +29,7 @@ def train_one_epoch(cfg,
     criterion.train()
     metric_logger = MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', SmoothedValue(window_size=1, fmt='{value:.6f}'))
-    header = 'Epoch: [{} / {}]'.format(epoch, max_epoch)
-    lr_warmup_stage = True
+    header = 'Epoch: [{} / {}]'.format(epoch, cfg['max_epoch'])
     epoch_size = len(data_loader)
     print_freq = 10
 
@@ -40,12 +37,11 @@ def train_one_epoch(cfg,
     for samples, targets in metric_logger.log_every(data_loader, print_freq, header):
         ni = iteration + epoch * epoch_size
         # WarmUp
-        if ni < cfg['warmup_iters'] and lr_warmup_stage:
+        if ni < cfg['warmup_iters']:
             warmup_lr_scheduler(ni, optimizer)
-        elif ni == cfg['warmup_iters'] and lr_warmup_stage:
+        elif ni == cfg['warmup_iters']:
             print('Warmup stage is over.')
-            lr_warmup_stage = False
-            warmup_lr_scheduler.set_lr(optimizer, cfg['base_lr'], cfg['base_lr'])
+            warmup_lr_scheduler.set_lr(optimizer, cfg['base_lr'])
 
         # To device
         images, masks = samples
@@ -81,8 +77,8 @@ def train_one_epoch(cfg,
         # Backward
         optimizer.zero_grad()
         losses.backward()
-        if max_norm > 0:
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
+        if cfg['clip_max_norm'] > 0:
+            torch.nn.utils.clip_grad_norm_(model.parameters(), cfg['clip_max_norm'])
         optimizer.step()
         iteration += 1
 
