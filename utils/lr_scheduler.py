@@ -9,13 +9,11 @@ class LinearWarmUpScheduler(object):
         self.wp_iter = wp_iter
         self.warmup_factor = warmup_factor
 
-
     def set_lr(self, optimizer, lr):
         for param_group in optimizer.param_groups:
             init_lr = param_group['initial_lr']
             ratio = init_lr / self.base_lr
             param_group['lr'] = lr * ratio
-
 
     def __call__(self, iter, optimizer):
         # warmup
@@ -25,15 +23,15 @@ class LinearWarmUpScheduler(object):
         self.set_lr(optimizer, tmp_lr)
         
 ## Build WP LR Scheduler
-def build_wp_lr_scheduler(cfg, base_lr=0.01):
+def build_wp_lr_scheduler(cfg):
     print('==============================')
-    print('WarmUpScheduler: {}'.format(cfg['warmup']))
-    print('--base_lr: {}'.format(base_lr))
-    print('--warmup_iters: {}'.format(cfg['warmup_iters']))
-    print('--warmup_factor: {}'.format(cfg['warmup_factor']))
+    print('WarmUpScheduler: {}'.format(cfg.warmup))
+    print('--base_lr: {}'.format(cfg.base_lr))
+    print('--warmup_iters: {} ({})'.format(cfg.warmup_iters, cfg.warmup_iters * cfg.grad_accumulate))
+    print('--warmup_factor: {}'.format(cfg.warmup_factor))
 
-    if cfg['warmup'] == 'linear':
-        wp_lr_scheduler = LinearWarmUpScheduler(base_lr, cfg['warmup_iters'], cfg['warmup_factor'])
+    if cfg.warmup == 'linear':
+        wp_lr_scheduler = LinearWarmUpScheduler(cfg.base_lr, cfg.warmup_iters, cfg.warmup_factor)
     
     return wp_lr_scheduler
 
@@ -41,17 +39,17 @@ def build_wp_lr_scheduler(cfg, base_lr=0.01):
 # ------------------------- LR Scheduler -------------------------
 def build_lr_scheduler(cfg, optimizer, resume=None):
     print('==============================')
-    print('LR Scheduler: {}'.format(cfg['lr_scheduler']))
+    print('LR Scheduler: {}'.format(cfg.lr_scheduler))
 
-    if cfg['lr_scheduler'] == 'step':
-        assert 'lr_epoch' in cfg
-        print('--lr_epoch: {}'.format(cfg['lr_epoch']))
-        lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer=optimizer, milestones=cfg['lr_epoch'])
-    elif cfg['lr_scheduler'] == 'cosine':
+    if cfg.lr_scheduler == 'step':
+        assert hasattr(cfg, 'lr_epoch')
+        print('--lr_epoch: {}'.format(cfg.lr_epoch))
+        lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer=optimizer, milestones=cfg.lr_epoch)
+    elif cfg.lr_scheduler == 'cosine':
         pass
         
     if resume is not None:
-        print('keep training: ', resume)
+        print('Load lr scheduler from the checkpoint: ', resume)
         checkpoint = torch.load(resume)
         # checkpoint state dict
         checkpoint_state_dict = checkpoint.pop("lr_scheduler")

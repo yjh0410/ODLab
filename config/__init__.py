@@ -1,21 +1,22 @@
 # ----------------------- Model Config -----------------------
-from .retinanet_config  import retinanet_cfg
-from .fcos_config       import fcos_cfg
-from .yolof_config      import yolof_cfg
-from .plain_detr_config import plain_detr_cfg
+from .fcos_config      import build_fcos_config
+from .yolof_config     import build_yolof_config
+from .detr_config      import build_detr_config
 
 def build_config(args):
-    # RetinaNet
-    if args.model in retinanet_cfg.keys():
-        return retinanet_cfg[args.model]
     # FCOS
-    elif args.model in fcos_cfg.keys():
-        return fcos_cfg[args.model]
+    if "fcos" in args.model:
+        cfg = build_fcos_config(args)
     # YOLOF
-    elif args.model in yolof_cfg.keys():
-        return yolof_cfg[args.model]
-    # PlainDETR
-    elif args.model in plain_detr_cfg.keys():
-        return plain_detr_cfg[args.model]
+    elif "yolof" in args.model:
+        cfg = build_yolof_config(args)
+    # DETR
+    elif "detr" in args.model:
+        cfg = build_detr_config(args)
     else:
         raise NotImplementedError('Unknown Model: {}'.format(args.model))
+
+    # Print model config
+    cfg.print_config()
+
+    return cfg

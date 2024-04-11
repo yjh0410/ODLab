@@ -33,10 +33,10 @@ class YOLOF(nn.Module):
         self.backbone, feat_dims = build_backbone(cfg)
 
         ## Neck
-        self.neck = build_neck(cfg, feat_dims[-1], cfg['head_dim'])
+        self.neck = build_neck(cfg, feat_dims[-1], cfg.head_dim)
         
         ## Heads
-        self.head = build_head(cfg, cfg['head_dim'], cfg['head_dim'], num_classes)
+        self.head = build_head(cfg, cfg.head_dim, cfg.head_dim)
 
     def post_process(self, cls_pred, box_pred):
         """
@@ -81,7 +81,7 @@ class YOLOF(nn.Module):
 
         return bboxes, scores, labels
 
-    def forward(self, src, src_mask=None, targets=None):
+    def forward(self, src, src_mask=None):
         # ---------------- Backbone ----------------
         pyramid_feats = self.backbone(src)
 
@@ -101,6 +101,10 @@ class YOLOF(nn.Module):
             bboxes[..., 1::2] /= src.shape[-2]
             bboxes = bboxes.clip(0., 1.)
 
-            return bboxes, scores, labels
+            outputs = {
+                'scores': scores,
+                'labels': labels,
+                'bboxes': bboxes
+            }
 
         return outputs 

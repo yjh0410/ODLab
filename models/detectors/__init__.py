@@ -1,33 +1,28 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 import torch
 
-from .retinanet.build  import build_retinanet
-from .fcos.build       import build_fcos
-from .yolof.build      import build_yolof
-from .plain_detr.build import build_plain_detr
+from .fcos.build  import build_fcos, build_fcos_rt
+from .yolof.build import build_yolof
 
 
-def build_model(args, cfg, num_classes=80, is_val=False):
+def build_model(args, cfg, is_val=False):
     # ------------ build object detector ------------
-    ## RetinaNet    
-    if 'retinanet' in args.model:
-        model, criterion = build_retinanet(cfg, num_classes, is_val)
+    ## RT-FCOS    
+    if   'fcos_rt' in args.model:
+        model, criterion = build_fcos_rt(cfg, is_val)
     ## FCOS    
     elif 'fcos' in args.model:
-        model, criterion = build_fcos(cfg, num_classes, is_val)
+        model, criterion = build_fcos(cfg, is_val)
     ## YOLOF    
     elif 'yolof' in args.model:
-        model, criterion = build_yolof(cfg, num_classes, is_val)
-    ## PlainDETR    
-    elif 'plain_detr' in args.model:
-        model, criterion = build_plain_detr(cfg, num_classes, is_val)
+        model, criterion = build_yolof(cfg, is_val)
     else:
         raise NotImplementedError("Unknown detector: {}".args.model)
     
     if is_val:
         # ------------ Keep training from the given weight ------------
         if args.resume is not None:
-            print('keep training: ', args.resume)
+            print('Load model from the checkpoint: ', args.resume)
             checkpoint = torch.load(args.resume, map_location='cpu')
             # checkpoint state dict
             checkpoint_state_dict = checkpoint.pop("model")

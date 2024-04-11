@@ -4,23 +4,14 @@ Transforms and data augmentation for both image + bbox.
 """
 import PIL
 import random
-import numpy as np
 
 import torch
 import torchvision
 import torchvision.transforms as T
 import torchvision.transforms.functional as F
-import torchvision.transforms.v2 as T2
-from torchvision.tv_tensors import BoundingBoxes, BoundingBoxFormat
 
 
 # ----------------- Basic transform functions -----------------
-def box_xyxy_to_cxcywh(x):
-    x0, y0, x1, y1 = x.unbind(-1)
-    b = [(x0 + x1) / 2, (y0 + y1) / 2,
-         (x1 - x0), (y1 - y0)]
-    return torch.stack(b, dim=-1)
-
 def interpolate(input, size=None, scale_factor=None, mode="nearest", align_corners=None):
     return torchvision.ops.misc.interpolate(input, size, scale_factor, mode, align_corners)
 
@@ -214,45 +205,6 @@ class RandomShift(object):
 
         return image, target
 
-class RandomZoomOut(object):
-    def __init__(self, fill) -> None:
-        self.transform = T2.RandomZoomOut(fill=fill)
-
-    def __call__(self, img, target=None):
-        boxes_tv_tensor = BoundingBoxes(
-            target['boxes'], 
-            format=BoundingBoxFormat.XYXY, 
-            canvas_size=img.size[::-1]) # h w
-        img, boxes_tv_tensor = self.transform(img, boxes_tv_tensor)
-        target['boxes'] = boxes_tv_tensor[:]
-
-        return img, target
-
-class RandomIoUCrop(object):
-    def __init__(self, min_scale=0.3, max_scale=1, min_aspect_ratio=0.5, max_aspect_ratio=2, sampler_options=None, trials=40, p=0.5):
-        self.p = p
-        self.transform = T2.RandomIoUCrop(min_scale, max_scale, min_aspect_ratio, max_aspect_ratio, sampler_options, trials)
-
-    def __call__(self, img, target=None):
-        if torch.rand(1) <= self.p:
-            boxes_tv_tensor = BoundingBoxes(
-                target['boxes'], 
-                format=BoundingBoxFormat.XYXY, 
-                canvas_size=img.size[::-1]) # h w
-            img, boxes_tv_tensor = self.transform(img, boxes_tv_tensor)
-            target['boxes'] = boxes_tv_tensor
-
-        return img, target
-
-class RandomPhotometricDistort(object):
-    def __init__(self, brightness=(0.875, 1.125), contrast=(0.5, 1.5), saturation=(0.5, 1.5), hue=(-0.05, 0.05), p=0.5):
-        self.transform = T2.RandomPhotometricDistort(brightness, contrast, saturation, hue, p)
-
-    def __call__(self, img, target=None):
-        img = self.transform(img)
-
-        return img, target
-        
 class RandomSelect(object):
     """
     Randomly selects between transforms1 and transforms2,
@@ -349,59 +301,53 @@ class Compose(object):
 
 
 # build transforms
-def build_transform(cfg=None, is_train=False):
+def build_transform(cfg, is_train=False):
     # ---------------- Transform for Training ----------------
     if is_train:
         transforms = []
-        trans_config = cfg['trans_config']
+        trans_config = cfg.trans_config
         # build transform
-        if not cfg['detr_style']:
+        if not cfg.detr_style:
             for t in trans_config:
                 if t['name'] == 'RandomHFlip':
                     transforms.append(RandomHorizontalFlip())
                 if t['name'] == 'RandomResize':
-                    transforms.append(RandomResize(cfg['train_min_size'], max_size=cfg['train_max_size']))
+                    transforms.append(RandomResize(cfg.train_min_size, max_size=cfg.train_max_size))
                 if t['name'] == 'RandomSizeCrop':
                     transforms.append(RandomSizeCrop(t['min_crop_size'], max_size=t['max_crop_size']))
                 if t['name'] == 'RandomShift':
                     transforms.append(RandomShift(max_shift=t['max_shift']))
-                if t['name'] == 'RandomZoomOut':
-                    transforms.append(RandomZoomOut(fill=t['fill']))
-                if t['name'] == 'RandomIoUCrop':
-                    transforms.append(RandomIoUCrop(p=t['prob']))
                 if t['name'] == 'RefineBBox':
                     transforms.append(RefineBBox(min_box_size=t['min_box_size']))
-                if t['name'] == 'RandomPhotometricDistort':
-                    transforms.append(RandomPhotometricDistort(p=t['prob']))
             transforms.extend([
                 ToTensor(),
-                Normalize(cfg['pixel_mean'], cfg['pixel_std'], cfg['normalize_coords']),
-                ConvertBoxFormat(cfg['box_format'])
+                Normalize(cfg.pixel_mean, cfg.pixel_std, cfg.normalize_coords),
+                ConvertBoxFormat(cfg.box_format)
             ])
         # build transform for DETR-style detector
         else:
             transforms = [
                 RandomHorizontalFlip(),
                 RandomSelect(
-                    RandomResize(cfg['train_min_size'], max_size=cfg['train_max_size']),
+                    RandomResize(cfg.train_min_size, max_size=cfg.train_max_size),
                     Compose([
-                        RandomResize(cfg['train_min_size2']),
-                        RandomSizeCrop(*cfg['random_crop_size']),
-                        RandomResize(cfg['train_min_size'], max_size=cfg['train_max_size']),
+                        RandomResize(cfg.train_min_size2),
+                        RandomSizeCrop(*cfg.random_crop_size),
+                        RandomResize(cfg.train_min_size, max_size=cfg.train_max_size),
                     ])
                 ),
                 ToTensor(),
-                Normalize(cfg['pixel_mean'], cfg['pixel_std'], cfg['normalize_coords']),
-                ConvertBoxFormat(cfg['box_format'])
+                Normalize(cfg.pixel_mean, cfg.pixel_std, cfg.normalize_coords),
+                ConvertBoxFormat(cfg.box_format)
             ]
 
     # ---------------- Transform for Evaluating ----------------
     else:
         transforms = [
-            RandomResize(cfg['test_min_size'], max_size=cfg['test_max_size']),
+            RandomResize(cfg.test_min_size, max_size=cfg.test_max_size),
             ToTensor(),
-            Normalize(cfg['pixel_mean'], cfg['pixel_std'], cfg['normalize_coords']),
-            ConvertBoxFormat(cfg['box_format'])
+            Normalize(cfg.pixel_mean, cfg.pixel_std, cfg.normalize_coords),
+            ConvertBoxFormat(cfg.box_format)
         ]
     
     return Compose(transforms)
