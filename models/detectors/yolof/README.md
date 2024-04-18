@@ -2,10 +2,10 @@
 
 - COCO
 
-| Model            |  scale     |  FPS  | AP<sup>val<br>0.5:0.95 | AP<sup>val<br>0.5 | Weight | Logs  |
-| ---------------- | ---------- | ----- | ---------------------- |  ---------------  | ------ | ----- |
-| YOLOF_R18_C5_1x  |  800,1333  |       |          32.8          |       51.4        | [ckpt](https://github.com/yjh0410/YOLO-Tutorial-v2/releases/download/yolo_tutorial_ckpt/yolof_r18_c5_1x_coco.pth) | [log](https://github.com/yjh0410/YOLO-Tutorial-v2/releases/download/yolo_tutorial_ckpt/YOLOF-R18-C5-1x.txt) |
-| YOLOF_R50_C5_1x  |  800,1333  |       |                        |                   |  |  |
+| Model            |  scale     |  FPS<sup>FP32<br>RTX 4060  | AP<sup>val<br>0.5:0.95 | AP<sup>val<br>0.5 | Weight | Logs  |
+| ---------------- | ---------- | ---------------------- | ---------------------- |  ---------------  | ------ | ----- |
+| YOLOF_R18_C5_1x  |  800,1333  |           54           |          32.8          |       51.4        | [ckpt](https://github.com/yjh0410/YOLO-Tutorial-v2/releases/download/yolo_tutorial_ckpt/yolof_r18_c5_1x_coco.pth) | [log](https://github.com/yjh0410/YOLO-Tutorial-v2/releases/download/yolo_tutorial_ckpt/YOLOF-R18-C5-1x.txt) |
+| YOLOF_R50_C5_1x  |  800,1333  |           21           |          37.7          |       57.2        | [ckpt](https://github.com/yjh0410/YOLO-Tutorial-v2/releases/download/yolo_tutorial_ckpt/yolof_r50_c5_1x_coco.pth) | [log](https://github.com/yjh0410/YOLO-Tutorial-v2/releases/download/yolo_tutorial_ckpt/YOLOF-R50-C5-1x.txt) |
 
 
 ## Train YOLOF
